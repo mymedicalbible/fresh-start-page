@@ -114,22 +114,14 @@ export function RecordsPage () {
 
     async function load () {
       const limit = 80
-      const [
-        p,
-        mm,
-        v,
-        qq,
-        d,
-        m,
-        r,
-      ] = await Promise.all([
-        supabase.from('pain_entries').select('*').eq('user_id', user.id).order('entry_date', { ascending: false }).limit(limit),
-        supabase.from('mcas_episodes').select('*').eq('user_id', user.id).order('episode_date', { ascending: false }).limit(limit),
-        supabase.from('doctor_visits').select('*').eq('user_id', user.id).order('visit_date', { ascending: false }).limit(limit),
-        supabase.from('doctor_questions').select('*').eq('user_id', user.id).order('date_created', { ascending: false }).limit(limit),
-        supabase.from('diagnosis_notes').select('*').eq('user_id', user.id).order('note_date', { ascending: false }).limit(limit),
-        supabase.from('current_medications').select('*').eq('user_id', user.id).order('medication', { ascending: true }),
-        supabase.from('med_reactions').select('*').eq('user_id', user.id).order('reaction_date', { ascending: false }).limit(limit),
+      const [p, mm, v, qq, d, m, r] = await Promise.all([
+        supabase.from('pain_entries').select('*').eq('user_id', user!.id).order('entry_date', { ascending: false }).limit(limit),
+        supabase.from('mcas_episodes').select('*').eq('user_id', user!.id).order('episode_date', { ascending: false }).limit(limit),
+        supabase.from('doctor_visits').select('*').eq('user_id', user!.id).order('visit_date', { ascending: false }).limit(limit),
+        supabase.from('doctor_questions').select('*').eq('user_id', user!.id).order('date_created', { ascending: false }).limit(limit),
+        supabase.from('diagnosis_notes').select('*').eq('user_id', user!.id).order('note_date', { ascending: false }).limit(limit),
+        supabase.from('current_medications').select('*').eq('user_id', user!.id).order('medication', { ascending: true }),
+        supabase.from('med_reactions').select('*').eq('user_id', user!.id).order('reaction_date', { ascending: false }).limit(limit),
       ])
 
       if (p.error) setError(p.error.message)
@@ -155,15 +147,7 @@ export function RecordsPage () {
     const term = q.trim().toLowerCase()
     const hasTerm = term.length > 0
     if (!hasTerm) {
-      return {
-        pain,
-        mcas,
-        visits,
-        questions,
-        diagnosis,
-        meds,
-        reactions,
-      }
+      return { pain, mcas, visits, questions, diagnosis, meds, reactions }
     }
 
     function f (s: string | null) {
@@ -284,7 +268,7 @@ export function RecordsPage () {
                   <span className="muted">{r.severity ? `Severity: ${r.severity}` : ''}</span>
                 </div>
                 <div className="muted" style={{ marginTop: 6 }}>
-                  Triggers: {parseTriggerTokens(r.trigger).join(', ')}
+                  Triggers: {r.trigger}
                 </div>
                 <div className="muted" style={{ marginTop: 6 }}>Symptoms: {r.symptoms}</div>
                 {r.relief ? <div className="muted" style={{ marginTop: 6 }}>Relief: {r.relief}</div> : null}
@@ -332,7 +316,6 @@ export function RecordsPage () {
                       const file = e.target.files?.[0]
                       if (!file) return
                       await uploadVisitDoc(v.id, file)
-                      // reload input
                       e.target.value = ''
                     }}
                     disabled={uploadingVisitId === v.id}
@@ -466,4 +449,3 @@ export function RecordsPage () {
     </div>
   )
 }
-

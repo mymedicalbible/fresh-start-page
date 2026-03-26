@@ -17,7 +17,7 @@ export function DashboardPage () {
       const { data } = await supabase
         .from('doctor_questions')
         .select('question, appointment_date, doctor, status')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .or('status.eq.Unanswered,status.is.null')
         .not('appointment_date', 'is', null)
 
@@ -26,11 +26,22 @@ export function DashboardPage () {
         const d = new Date(q.appointment_date + 'T12:00:00')
         return d >= today && d <= horizon
       })
-      setUpcoming(rows.map((r) => ({ question: r.question, appointment_date: r.appointment_date, doctor: r.doctor })))
+
+      setUpcoming(
+        rows.map((r) => ({
+          question: r.question,
+          appointment_date: r.appointment_date,
+          doctor: r.doctor
+        }))
+      )
     }
 
     load()
   }, [user])
+
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
   return (
     <div>
