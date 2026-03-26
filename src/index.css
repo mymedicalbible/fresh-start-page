@@ -1,16 +1,16 @@
 :root {
-  --bg: #f4f5fb;
+  --bg: #fff7fb;
   --surface: #ffffff;
-  --text: #1e293b;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --accent: #4f46e5;
-  --accent-2: #6366f1;
-  --danger: #dc2626;
-  --success: #059669;
-  --warning: #d97706;
+  --text: #2a2540;
+  --muted: #6b6a80;
+  --border: #efe6ff;
+  --accent: #8b5cf6;
+  --accent-2: #a78bfa;
+  --danger: #fb7185;
+  --success: #10b981;
+  --warning: #f59e0b;
   --radius: 12px;
-  --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow: 0 10px 30px rgba(76, 29, 149, 0.10);
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -123,7 +123,7 @@ textarea {
   bottom: 0;
   height: calc(var(--nav-height) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--border);
   display: flex;
@@ -215,7 +215,7 @@ textarea {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, var(--accent), #c4b5fd);
   color: white;
 }
 
@@ -273,7 +273,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
 }
 
 textarea {
@@ -301,9 +301,9 @@ textarea {
 }
 
 .banner.info {
-  background: #e0e7ff;
-  color: #3730a3;
-  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #ddd6fe;
 }
 
 .tabs {

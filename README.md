@@ -1,13 +1,12 @@
 # Medical Tracker (Supabase + Vite + React)
 
-Multi-user health diary migrated from Google Apps Script: quick logs, charts, in-app notifications, and AI summaries via a Supabase Edge Function.
+Multi-user health diary migrated from Google Apps Script: quick logs, records lists, charts, and doctor document uploads via Supabase.
 
 ## Prerequisites
 
 - Node.js 20+ (for `npm run dev`)
 - A [Supabase](https://supabase.com) project
 - Optional: [Supabase CLI](https://supabase.com/docs/guides/cli) to apply migrations and deploy Edge Functions
-- Optional: OpenAI API key for full AI narratives
 
 ## 1. Database and security
 
@@ -28,37 +27,28 @@ npm install
 npm run dev
 ```
 
-## 3. AI summary Edge Function
+## 3. Doctor document uploads (PDF/images)
 
-1. Install CLI and link the project (see Supabase docs), or use the dashboard **Edge Functions** workflow.
-2. Deploy the function in `supabase/functions/ai-summary` as **`ai-summary`** (name must match `supabase.functions.invoke('ai-summary')`).
-3. Set secrets (CLI example):
+Uploads are stored in a private Supabase Storage bucket named `visit-docs`.
 
-```bash
-supabase secrets set OPENAI_API_KEY=sk-...
-# optional
-supabase secrets set OPENAI_MODEL=gpt-4o-mini
-```
+Run the SQL in:
+- `supabase/migrations/20250326000000_visit_docs_storage.sql`
 
-If `OPENAI_API_KEY` is not set, the function still returns a short **data snapshot** so the UI works end-to-end.
+Then go to **Records → Doctor visits** and upload files for a specific visit.
 
-## 4. Realtime
+## 4. Charts and “accuracy without AI”
 
-The migration adds `user_notifications` to the `supabase_realtime` publication so the app can refresh the bell badge and (optionally) fire browser notifications while the tab is open.
+- Pain “areas” and MCAS “triggers” are parsed deterministically from your free text using simple matching rules.
+- Charts are not sent to any AI model in this version (no AI calls).
 
-## 5. Mobile and notifications
-
-- Layout uses a scrollable bottom navigation bar and responsive forms.
-- **Browser notifications** are optional (Settings). They fire when new rows are inserted into `user_notifications` and permission is `granted`. Background push (service worker + FCM/Web Push) is not included; you can add that later if needed.
-
-## 6. Product / compliance notes
+## 5. Product / compliance notes
 
 - This app stores **sensitive health data**. Use strong passwords, HTTPS in production, and Supabase RLS (included) as part of your security posture.
-- AI output is **not medical advice**; the Edge Function prompts are written to encourage clinician discussion, not autonomous diagnosis.
+- AI is not used in this version.
 
 ## Project layout
 
 - `src/pages/QuickLogPage.tsx` — visit, reaction, MCAS, pain, questions, meds, diagnosis forms
-- `src/pages/AnalyticsPage.tsx` — Recharts pain and medication charts
-- `src/pages/AiSummariesPage.tsx` — calls `ai-summary` Edge Function
+- `src/pages/RecordsPage.tsx` — browsable history lists + document uploads
+- `src/pages/AnalyticsPage.tsx` — pain/MCAS/side-effect charts (no AI)
 - `supabase/migrations/` — tables, RLS, auth trigger, Realtime publication

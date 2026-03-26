@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { format, addDays, isSameDay } from 'date-fns'
+import { addDays } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { createInAppNotification, fetchNotificationPrefs } from '../lib/notify'
 
 export function DashboardPage () {
   const { user } = useAuth()
@@ -32,31 +31,6 @@ export function DashboardPage () {
 
     load()
   }, [user])
-
-  useEffect(() => {
-    if (!user || upcoming.length === 0) return
-
-    const key = `appt_reminder_${format(new Date(), 'yyyy-MM-dd')}`
-    if (sessionStorage.getItem(key)) return
-
-    ;(async () => {
-      const prefs = await fetchNotificationPrefs()
-      if (prefs?.appointment_reminders === false) return
-
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
-      const dueToday = upcoming.filter((u) => u.appointment_date && isSameDay(new Date(u.appointment_date + 'T12:00:00'), new Date()))
-
-      if (dueToday.length > 0) {
-        sessionStorage.setItem(key, '1')
-        await createInAppNotification(
-          user.id,
-          'Appointment reminder',
-          `You have ${dueToday.length} unanswered question(s) tied to an appointment today. Open Questions from Log to prepare.`,
-          'reminder',
-        )
-      }
-    })()
-  }, [user, upcoming])
 
   return (
     <div>
@@ -87,25 +61,15 @@ export function DashboardPage () {
           <span className="label">Charts</span>
           <span className="hint">Pain & medication trends</span>
         </Link>
-        <Link to="/app/ai" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>✨</span>
-          <span className="label">AI summaries</span>
-          <span className="hint">Visit-ready narratives</span>
+        <Link to="/app/records" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <span className="emoji" aria-hidden>🗂️</span>
+          <span className="label">Records</span>
+          <span className="hint">All logs and uploads</span>
         </Link>
         <Link to="/app/meds" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
           <span className="emoji" aria-hidden>💊</span>
           <span className="label">Medications</span>
           <span className="hint">Current list & edits</span>
-        </Link>
-        <Link to="/app/notifications" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>🔔</span>
-          <span className="label">Notifications</span>
-          <span className="hint">Alerts & reminders</span>
-        </Link>
-        <Link to="/app/settings" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>⚙️</span>
-          <span className="label">Settings</span>
-          <span className="hint">Privacy & pushes</span>
         </Link>
       </div>
 
@@ -113,8 +77,8 @@ export function DashboardPage () {
         <h3 style={{ marginTop: 0 }}>Tips</h3>
         <ul className="muted" style={{ paddingLeft: 18, marginBottom: 0 }}>
           <li>Each account has isolated data (Row Level Security).</li>
-          <li>Enable browser notifications in Settings after allowing the browser permission.</li>
-          <li>Deploy the <code>ai-summary</code> Edge Function and set <code>OPENAI_API_KEY</code> for full AI narratives.</li>
+          <li>Use Records for quick review of past logs and uploaded documents.</li>
+          <li>Charts use your structured tags, so pain/MCAS trends stay readable.</li>
         </ul>
       </div>
     </div>

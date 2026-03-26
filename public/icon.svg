@@ -1,0 +1,14 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#fff7fb"/>
+  <g transform="translate(68 68)">
+    <path d="M188 0c18 26 40 38 66 38s48-12 66-38c-4 38-17 69-40 93 25 9 44 27 57 55-26-13-55-16-86-6-2 14-2 28 0 43 8 50-2 89-30 118-28-29-38-68-30-118 2-15 2-29 0-43-31-10-60-7-86 6 13-28 32-46 57-55-23-24-36-55-40-93z" fill="url(#g)" opacity="0.95"/>
+    <circle cx="188" cy="166" r="72" fill="#ffffff" opacity="0.9"/>
+    <text x="188" y="190" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="64" fill="#8b5cf6">🌼</text>
+  </g>
+</svg>

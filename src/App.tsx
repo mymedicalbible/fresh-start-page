@@ -6,10 +6,8 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { QuickLogPage } from './pages/QuickLogPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
-import { AiSummariesPage } from './pages/AiSummariesPage'
 import { MedicationsPage } from './pages/MedicationsPage'
-import { NotificationsPage } from './pages/NotificationsPage'
-import { SettingsPage } from './pages/SettingsPage'
+import { RecordsPage } from './pages/RecordsPage'
 
 function Protected ({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
@@ -38,11 +36,9 @@ export default function App () {
       >
         <Route index element={<DashboardPage />} />
         <Route path="log" element={<QuickLogPage />} />
+        <Route path="records" element={<RecordsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="ai" element={<AiSummariesPage />} />
         <Route path="meds" element={<MedicationsPage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
