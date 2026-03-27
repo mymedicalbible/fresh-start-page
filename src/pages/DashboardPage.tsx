@@ -78,27 +78,32 @@ export function DashboardPage () {
 
       {/* DOCTORS */}
       <section>
-        <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>
-          Doctors
-        </p>
-        <div className="grid-cards">
-          <Link to="/app/log?tab=visit" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>🏥</span>
-            <span className="label">Doctor visit</span>
-            <span className="hint">Log findings & tests</span>
-          </Link>
-          <Link to="/app/log?tab=questions" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>❓</span>
-            <span className="label">Questions</span>
-            <span className="hint">Add & prioritize questions</span>
-          </Link>
-          <Link to="/app/log?tab=diagnosis" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>📋</span>
-            <span className="label">Diagnosis note</span>
-            <span className="hint">What was mentioned</span>
-          </Link>
-        </div>
-      </section>
+  <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>
+    Doctors
+  </p>
+  <div className="grid-cards">
+    <Link to="/app/log?tab=visit" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+      <span className="emoji" aria-hidden>🏥</span>
+      <span className="label">Doctor visit</span>
+      <span className="hint">Log findings & tests</span>
+    </Link>
+    <Link to="/app/log?tab=questions" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+      <span className="emoji" aria-hidden>❓</span>
+      <span className="label">Questions</span>
+      <span className="hint">Add & prioritize questions</span>
+    </Link>
+    <Link to="/app/log?tab=diagnosis" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+      <span className="emoji" aria-hidden>📋</span>
+      <span className="label">Diagnosis note</span>
+      <span className="hint">What was mentioned</span>
+    </Link>
+    <Link to="/app/doctors" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+      <span className="emoji" aria-hidden>👩‍⚕️</span>
+      <span className="label">My doctors</span>
+      <span className="hint">Profiles, history & questions</span>
+    </Link>
+  </div>
+</section>
 
       {/* MEDICATIONS */}
       <section>

@@ -8,6 +8,7 @@ import { QuickLogPage } from './pages/QuickLogPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { MedicationsPage } from './pages/MedicationsPage'
 import { RecordsPage } from './pages/RecordsPage'
+import { DoctorsPage } from './pages/DoctorsPage'
 
 function Protected ({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
@@ -39,6 +40,7 @@ export default function App () {
         <Route path="records" element={<RecordsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="meds" element={<MedicationsPage />} />
+        <Route path="doctors" element={<DoctorsPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
