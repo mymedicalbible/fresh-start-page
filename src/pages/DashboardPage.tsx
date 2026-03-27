@@ -44,9 +44,11 @@ export function DashboardPage () {
   }
 
   return (
-    <div>
+    <div style={{ display: 'grid', gap: 24, padding: '8px 0' }}>
+
+      {/* Upcoming appointments banner */}
       {upcoming.length > 0 && (
-        <div className="banner info" style={{ marginBottom: 16 }}>
+        <div className="banner info">
           <strong>Upcoming appointments</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
             {upcoming.map((u, i) => (
@@ -61,37 +63,72 @@ export function DashboardPage () {
         </div>
       )}
 
-      <div className="grid-cards">
-        <Link to="/app/log" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>⚡</span>
-          <span className="label">Quick log</span>
-          <span className="hint">Visits, reactions, pain…</span>
-        </Link>
-        <Link to="/app/analytics" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>📈</span>
-          <span className="label">Charts</span>
-          <span className="hint">Pain & medication trends</span>
-        </Link>
-        <Link to="/app/records" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>🗂️</span>
-          <span className="label">Records</span>
-          <span className="hint">All logs and uploads</span>
-        </Link>
-        <Link to="/app/meds" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="emoji" aria-hidden>💊</span>
-          <span className="label">Medications</span>
-          <span className="hint">Current list & edits</span>
-        </Link>
+      {/* --- Main tools --- */}
+      <div>
+        <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Main</p>
+        <div className="grid-cards">
+          <Link to="/app/log" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>⚡</span>
+            <span className="label">Quick log</span>
+            <span className="hint">Pain & MCAS episodes</span>
+          </Link>
+
+          <Link to="/app/analytics" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>📈</span>
+            <span className="label">Charts</span>
+            <span className="hint">Pain & medication trends</span>
+          </Link>
+
+          <Link to="/app/records" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>🗂️</span>
+            <span className="label">Records</span>
+            <span className="hint">All logs and uploads</span>
+          </Link>
+        </div>
       </div>
 
-      <div className="card" style={{ marginTop: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Tips</h3>
-        <ul className="muted" style={{ paddingLeft: 18, marginBottom: 0 }}>
-          <li>Each account has isolated data (Row Level Security).</li>
-          <li>Use Records for quick review of past logs and uploaded documents.</li>
-          <li>Charts use your structured tags, so pain/MCAS trends stay readable.</li>
-        </ul>
+      {/* --- Doctor-related --- */}
+      <div>
+        <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Doctors</p>
+        <div className="grid-cards">
+          <Link to="/app/log?tab=visit" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>🏥</span>
+            <span className="label">Doctor visit</span>
+            <span className="hint">Log a visit & findings</span>
+          </Link>
+
+          <Link to="/app/log?tab=questions" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>❓</span>
+            <span className="label">Questions</span>
+            <span className="hint">Questions for your doctor</span>
+          </Link>
+
+          <Link to="/app/log?tab=diagnosis" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>📋</span>
+            <span className="label">Diagnosis note</span>
+            <span className="hint">Track what's been said</span>
+          </Link>
+        </div>
       </div>
+
+      {/* --- Medications --- */}
+      <div>
+        <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Medications</p>
+        <div className="grid-cards">
+          <Link to="/app/meds" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>💊</span>
+            <span className="label">Medication list</span>
+            <span className="hint">View & update current meds</span>
+          </Link>
+
+          <Link to="/app/log?tab=reaction" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className="emoji" aria-hidden>⚠️</span>
+            <span className="label">Log reaction</span>
+            <span className="hint">Side effects & responses</span>
+          </Link>
+        </div>
+      </div>
+
     </div>
   )
 }
