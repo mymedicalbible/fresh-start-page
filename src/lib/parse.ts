@@ -1,23 +1,25 @@
-// Deterministic parsing helpers for charts/checklists.
-// Goal: keep free typing fast while producing consistent “normalized” values for charts.
-
 const PAIN_AREAS: { label: string; patterns: string[] }[] = [
-  { label: 'Knees', patterns: ['knee'] },
-  { label: 'Hips', patterns: ['hip'] },
+  { label: 'Knees', patterns: ['knee', 'knees'] },
+  { label: 'Hips', patterns: ['hip', 'hips'] },
   { label: 'Back', patterns: ['back', 'spine', 'lumbar', 'thoracic', 'lower back', 'mid back'] },
   { label: 'Neck', patterns: ['neck', 'cervical'] },
-  { label: 'Head', patterns: ['head', 'headache'] },
-  { label: 'Hands', patterns: ['hand', 'hands', 'wrist'] },
-  { label: 'Feet', patterns: ['foot', 'feet', 'ankle', 'toe', 'toes'] },
-  { label: 'Shoulders', patterns: ['shoulder'] },
+  { label: 'Head', patterns: ['head', 'headache', 'migraine'] },
+  { label: 'Hands', patterns: ['hand', 'hands', 'wrist', 'wrists', 'finger', 'fingers'] },
+  { label: 'Feet', patterns: ['foot', 'feet', 'ankle', 'ankles', 'toe', 'toes', 'heel'] },
+  { label: 'Shoulders', patterns: ['shoulder', 'shoulders'] },
+  { label: 'Thighs', patterns: ['thigh', 'thighs', 'quad', 'quads', 'hamstring'] },
+  { label: 'Calves', patterns: ['calf', 'calves', 'shin', 'shins'] },
+  { label: 'Chest', patterns: ['chest', 'sternum', 'rib', 'ribs'] },
+  { label: 'Abdomen', patterns: ['abdomen', 'stomach', 'belly', 'abdominal', 'gut'] },
+  { label: 'Arms', patterns: ['arm', 'arms', 'elbow', 'elbows', 'forearm', 'bicep'] },
+  { label: 'Jaw', patterns: ['jaw', 'tmj', 'teeth', 'mouth'] },
+  { label: 'Eyes', patterns: ['eye', 'eyes', 'vision'] },
 ]
 
 export function titleCase (s: string) {
   const trimmed = s.trim()
   if (!trimmed) return ''
-  return trimmed
-    .toLowerCase()
-    .replace(/\b([a-z])/g, (m) => m.toUpperCase())
+  return trimmed.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase())
 }
 
 function normalizeText (s: string) {
@@ -31,15 +33,13 @@ export function parsePainAreas (locationText: string): string[] {
     const matched = area.patterns.some((p) => t.includes(p))
     if (matched) hits.push(area.label)
   }
-  if (hits.length === 0) {
-    // If the user typed a sentence but we can't classify, keep it grouped.
-    return ['Other']
-  }
+  // If we matched something, return it; otherwise keep the raw text grouped as Other
+  if (hits.length === 0 && t.trim().length > 0) return ['Other']
+  if (hits.length === 0) return []
   return [...new Set(hits)]
 }
 
 function splitBySeparators (text: string) {
-  // Split on common “tag separators” but keep it forgiving for sentences.
   return (text ?? '')
     .split(/[\n,;•|&/]+|\band\b|\bor\b/gi)
     .map((x) => x.trim())
@@ -55,7 +55,6 @@ function normalizeToken (tok: string) {
 export function parseTriggerTokens (triggerText: string): string[] {
   const tokens = splitBySeparators(triggerText)
   if (tokens.length === 0) return []
-
   const mapped = tokens
     .map((t) => t.trim())
     .filter(Boolean)
@@ -83,19 +82,9 @@ export function splitQuestionsIntoRows (raw: string): string[] {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
-    .flatMap((line) => {
-      // If someone pastes “1) q / 2) q” on one line, split by numbering.
-      // This is permissive; user can always edit later by re-logging.
-      if (line.match(/^\d+[\).]\s+/)) return [line]
-      if (line.match(/^[-•]\s+/)) return [line]
-      return [line]
-    })
-
   const cleaned = lines
     .map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)\s*/g, '').trim())
     .filter((l) => l.length > 0)
-
-  // If they didn’t use new lines, try splitting on “;” or “|”.
   if (cleaned.length <= 1) {
     const alt = splitBySeparators(raw).map((s) => s.trim()).filter((s) => s.length > 0)
     return alt.length > 0 ? alt : cleaned
@@ -109,10 +98,8 @@ export function splitTestsIntoItems (raw: string): string[] {
     .split('\n')
     .map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)/g, '').trim())
     .filter(Boolean)
-
   if (tokens.length <= 1) {
     return splitBySeparators(raw).map((t) => normalizeToken(t)).filter(Boolean)
   }
   return tokens.map((t) => normalizeToken(t)).filter(Boolean)
 }
-
