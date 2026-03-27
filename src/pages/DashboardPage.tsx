@@ -7,6 +7,11 @@ import { useAuth } from '../contexts/AuthContext'
 export function DashboardPage () {
   const { user } = useAuth()
   const [upcoming, setUpcoming] = useState<{ question: string; appointment_date: string | null; doctor: string | null }[]>([])
+  const [open, setOpen] = useState<Record<string, boolean>>({ track: true, doctors: false, medications: false })
+
+  function toggle (section: string) {
+    setOpen((prev) => ({ ...prev, [section]: !prev[section] }))
+  }
 
   useEffect(() => {
     if (!user) return
@@ -32,7 +37,7 @@ export function DashboardPage () {
   if (!user) return <div>Loading...</div>
 
   return (
-    <div style={{ display: 'grid', gap: 28, padding: '8px 0 40px' }}>
+    <div style={{ display: 'grid', gap: 12, padding: '8px 0 40px' }}>
 
       {upcoming.length > 0 && (
         <div className="banner info">
@@ -47,87 +52,64 @@ export function DashboardPage () {
         </div>
       )}
 
-      {/* TRACKING */}
-      <section>
-        <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>
-          Track
-        </p>
-        <div className="grid-cards">
-          <Link to="/app/log?tab=pain" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>🩹</span>
-            <span className="label">Log pain</span>
-            <span className="hint">Location, intensity, type</span>
-          </Link>
-          <Link to="/app/log?tab=mcas" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>🔬</span>
-            <span className="label">MCAS episode</span>
-            <span className="hint">Triggers & symptoms</span>
-          </Link>
-          <Link to="/app/analytics" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>📈</span>
-            <span className="label">Charts</span>
-            <span className="hint">Pain & medication trends</span>
-          </Link>
-          <Link to="/app/records" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>🗂️</span>
-            <span className="label">Records</span>
-            <span className="hint">All logs & uploads</span>
-          </Link>
-        </div>
-      </section>
+      {/* TRACK */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => toggle('track')}
+          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}
+        >
+          <span>⚡ Track symptoms</span>
+          <span>{open.track ? '▲' : '▼'}</span>
+        </button>
+        {open.track && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
+            <Link to="/app/log?tab=pain" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🩹 Log pain</Link>
+            <Link to="/app/log?tab=mcas" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🔬 MCAS episode</Link>
+            <Link to="/app/analytics" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📈 Charts & trends</Link>
+            <Link to="/app/records" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🗂️ View all records</Link>
+          </div>
+        )}
+      </div>
 
       {/* DOCTORS */}
-      <section>
-  <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>
-    Doctors
-  </p>
-  <div className="grid-cards">
-    <Link to="/app/log?tab=visit" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-      <span className="emoji" aria-hidden>🏥</span>
-      <span className="label">Doctor visit</span>
-      <span className="hint">Log findings & tests</span>
-    </Link>
-    <Link to="/app/log?tab=questions" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-      <span className="emoji" aria-hidden>❓</span>
-      <span className="label">Questions</span>
-      <span className="hint">Add & prioritize questions</span>
-    </Link>
-    <Link to="/app/log?tab=diagnosis" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-      <span className="emoji" aria-hidden>📋</span>
-      <span className="label">Diagnosis note</span>
-      <span className="hint">What was mentioned</span>
-    </Link>
-    <Link to="/app/doctors" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-      <span className="emoji" aria-hidden>👩‍⚕️</span>
-      <span className="label">My doctors</span>
-      <span className="hint">Profiles, history & questions</span>
-    </Link>
-  </div>
-</section>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => toggle('doctors')}
+          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}
+        >
+          <span>👩‍⚕️ Doctors</span>
+          <span>{open.doctors ? '▲' : '▼'}</span>
+        </button>
+        {open.doctors && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
+            <Link to="/app/doctors" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>👩‍⚕️ My doctors — profiles & history</Link>
+            <Link to="/app/log?tab=visit" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🏥 Log a doctor visit</Link>
+            <Link to="/app/log?tab=questions" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>❓ Add questions for doctor</Link>
+            <Link to="/app/log?tab=diagnosis" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📋 Add diagnosis note</Link>
+          </div>
+        )}
+      </div>
 
       {/* MEDICATIONS */}
-      <section>
-        <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>
-          Medications
-        </p>
-        <div className="grid-cards">
-          <Link to="/app/log?tab=medication" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>💊</span>
-            <span className="label">Update med list</span>
-            <span className="hint">Add or edit a medication</span>
-          </Link>
-          <Link to="/app/meds" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>📄</span>
-            <span className="label">View all meds</span>
-            <span className="hint">Your current medication list</span>
-          </Link>
-          <Link to="/app/log?tab=reaction" className="nav-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="emoji" aria-hidden>⚠️</span>
-            <span className="label">Log reaction</span>
-            <span className="hint">Side effects & responses</span>
-          </Link>
-        </div>
-      </section>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => toggle('medications')}
+          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}
+        >
+          <span>💊 Medications</span>
+          <span>{open.medications ? '▲' : '▼'}</span>
+        </button>
+        {open.medications && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
+            <Link to="/app/log?tab=medication" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>💊 Update medication list</Link>
+            <Link to="/app/meds" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📄 View all medications</Link>
+            <Link to="/app/log?tab=reaction" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>⚠️ Log medication effects</Link>
+          </div>
+        )}
+      </div>
 
     </div>
   )
