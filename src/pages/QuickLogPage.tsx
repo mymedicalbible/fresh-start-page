@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { parsePainAreas } from '../lib/parse'
+import {
+  PAIN_AREA_LIST, MIDLINE_AREA_LIST,
+  painSelectionsToString, type PainAreaSelection, type PainSide,
+} from '../lib/parse'
 
 type Screen = 'menu' | 'visit' | 'reaction' | 'mcas' | 'pain' | 'questions' | 'medication' | 'diagnosis'
 
-const PAIN_AREA_PRESETS = ['Knees', 'Back', 'Neck', 'Head', 'Hands', 'Feet', 'Shoulders', 'Hips', 'Thighs', 'Chest', 'Abdomen', 'Arms']
-const PAIN_TYPE_OPTIONS = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric shocks', 'Cramping', 'Pressure', 'Tingling']
+const PAIN_TYPE_OPTIONS = [
+  'Burning', 'Stabbing', 'Aching', 'Throbbing',
+  'Sharp', 'Dull', 'Electric shocks', 'Cramping', 'Pressure', 'Tingling',
+]
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 function nowTime () {
@@ -17,18 +22,25 @@ function nowTime () {
 
 export function QuickLogPage () {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialTab = (searchParams.get('tab') ?? 'menu') as Screen
-
   const [screen, setScreen] = useState<Screen>(initialTab)
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showNewDoctorPrompt, setShowNewDoctorPrompt] = useState(false)
+  const [pendingDoctorName, setPendingDoctorName] = useState('')
 
   const defaults = useMemo(() => ({ date: todayISO(), time: nowTime() }), [])
 
   function showBanner (type: 'success' | 'error' | 'info', text: string) {
     setBanner({ type, text })
     setTimeout(() => setBanner((b) => (b?.text === text ? null : b)), 6500)
+  }
+
+  function goBack () {
+    if (screen === 'menu') navigate('/app')
+    else setScreen('menu')
   }
 
   // ===== Doctor visit =====
@@ -52,43 +64,18 @@ export function QuickLogPage () {
       follow_up: dv.follow_up || null, notes: dv.notes || null,
     })
     setBusy(false)
-    if (error) showBanner('error', error.message)
-    else { showBanner('success', 'Doctor visit saved.'); setScreen('menu') }
-  }
+    if (error) { showBanner('error', error.message); return }
 
-  // ===== Medication reaction (reworked per #7) =====
-  const [mr, setMr] = useState({
-    reaction_date: defaults.date, reaction_time: defaults.time,
-    medication: '', prescribed_by: '', prescribed_date: '',
-    dose: '', reason_taking: '', positive_effects: '',
-    side_effects_noticed: '', severity: '', effect_score: '' as string,
-    notes: '',
-  })
-
-  async function saveMedReaction () {
-    if (!mr.medication.trim()) { showBanner('error', 'Medication name is required.'); return }
-    setBusy(true)
-    const effect = mr.effect_score === '' ? 5 : Number(mr.effect_score)
-    const { error } = await supabase.from('med_reactions').insert({
-      user_id: user!.id,
-      reaction_date: mr.reaction_date,
-      reaction_time: mr.reaction_time || null,
-      medication: mr.medication,
-      dose: mr.dose || null,
-      reaction: mr.side_effects_noticed || '',
-      severity: mr.severity || null,
-      effect_score: effect,
-      notes: [
-        mr.prescribed_by ? `Prescribed by: ${mr.prescribed_by}` : '',
-        mr.prescribed_date ? `Prescribed on: ${mr.prescribed_date}` : '',
-        mr.reason_taking ? `Reason: ${mr.reason_taking}` : '',
-        mr.positive_effects ? `Positive effects: ${mr.positive_effects}` : '',
-        mr.notes ? mr.notes : '',
-      ].filter(Boolean).join('\n') || null,
-    })
-    setBusy(false)
-    if (error) showBanner('error', error.message)
-    else { showBanner('success', 'Medication log saved.'); setScreen('menu') }
+    // check if doctor exists
+    const { data: existing } = await supabase.from('doctors')
+      .select('id').eq('user_id', user!.id).ilike('name', dv.doctor.trim()).limit(1)
+    if (!existing || existing.length === 0) {
+      setPendingDoctorName(dv.doctor.trim())
+      setShowNewDoctorPrompt(true)
+    } else {
+      showBanner('success', 'Doctor visit saved.')
+      setScreen('menu')
+    }
   }
 
   // ===== MCAS =====
@@ -115,33 +102,45 @@ export function QuickLogPage () {
     else { showBanner('success', 'MCAS episode saved.'); setScreen('menu') }
   }
 
-  // ===== Pain (multi-type) =====
-  const [painPicks, setPainPicks] = useState<string[]>([])
+  // ===== Pain (left/right toggles) =====
+  const [painSelections, setPainSelections] = useState<PainAreaSelection[]>([])
   const [painTypePicks, setPainTypePicks] = useState<string[]>([])
   const [pe, setPe] = useState({
     entry_date: defaults.date, entry_time: defaults.time,
-    location: '', intensity: '' as string,
-    triggers: '', relief_and_meds: '', notes: '',
+    intensity: '' as string, triggers: '', relief_and_meds: '', notes: '',
   })
 
-  function togglePainArea (name: string) {
-    setPainPicks((prev) => prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name])
+  function togglePainArea (area: string) {
+    setPainSelections((prev) => {
+      const existing = prev.find((s) => s.area === area)
+      if (!existing) return [...prev, { area, side: 'left' }]
+      if (existing.side === 'left') return prev.map((s) => s.area === area ? { ...s, side: 'right' } : s)
+      if (existing.side === 'right') return prev.map((s) => s.area === area ? { ...s, side: 'both' } : s)
+      return prev.filter((s) => s.area !== area)
+    })
+  }
+
+  function getSideLabel (area: string): string {
+    const sel = painSelections.find((s) => s.area === area)
+    if (!sel) return ''
+    if (sel.side === 'left') return 'L'
+    if (sel.side === 'right') return 'R'
+    return 'L+R'
+  }
+
+  function isSelected (area: string) {
+    return painSelections.some((s) => s.area === area)
   }
 
   function togglePainType (name: string) {
     setPainTypePicks((prev) => prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name])
   }
 
-  const parsedPainAreas = useMemo(() => {
-    const loc = pe.location.trim() || painPicks.join(', ')
-    return parsePainAreas(loc)
-  }, [pe.location, painPicks])
-
   async function savePain () {
-    const loc = pe.location.trim() || painPicks.join(', ')
+    const loc = painSelectionsToString(painSelections)
     const inten = Number(pe.intensity)
     if (!loc || pe.intensity === '' || Number.isNaN(inten)) {
-      showBanner('error', 'Location and intensity are required.')
+      showBanner('error', 'Select at least one area and an intensity.')
       return
     }
     setBusy(true)
@@ -159,28 +158,21 @@ export function QuickLogPage () {
     if (error) showBanner('error', error.message)
     else {
       showBanner('success', 'Pain entry saved.')
-      setPainPicks([]); setPainTypePicks([])
+      setPainSelections([]); setPainTypePicks([])
       setScreen('menu')
     }
   }
 
-  // ===== Questions (add multiple, prioritize) =====
+  // ===== Questions =====
   const [qDoctor, setQDoctor] = useState('')
   const [qApptDate, setQApptDate] = useState('')
   const [questions, setQuestions] = useState([{ text: '', priority: 'Medium' as 'High' | 'Medium' | 'Low' }])
 
-  function addQuestion () {
-    setQuestions((prev) => [...prev, { text: '', priority: 'Medium' }])
-  }
-
-  function removeQuestion (i: number) {
-    setQuestions((prev) => prev.filter((_, idx) => idx !== i))
-  }
-
+  function addQuestion () { setQuestions((prev) => [...prev, { text: '', priority: 'Medium' }]) }
+  function removeQuestion (i: number) { setQuestions((prev) => prev.filter((_, idx) => idx !== i)) }
   function updateQuestion (i: number, field: 'text' | 'priority', value: string) {
     setQuestions((prev) => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
   }
-
   function moveQuestion (i: number, dir: -1 | 1) {
     setQuestions((prev) => {
       const next = [...prev]
@@ -196,15 +188,10 @@ export function QuickLogPage () {
     if (valid.length === 0) { showBanner('error', 'Enter at least one question.'); return }
     setBusy(true)
     const inserts = valid.map((q) => ({
-      user_id: user!.id,
-      date_created: todayISO(),
-      appointment_date: qApptDate || null,
-      doctor: qDoctor || null,
-      question: q.text.trim(),
-      priority: q.priority,
-      category: null,
-      answer: null,
-      status: 'Unanswered',
+      user_id: user!.id, date_created: todayISO(),
+      appointment_date: qApptDate || null, doctor: qDoctor || null,
+      question: q.text.trim(), priority: q.priority,
+      category: null, answer: null, status: 'Unanswered',
     }))
     const { error } = await supabase.from('doctor_questions').insert(inserts)
     setBusy(false)
@@ -217,39 +204,6 @@ export function QuickLogPage () {
     }
   }
 
-  // ===== Current medication =====
-  const [cm, setCm] = useState({
-    medication: '', dose: '', frequency: '',
-    start_date: todayISO(), purpose: '',
-    prescribed_by: '', effectiveness: '',
-    side_effects: '', notes: '',
-  })
-
-  async function upsertMed () {
-    if (!cm.medication.trim()) { showBanner('error', 'Medication name is required.'); return }
-    setBusy(true)
-    const { error } = await supabase.from('current_medications').upsert(
-      {
-        user_id: user!.id,
-        medication: cm.medication.trim(),
-        dose: cm.dose || null, frequency: cm.frequency || null,
-        start_date: cm.start_date || null,
-        purpose: cm.purpose || null,
-        effectiveness: cm.effectiveness || null,
-        side_effects: cm.side_effects || null,
-        notes: [
-          cm.prescribed_by ? `Prescribed by: ${cm.prescribed_by}` : '',
-          cm.notes,
-        ].filter(Boolean).join('\n') || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,medication' },
-    )
-    setBusy(false)
-    if (error) showBanner('error', error.message)
-    else { showBanner('success', 'Medication list updated.'); setScreen('menu') }
-  }
-
   // ===== Diagnosis =====
   const [dn, setDn] = useState({
     note_date: defaults.date, diagnoses_mentioned: '',
@@ -259,12 +213,10 @@ export function QuickLogPage () {
   async function saveDiagnosis () {
     setBusy(true)
     const { error } = await supabase.from('diagnosis_notes').insert({
-      user_id: user!.id,
-      note_date: dn.note_date,
+      user_id: user!.id, note_date: dn.note_date,
       diagnoses_mentioned: dn.diagnoses_mentioned || null,
       diagnoses_ruled_out: dn.diagnoses_ruled_out || null,
-      doctor: dn.doctor || null,
-      notes: dn.notes || null,
+      doctor: dn.doctor || null, notes: dn.notes || null,
     })
     setBusy(false)
     if (error) showBanner('error', error.message)
@@ -273,6 +225,41 @@ export function QuickLogPage () {
 
   if (!user) return null
 
+  // ===== New doctor prompt =====
+  if (showNewDoctorPrompt) {
+    return (
+      <div className="card">
+        <h3>Add to doctors list?</h3>
+        <p className="muted">
+          <strong>{pendingDoctorName}</strong> isn't in your doctors list yet. Would you like to add them?
+        </p>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setShowNewDoctorPrompt(false)
+              navigate(`/app/doctors?prefill=${encodeURIComponent(pendingDoctorName)}`)
+            }}
+          >
+            Yes, add doctor
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setShowNewDoctorPrompt(false)
+              showBanner('success', 'Visit saved.')
+              setScreen('menu')
+            }}
+          >
+            No thanks
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {banner && <div className={`banner ${banner.type}`}>{banner.text}</div>}
@@ -280,8 +267,10 @@ export function QuickLogPage () {
       {/* MENU */}
       {screen === 'menu' && (
         <div style={{ display: 'grid', gap: 20, padding: '8px 0 40px' }}>
+          <button type="button" className="btn btn-ghost" style={{ justifySelf: 'start' }} onClick={() => navigate('/app')}>← Home</button>
+
           <section>
-            <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>Track</p>
+            <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted,#888)' }}>Track</p>
             <div style={{ display: 'grid', gap: 10 }}>
               <button type="button" className="btn btn-primary btn-block" onClick={() => setScreen('pain')}>🩹 Log pain</button>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('mcas')}>🔬 MCAS episode</button>
@@ -289,19 +278,11 @@ export function QuickLogPage () {
           </section>
 
           <section>
-            <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>Doctors</p>
+            <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted,#888)' }}>Doctors</p>
             <div style={{ display: 'grid', gap: 10 }}>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('visit')}>🏥 Doctor visit</button>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('questions')}>❓ Questions for doctor</button>
               <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('diagnosis')}>📋 Diagnosis note</button>
-            </div>
-          </section>
-
-          <section>
-            <p style={{ margin: '0 0 10px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted, #888)' }}>Medications</p>
-            <div style={{ display: 'grid', gap: 10 }}>
-              <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('medication')}>💊 Update medication list</button>
-              <button type="button" className="btn btn-secondary btn-block" onClick={() => setScreen('reaction')}>⚠️ Log medication effects</button>
             </div>
           </section>
         </div>
@@ -310,7 +291,7 @@ export function QuickLogPage () {
       {/* DOCTOR VISIT */}
       {screen === 'visit' && (
         <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={goBack}>← Back</button>
           <h3>Doctor visit</h3>
           <div className="form-row">
             <div className="form-group"><label>Date</label><input type="date" value={dv.visit_date} onChange={(e) => setDv({ ...dv, visit_date: e.target.value })} /></div>
@@ -330,65 +311,10 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* MEDICATION EFFECTS (reworked #7) */}
-      {screen === 'reaction' && (
-        <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
-          <h3>Log medication effects</h3>
-          <div className="form-row">
-            <div className="form-group"><label>Date</label><input type="date" value={mr.reaction_date} onChange={(e) => setMr({ ...mr, reaction_date: e.target.value })} /></div>
-            <div className="form-group"><label>Time</label><input type="time" value={mr.reaction_time} onChange={(e) => setMr({ ...mr, reaction_time: e.target.value })} /></div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Medication</label><input value={mr.medication} onChange={(e) => setMr({ ...mr, medication: e.target.value })} placeholder="Medication name" /></div>
-            <div className="form-group"><label>Dose</label><input value={mr.dose} onChange={(e) => setMr({ ...mr, dose: e.target.value })} placeholder="50mg" /></div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Prescribed by</label><input value={mr.prescribed_by} onChange={(e) => setMr({ ...mr, prescribed_by: e.target.value })} placeholder="Dr. Smith" /></div>
-            <div className="form-group"><label>Prescribed date</label><input type="date" value={mr.prescribed_date} onChange={(e) => setMr({ ...mr, prescribed_date: e.target.value })} /></div>
-          </div>
-          <div className="form-group">
-            <label>Reason for taking</label>
-            <input value={mr.reason_taking} onChange={(e) => setMr({ ...mr, reason_taking: e.target.value })} placeholder="Pain, inflammation, anxiety…" />
-          </div>
-          <div className="form-group">
-            <label>Positive effects noticed</label>
-            <textarea value={mr.positive_effects} onChange={(e) => setMr({ ...mr, positive_effects: e.target.value })} placeholder="What has improved?" />
-          </div>
-          <div className="form-group">
-            <label>Side effects noticed</label>
-            <textarea value={mr.side_effects_noticed} onChange={(e) => setMr({ ...mr, side_effects_noticed: e.target.value })} placeholder="Any negative effects?" />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Severity of side effects</label>
-              <select value={mr.severity} onChange={(e) => setMr({ ...mr, severity: e.target.value })}>
-                <option value="">—</option>
-                <option>None</option>
-                <option>Mild</option>
-                <option>Moderate</option>
-                <option>Severe</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Overall effect score 1–10</label>
-              <select value={mr.effect_score} onChange={(e) => setMr({ ...mr, effect_score: e.target.value })}>
-                <option value="">Default 5</option>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={String(n)}>{n}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="form-group"><label>Notes</label><textarea value={mr.notes} onChange={(e) => setMr({ ...mr, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={saveMedReaction} disabled={busy}>Save</button>
-        </div>
-      )}
-
       {/* MCAS */}
       {screen === 'mcas' && (
         <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={goBack}>← Back</button>
           <h3>MCAS episode</h3>
           <div className="form-row">
             <div className="form-group"><label>Date</label><input type="date" value={mx.episode_date} onChange={(e) => setMx({ ...mx, episode_date: e.target.value })} /></div>
@@ -421,10 +347,10 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* PAIN (multi-type fix) */}
+      {/* PAIN */}
       {screen === 'pain' && (
         <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={goBack}>← Back</button>
           <h3>Pain log</h3>
           <div className="form-row">
             <div className="form-group"><label>Date</label><input type="date" value={pe.entry_date} onChange={(e) => setPe({ ...pe, entry_date: e.target.value })} /></div>
@@ -432,20 +358,43 @@ export function QuickLogPage () {
           </div>
 
           <div className="form-group">
-            <label>Area(s) — tap to select, or type below</label>
-            <div className="pill-grid" style={{ marginBottom: 8 }}>
-              {PAIN_AREA_PRESETS.map((p) => (
-                <button key={p} type="button" className={`pill ${painPicks.includes(p) ? 'on' : ''}`} onClick={() => togglePainArea(p)}>{p}</button>
-              ))}
+            <label>Area(s) — tap once = Left, twice = Right, three times = Both, four times = deselect</label>
+            <p className="muted" style={{ fontSize: '0.8rem', marginTop: 2, marginBottom: 8 }}>Bilateral (left/right)</p>
+            <div className="pill-grid" style={{ marginBottom: 12 }}>
+              {PAIN_AREA_LIST.map((area) => {
+                const sel = isSelected(area)
+                const label = getSideLabel(area)
+                return (
+                  <button
+                    key={area}
+                    type="button"
+                    className={`pill ${sel ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}
+                  >
+                    {area}{label ? ` (${label})` : ''}
+                  </button>
+                )
+              })}
             </div>
-            <input
-              placeholder='Or type freely: "left knee and lower back"'
-              value={pe.location}
-              onChange={(e) => { setPe({ ...pe, location: e.target.value }); if (e.target.value.trim()) setPainPicks([]) }}
-            />
-            {parsedPainAreas.length > 0 && (
-              <div className="muted" style={{ marginTop: 6, fontSize: '0.85rem' }}>
-                Chart will show: {parsedPainAreas.join(', ')}
+            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Midline (no left/right)</p>
+            <div className="pill-grid">
+              {MIDLINE_AREA_LIST.map((area) => {
+                const sel = isSelected(area)
+                return (
+                  <button
+                    key={area}
+                    type="button"
+                    className={`pill ${sel ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}
+                  >
+                    {area}
+                  </button>
+                )
+              })}
+            </div>
+            {painSelections.length > 0 && (
+              <div className="muted" style={{ marginTop: 10, fontSize: '0.85rem' }}>
+                Selected: {painSelectionsToString(painSelections)}
               </div>
             )}
           </div>
@@ -482,10 +431,10 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* QUESTIONS (add multiple, prioritize, reorder) */}
+      {/* QUESTIONS */}
       {screen === 'questions' && (
         <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={goBack}>← Back</button>
           <h3>Questions for doctor</h3>
           <div className="form-row">
             <div className="form-group">
@@ -497,7 +446,6 @@ export function QuickLogPage () {
               <input type="date" value={qApptDate} onChange={(e) => setQApptDate(e.target.value)} />
             </div>
           </div>
-
           <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
             {questions.map((q, i) => (
               <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: '#fafafa' }}>
@@ -511,12 +459,7 @@ export function QuickLogPage () {
                     )}
                   </div>
                 </div>
-                <textarea
-                  value={q.text}
-                  onChange={(e) => updateQuestion(i, 'text', e.target.value)}
-                  placeholder="Type your question here…"
-                  style={{ marginBottom: 8 }}
-                />
+                <textarea value={q.text} onChange={(e) => updateQuestion(i, 'text', e.target.value)} placeholder="Type your question here…" style={{ marginBottom: 8 }} />
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Priority</label>
                   <select value={q.priority} onChange={(e) => updateQuestion(i, 'priority', e.target.value)}>
@@ -528,62 +471,17 @@ export function QuickLogPage () {
               </div>
             ))}
           </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary btn-block"
-            style={{ marginTop: 12 }}
-            onClick={addQuestion}
-          >
-            + Add another question
-          </button>
-
+          <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 12 }} onClick={addQuestion}>+ Add another question</button>
           <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 10 }} onClick={saveQuestions} disabled={busy}>
             Save {questions.filter((q) => q.text.trim()).length} question(s)
           </button>
         </div>
       )}
 
-      {/* MEDICATION */}
-      {screen === 'medication' && (
-        <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
-          <h3>Update medication list</h3>
-          <div className="form-group">
-            <label>Medication name</label>
-            <input value={cm.medication} onChange={(e) => setCm({ ...cm, medication: e.target.value })} placeholder="Medication name" />
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Dose</label><input value={cm.dose} onChange={(e) => setCm({ ...cm, dose: e.target.value })} placeholder="50mg" /></div>
-            <div className="form-group"><label>Frequency</label><input value={cm.frequency} onChange={(e) => setCm({ ...cm, frequency: e.target.value })} placeholder="Twice daily" /></div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Start date</label><input type="date" value={cm.start_date} onChange={(e) => setCm({ ...cm, start_date: e.target.value })} /></div>
-            <div className="form-group"><label>Prescribed by</label><input value={cm.prescribed_by} onChange={(e) => setCm({ ...cm, prescribed_by: e.target.value })} placeholder="Dr. Smith" /></div>
-          </div>
-          <div className="form-group">
-            <label>Purpose / reason for taking</label>
-            <input value={cm.purpose} onChange={(e) => setCm({ ...cm, purpose: e.target.value })} placeholder="Pain, inflammation…" />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Effectiveness</label>
-              <select value={cm.effectiveness} onChange={(e) => setCm({ ...cm, effectiveness: e.target.value })}>
-                <option value="">—</option>
-                <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option><option>Unknown</option>
-              </select>
-            </div>
-            <div className="form-group"><label>Side effects</label><input value={cm.side_effects} onChange={(e) => setCm({ ...cm, side_effects: e.target.value })} placeholder="Comma-separated" /></div>
-          </div>
-          <div className="form-group"><label>Notes</label><textarea value={cm.notes} onChange={(e) => setCm({ ...cm, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={upsertMed} disabled={busy}>Save</button>
-        </div>
-      )}
-
       {/* DIAGNOSIS */}
       {screen === 'diagnosis' && (
         <div className="card">
-          <button type="button" className="btn btn-ghost" onClick={() => setScreen('menu')}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={goBack}>← Back</button>
           <h3>Diagnosis note</h3>
           <div className="form-group"><label>Date</label><input type="date" value={dn.note_date} onChange={(e) => setDn({ ...dn, note_date: e.target.value })} /></div>
           <div className="form-group"><label>Doctor</label><input value={dn.doctor} onChange={(e) => setDn({ ...dn, doctor: e.target.value })} placeholder="Dr. Smith" /></div>
