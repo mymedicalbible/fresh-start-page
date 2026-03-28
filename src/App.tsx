@@ -9,16 +9,12 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { MedicationsPage } from './pages/MedicationsPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { DoctorsPage } from './pages/DoctorsPage'
+import { TestsOrderedPage } from './pages/TestsOrderedPage'
+import { QuestionsArchivePage } from './pages/QuestionsArchivePage'
 
 function Protected ({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) {
-    return (
-      <div className="login-wrap muted">
-        <p>Loading…</p>
-      </div>
-    )
-  }
+  if (loading) return <div className="login-wrap muted"><p>Loading…</p></div>
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
 }
@@ -27,20 +23,15 @@ export default function App () {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/app"
-        element={(
-          <Protected>
-            <AppLayout />
-          </Protected>
-        )}
-      >
+      <Route path="/app" element={<Protected><AppLayout /></Protected>}>
         <Route index element={<DashboardPage />} />
         <Route path="log" element={<QuickLogPage />} />
         <Route path="records" element={<RecordsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="meds" element={<MedicationsPage />} />
         <Route path="doctors" element={<DoctorsPage />} />
+        <Route path="tests" element={<TestsOrderedPage />} />
+        <Route path="questions" element={<QuestionsArchivePage />} />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
