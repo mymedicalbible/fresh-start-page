@@ -14,13 +14,17 @@ type QuestionRow = {
   status: string | null
 }
 
+type ViewMode = 'unanswered' | 'answered' | 'all'
+
 export function QuestionsArchivePage () {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [questions, setQuestions] = useState<QuestionRow[]>([])
+  const [viewMode, setViewMode] = useState<ViewMode>('unanswered')
   const [openDoctors, setOpenDoctors] = useState<Record<string, boolean>>({})
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  const [banner, setBanner] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -38,14 +42,22 @@ export function QuestionsArchivePage () {
 
   async function saveAnswer (q: QuestionRow) {
     const answer = answerDraft[q.id] ?? ''
+    if (!answer.trim()) return
     const { error: e } = await supabase.from('doctor_questions')
       .update({ answer, status: 'Answered' }).eq('id', q.id)
     if (e) { setError(e.message); return }
     setQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, answer, status: 'Answered' } : x))
+    setBanner('Answer saved!')
+    setTimeout(() => setBanner(null), 3000)
   }
 
-  // Group by doctor
-  const grouped = questions.reduce<Record<string, QuestionRow[]>>((acc, q) => {
+  const filtered = questions.filter((q) => {
+    if (viewMode === 'answered') return !!q.answer
+    if (viewMode === 'unanswered') return !q.answer
+    return true
+  })
+
+  const grouped = filtered.reduce<Record<string, QuestionRow[]>>((acc, q) => {
     const key = q.doctor ?? 'No doctor assigned'
     if (!acc[key]) acc[key] = []
     acc[key].push(q)
@@ -56,22 +68,37 @@ export function QuestionsArchivePage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>← Back</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
 
       {error && <div className="banner error">{error}</div>}
+      {banner && <div className="banner success">{banner}</div>}
 
       <div className="card">
         <h2 style={{ margin: 0 }}>❓ Questions archive</h2>
-        <p className="muted" style={{ marginTop: 6 }}>All questions organized by doctor. Tap a doctor to expand.</p>
+        <p className="muted" style={{ marginTop: 6 }}>All questions organized by doctor.</p>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {(['unanswered', 'answered', 'all'] as ViewMode[]).map((mode) => (
+            <button key={mode} type="button"
+              className={`btn ${viewMode === mode ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.85rem', textTransform: 'capitalize' }}
+              onClick={() => setViewMode(mode)}>
+              {mode === 'unanswered' ? 'Unanswered' : mode === 'answered' ? 'Answered' : 'All'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {Object.keys(grouped).length === 0 && (
-        <div className="card"><p className="muted">No questions logged yet.</p></div>
+        <div className="card">
+          <p className="muted">
+            {viewMode === 'unanswered' ? 'No unanswered questions.' : viewMode === 'answered' ? 'No answered questions yet.' : 'No questions logged yet.'}
+          </p>
+        </div>
       )}
 
       {Object.entries(grouped).map(([doctor, qs]) => {
-        const isOpen = openDoctors[doctor] ?? false
-        const unanswered = qs.filter((q) => !q.answer).length
+        const isOpen = openDoctors[doctor] ?? true
+        const answeredCount = qs.filter((q) => q.answer).length
 
         return (
           <div key={doctor} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -80,7 +107,7 @@ export function QuestionsArchivePage () {
               <div>
                 <div style={{ fontWeight: 700 }}>👩‍⚕️ {doctor}</div>
                 <div className="muted" style={{ fontSize: '0.85rem' }}>
-                  {qs.length} question{qs.length !== 1 ? 's' : ''}{unanswered > 0 ? ` · ${unanswered} unanswered` : ' · all answered'}
+                  {qs.length} question{qs.length !== 1 ? 's' : ''} · {answeredCount} answered
                 </div>
               </div>
               <span>{isOpen ? '▲' : '▼'}</span>
@@ -98,8 +125,9 @@ export function QuestionsArchivePage () {
                     </div>
                     {q.answer
                       ? (
-                        <div className="muted" style={{ fontSize: '0.85rem', marginTop: 6 }}>
-                          <strong>Answer:</strong> {q.answer}
+                        <div style={{ marginTop: 6, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8, borderLeft: '3px solid #22c55e' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#16a34a', marginBottom: 2 }}>ANSWER</div>
+                          <div style={{ fontSize: '0.9rem' }}>{q.answer}</div>
                         </div>
                       )
                       : (

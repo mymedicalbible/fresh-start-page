@@ -7,7 +7,8 @@ import {
   painSelectionsToString, type PainAreaSelection,
 } from '../lib/parse'
 
-type Screen = 'visit' | 'mcas' | 'pain' | 'questions' | 'diagnosis'
+type DoctorScreen = 'visit' | 'questions' | 'diagnosis'
+type Screen = 'pain' | 'mcas' | DoctorScreen
 
 const PAIN_TYPE_OPTIONS = [
   'Burning', 'Stabbing', 'Aching', 'Throbbing',
@@ -33,10 +34,8 @@ export function QuickLogPage () {
   const [busy, setBusy] = useState(false)
   const [showNewDoctorPrompt, setShowNewDoctorPrompt] = useState(false)
   const [pendingDoctorName, setPendingDoctorName] = useState('')
-
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [, setDoctorMeds] = useState<MedRow[]>([])
-
   const defaults = useMemo(() => ({ date: todayISO(), time: nowTime() }), [])
 
   useEffect(() => {
@@ -51,27 +50,22 @@ export function QuickLogPage () {
     setTimeout(() => setBanner((b) => (b?.text === text ? null : b)), 6500)
   }
 
+  const isDoctorScreen = screen === 'visit' || screen === 'questions' || screen === 'diagnosis'
+  const isPainScreen = screen === 'pain' || screen === 'mcas'
+
   // ===== Doctor visit =====
   const [dv, setDv] = useState({
-    visit_date: defaults.date,
-    visit_time: defaults.time,
-    doctor: '',
-    specialty: '',
-    reason: '',
-    findings: '',
-    instructions: '',
-    next_appt_date: '',
-    next_appt_time: '',
-    notes: '',
+    visit_date: defaults.date, visit_time: defaults.time,
+    doctor: '', specialty: '', reason: '', findings: '',
+    instructions: '', next_appt_date: '', next_appt_time: '', notes: '',
   })
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
-  const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'add' | 'remove' }[]>([])
+  const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '' })
 
   async function loadDoctorMeds (doctorName: string) {
     const { data } = await supabase.from('current_medications')
-      .select('id, medication, dose')
-      .eq('user_id', user!.id)
+      .select('id, medication, dose').eq('user_id', user!.id)
       .ilike('notes', `%${doctorName}%`)
     const meds = (data ?? []) as MedRow[]
     setDoctorMeds(meds)
@@ -80,11 +74,7 @@ export function QuickLogPage () {
 
   function handleDoctorSelect (doctorName: string) {
     const doc = doctors.find((d) => d.name === doctorName)
-    setDv((prev) => ({
-      ...prev,
-      doctor: doctorName,
-      specialty: doc?.specialty ?? prev.specialty,
-    }))
+    setDv((prev) => ({ ...prev, doctor: doctorName, specialty: doc?.specialty ?? prev.specialty }))
     if (doctorName) loadDoctorMeds(doctorName)
     else { setDoctorMeds([]); setDvMeds([]) }
   }
@@ -92,70 +82,48 @@ export function QuickLogPage () {
   async function saveDoctor () {
     if (!dv.doctor.trim()) { showBanner('error', 'Doctor name is required.'); return }
     setBusy(true)
-
-    // Save visit
     const { error: visitError } = await supabase.from('doctor_visits').insert({
-      user_id: user!.id,
-      visit_date: dv.visit_date, visit_time: dv.visit_time || null,
-      doctor: dv.doctor, specialty: dv.specialty || null,
-      reason: dv.reason || null, findings: dv.findings || null,
+      user_id: user!.id, visit_date: dv.visit_date, visit_time: dv.visit_time || null,
+      doctor: dv.doctor, specialty: dv.specialty || null, reason: dv.reason || null,
+      findings: dv.findings || null,
       tests_ordered: dvTests.filter((t) => t.test_name.trim()).map((t) => t.test_name).join(', ') || null,
-      instructions: dv.instructions || null,
-      follow_up: dv.next_appt_date || null,
-      notes: dv.notes || null,
+      instructions: dv.instructions || null, follow_up: dv.next_appt_date || null, notes: dv.notes || null,
     })
     if (visitError) { setBusy(false); showBanner('error', visitError.message); return }
 
-    // Save tests to tests_ordered table
     const validTests = dvTests.filter((t) => t.test_name.trim())
     if (validTests.length > 0) {
       await supabase.from('tests_ordered').insert(
         validTests.map((t) => ({
-          user_id: user!.id,
-          test_date: dv.visit_date,
-          doctor: dv.doctor,
-          test_name: t.test_name.trim(),
-          reason: t.reason || null,
-          status: 'Pending',
+          user_id: user!.id, test_date: dv.visit_date, doctor: dv.doctor,
+          test_name: t.test_name.trim(), reason: t.reason || null, status: 'Pending',
         }))
       )
     }
 
-    // Save next appointment
     if (dv.next_appt_date) {
       await supabase.from('appointments').insert({
-        user_id: user!.id,
-        doctor: dv.doctor,
-        specialty: dv.specialty || null,
-        appointment_date: dv.next_appt_date,
-        appointment_time: dv.next_appt_time || null,
+        user_id: user!.id, doctor: dv.doctor, specialty: dv.specialty || null,
+        appointment_date: dv.next_appt_date, appointment_time: dv.next_appt_time || null,
       })
     }
 
-    // Handle med changes
     for (const m of dvMeds) {
       if (m.action === 'remove') {
         await supabase.from('current_medications')
           .delete().eq('user_id', user!.id).eq('medication', m.medication)
       }
     }
-    // Add new med if entered
+
     if (newMedEntry.medication.trim()) {
-      await supabase.from('current_medications').upsert(
-        {
-          user_id: user!.id,
-          medication: newMedEntry.medication.trim(),
-          dose: newMedEntry.dose || null,
-          notes: `Prescribed by: ${dv.doctor}`,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,medication' }
-      )
+      await supabase.from('current_medications').upsert({
+        user_id: user!.id, medication: newMedEntry.medication.trim(),
+        dose: newMedEntry.dose || null, notes: `Prescribed by: ${dv.doctor}`,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,medication' })
     }
 
     setBusy(false)
-
-    // Check if doctor exists
     const { data: existing } = await supabase.from('doctors')
       .select('id').eq('user_id', user!.id).ilike('name', dv.doctor.trim()).limit(1)
     if (!existing || existing.length === 0) {
@@ -170,19 +138,16 @@ export function QuickLogPage () {
   // ===== MCAS =====
   const [mx, setMx] = useState({
     episode_date: defaults.date, episode_time: defaults.time,
-    trigger: '', symptoms: '', onset: '', severity: '',
-    relief_and_meds: '', notes: '',
+    trigger: '', symptoms: '', onset: '', severity: '', relief_and_meds: '', notes: '',
   })
 
   async function saveMcas () {
     if (!mx.trigger.trim() || !mx.symptoms.trim()) { showBanner('error', 'Trigger and symptoms are required.'); return }
     setBusy(true)
     const { error } = await supabase.from('mcas_episodes').insert({
-      user_id: user!.id,
-      episode_date: mx.episode_date, episode_time: mx.episode_time || null,
-      trigger: mx.trigger, symptoms: mx.symptoms,
-      onset: mx.onset || null, severity: mx.severity || null,
-      relief: mx.relief_and_meds || null,
+      user_id: user!.id, episode_date: mx.episode_date, episode_time: mx.episode_time || null,
+      trigger: mx.trigger, symptoms: mx.symptoms, onset: mx.onset || null,
+      severity: mx.severity || null, relief: mx.relief_and_meds || null,
       medications_taken: null, notes: mx.notes || null,
     })
     setBusy(false)
@@ -229,12 +194,10 @@ export function QuickLogPage () {
     }
     setBusy(true)
     const { error } = await supabase.from('pain_entries').insert({
-      user_id: user!.id,
-      entry_date: pe.entry_date, entry_time: pe.entry_time || null,
+      user_id: user!.id, entry_date: pe.entry_date, entry_time: pe.entry_time || null,
       location: loc, intensity: inten,
       pain_type: painTypePicks.length > 0 ? painTypePicks.join(', ') : null,
-      triggers: pe.triggers || null,
-      relief_methods: pe.relief_and_meds || null,
+      triggers: pe.triggers || null, relief_methods: pe.relief_and_meds || null,
       medications_taken: null, notes: pe.notes || null,
     })
     setBusy(false)
@@ -273,18 +236,14 @@ export function QuickLogPage () {
     const { error } = await supabase.from('doctor_questions').insert(
       valid.map((q) => ({
         user_id: user!.id, date_created: todayISO(),
-        appointment_date: qApptDate || null,
-        doctor: qDoctor || null,
+        appointment_date: qApptDate || null, doctor: qDoctor || null,
         question: q.text.trim(), priority: q.priority,
         category: null, answer: null, status: 'Unanswered',
       }))
     )
     setBusy(false)
     if (error) showBanner('error', error.message)
-    else {
-      showBanner('success', `Saved ${valid.length} question(s).`)
-      navigate('/app')
-    }
+    else { showBanner('success', `Saved ${valid.length} question(s).`); navigate('/app') }
   }
 
   // ===== Diagnosis =====
@@ -308,14 +267,11 @@ export function QuickLogPage () {
 
   if (!user) return null
 
-  // New doctor prompt
   if (showNewDoctorPrompt) {
     return (
       <div className="card">
         <h3>Add to doctors list?</h3>
-        <p className="muted">
-          <strong>{pendingDoctorName}</strong> isn't in your doctors list yet. Add them?
-        </p>
+        <p className="muted"><strong>{pendingDoctorName}</strong> is not in your doctors list yet. Add them?</p>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button type="button" className="btn btn-primary"
             onClick={() => navigate(`/app/doctors?prefill=${encodeURIComponent(pendingDoctorName)}`)}>
@@ -331,27 +287,47 @@ export function QuickLogPage () {
   }
 
   return (
-    <div>
+    <div style={{ paddingBottom: 40 }}>
       {banner && <div className={`banner ${banner.type}`}>{banner.text}</div>}
 
-      {/* TAB BAR */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '8px 0', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0 16px' }}>
         <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
-        {([
-          ['visit', '🏥 Visit'],
-          ['pain', '🩹 Pain'],
-          ['mcas', '🔬 MCAS'],
-          ['questions', '❓ Questions'],
-          ['diagnosis', '📋 Diagnosis'],
-        ] as [Screen, string][]).map(([id, label]) => (
-          <button key={id} type="button"
-            className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ whiteSpace: 'nowrap', fontSize: '0.85rem' }}
-            onClick={() => setScreen(id)}>
-            {label}
-          </button>
-        ))}
       </div>
+
+      {/* DOCTOR LOG TABS — only show when on a doctor screen */}
+      {isDoctorScreen && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 10 }}>
+          {([
+            ['visit', '🏥 Visit'],
+            ['questions', '❓ Questions'],
+            ['diagnosis', '📋 Diagnosis'],
+          ] as [DoctorScreen, string][]).map(([id, label]) => (
+            <button key={id} type="button"
+              className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.85rem' }}
+              onClick={() => setScreen(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* PAIN TABS — only show when on a pain screen */}
+      {isPainScreen && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 10 }}>
+          {([
+            ['pain', '🩹 Pain'],
+            ['mcas', '🔬 MCAS'],
+          ] as [Screen, string][]).map(([id, label]) => (
+            <button key={id} type="button"
+              className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.85rem' }}
+              onClick={() => setScreen(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* DOCTOR VISIT */}
       {screen === 'visit' && (
@@ -361,7 +337,6 @@ export function QuickLogPage () {
             <div className="form-group"><label>Date</label><input type="date" value={dv.visit_date} onChange={(e) => setDv({ ...dv, visit_date: e.target.value })} /></div>
             <div className="form-group"><label>Time</label><input type="time" value={dv.visit_time} onChange={(e) => setDv({ ...dv, visit_time: e.target.value })} /></div>
           </div>
-
           <div className="form-row">
             <div className="form-group">
               <label>Doctor</label>
@@ -380,11 +355,9 @@ export function QuickLogPage () {
               <input value={dv.specialty} onChange={(e) => setDv({ ...dv, specialty: e.target.value })} placeholder="Auto-filled from doctor list" />
             </div>
           </div>
-
           <div className="form-group"><label>Reason for visit</label><textarea value={dv.reason} onChange={(e) => setDv({ ...dv, reason: e.target.value })} /></div>
           <div className="form-group"><label>Findings</label><textarea value={dv.findings} onChange={(e) => setDv({ ...dv, findings: e.target.value })} /></div>
 
-          {/* TESTS — individual entries */}
           <div className="form-group">
             <label style={{ fontWeight: 600 }}>Tests / orders</label>
             {dvTests.map((t, i) => (
@@ -403,7 +376,6 @@ export function QuickLogPage () {
               onClick={() => setDvTests((prev) => [...prev, { test_name: '', reason: '' }])}>+ Add test</button>
           </div>
 
-          {/* MEDICATIONS */}
           <div className="form-group">
             <label style={{ fontWeight: 600 }}>Medications from this doctor</label>
             {dvMeds.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No medications linked to this doctor yet.</p>}
@@ -414,7 +386,7 @@ export function QuickLogPage () {
                   className={`btn ${m.action === 'remove' ? 'btn-primary' : 'btn-ghost'}`}
                   style={{ fontSize: '0.75rem', padding: '2px 10px', color: m.action === 'remove' ? 'white' : 'red' }}
                   onClick={() => setDvMeds((prev) => prev.map((x, idx) => idx === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
-                  {m.action === 'remove' ? 'Undo remove' : 'Remove'}
+                  {m.action === 'remove' ? 'Undo' : 'Remove'}
                 </button>
               </div>
             ))}
@@ -429,7 +401,6 @@ export function QuickLogPage () {
           <div className="form-group"><label>Instructions</label><textarea value={dv.instructions} onChange={(e) => setDv({ ...dv, instructions: e.target.value })} /></div>
           <div className="form-group"><label>Notes</label><textarea value={dv.notes} onChange={(e) => setDv({ ...dv, notes: e.target.value })} /></div>
 
-          {/* NEXT APPOINTMENT */}
           <div className="form-group">
             <label style={{ fontWeight: 600 }}>📅 Schedule next appointment</label>
             <div className="form-row">
@@ -439,100 +410,6 @@ export function QuickLogPage () {
           </div>
 
           <button type="button" className="btn btn-primary btn-block" onClick={saveDoctor} disabled={busy}>Save visit</button>
-        </div>
-      )}
-
-      {/* MCAS */}
-      {screen === 'mcas' && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>MCAS episode</h3>
-          <div className="form-row">
-            <div className="form-group"><label>Date</label><input type="date" value={mx.episode_date} onChange={(e) => setMx({ ...mx, episode_date: e.target.value })} /></div>
-            <div className="form-group"><label>Time</label><input type="time" value={mx.episode_time} onChange={(e) => setMx({ ...mx, episode_time: e.target.value })} /></div>
-          </div>
-          <div className="form-group"><label>Trigger</label><input value={mx.trigger} onChange={(e) => setMx({ ...mx, trigger: e.target.value })} placeholder="Food, meds, stress, weather…" /></div>
-          <div className="form-group"><label>Symptoms</label><textarea value={mx.symptoms} onChange={(e) => setMx({ ...mx, symptoms: e.target.value })} placeholder="Describe symptoms…" /></div>
-          <div className="form-row">
-            <div className="form-group"><label>Onset</label><input value={mx.onset} onChange={(e) => setMx({ ...mx, onset: e.target.value })} placeholder="How quickly?" /></div>
-            <div className="form-group">
-              <label>Severity</label>
-              <select value={mx.severity} onChange={(e) => setMx({ ...mx, severity: e.target.value })}>
-                <option value="">—</option>
-                <option>Mild</option><option>Moderate</option><option>Severe</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-group"><label>Relief & medications taken</label><textarea value={mx.relief_and_meds} onChange={(e) => setMx({ ...mx, relief_and_meds: e.target.value })} /></div>
-          <div className="form-group"><label>Notes</label><textarea value={mx.notes} onChange={(e) => setMx({ ...mx, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={saveMcas} disabled={busy}>Save</button>
-        </div>
-      )}
-
-      {/* PAIN */}
-      {screen === 'pain' && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Pain log</h3>
-          <div className="form-row">
-            <div className="form-group"><label>Date</label><input type="date" value={pe.entry_date} onChange={(e) => setPe({ ...pe, entry_date: e.target.value })} /></div>
-            <div className="form-group"><label>Time</label><input type="time" value={pe.entry_time} onChange={(e) => setPe({ ...pe, entry_time: e.target.value })} /></div>
-          </div>
-
-          <div className="form-group">
-            <label>Area(s) — tap once = Left, twice = Right, three times = Both, four = deselect</label>
-            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Bilateral (left/right)</p>
-            <div className="pill-grid" style={{ marginBottom: 12 }}>
-              {PAIN_AREA_LIST.map((area) => {
-                const label = getSideLabel(area)
-                const sel = painSelections.some((s) => s.area === area)
-                return (
-                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
-                    onClick={() => togglePainArea(area)}>
-                    {area}{label ? ` (${label})` : ''}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Midline</p>
-            <div className="pill-grid">
-              {MIDLINE_AREA_LIST.map((area) => {
-                const sel = painSelections.some((s) => s.area === area)
-                return (
-                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
-                    onClick={() => togglePainArea(area)}>
-                    {area}
-                  </button>
-                )
-              })}
-            </div>
-            {painSelections.length > 0 && (
-              <div className="muted" style={{ marginTop: 10, fontSize: '0.85rem' }}>
-                Selected: {painSelectionsToString(painSelections)}
-              </div>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label>Intensity 0–10</label>
-            <select value={pe.intensity} onChange={(e) => setPe({ ...pe, intensity: e.target.value })}>
-              <option value="">—</option>
-              {Array.from({ length: 11 }, (_, i) => i).map((n) => <option key={n} value={String(n)}>{n}</option>)}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Pain type(s)</label>
-            <div className="pill-grid">
-              {PAIN_TYPE_OPTIONS.map((t) => (
-                <button key={t} type="button" className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`}
-                  onClick={() => togglePainType(t)}>{t}</button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group"><label>Triggers</label><input value={pe.triggers} onChange={(e) => setPe({ ...pe, triggers: e.target.value })} placeholder="Weather, activity, stress…" /></div>
-          <div className="form-group"><label>Relief & medications taken</label><textarea value={pe.relief_and_meds} onChange={(e) => setPe({ ...pe, relief_and_meds: e.target.value })} /></div>
-          <div className="form-group"><label>Notes</label><textarea value={pe.notes} onChange={(e) => setPe({ ...pe, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={savePain} disabled={busy}>Save</button>
         </div>
       )}
 
@@ -596,6 +473,96 @@ export function QuickLogPage () {
           <div className="form-group"><label>Diagnoses ruled out</label><textarea value={dn.diagnoses_ruled_out} onChange={(e) => setDn({ ...dn, diagnoses_ruled_out: e.target.value })} /></div>
           <div className="form-group"><label>Notes</label><textarea value={dn.notes} onChange={(e) => setDn({ ...dn, notes: e.target.value })} /></div>
           <button type="button" className="btn btn-primary btn-block" onClick={saveDiagnosis} disabled={busy}>Save</button>
+        </div>
+      )}
+
+      {/* PAIN */}
+      {screen === 'pain' && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Pain log</h3>
+          <div className="form-row">
+            <div className="form-group"><label>Date</label><input type="date" value={pe.entry_date} onChange={(e) => setPe({ ...pe, entry_date: e.target.value })} /></div>
+            <div className="form-group"><label>Time</label><input type="time" value={pe.entry_time} onChange={(e) => setPe({ ...pe, entry_time: e.target.value })} /></div>
+          </div>
+          <div className="form-group">
+            <label>Area(s) — tap once = Left, twice = Right, three times = Both, four = deselect</label>
+            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Bilateral (left/right)</p>
+            <div className="pill-grid" style={{ marginBottom: 12 }}>
+              {PAIN_AREA_LIST.map((area) => {
+                const label = getSideLabel(area)
+                const sel = painSelections.some((s) => s.area === area)
+                return (
+                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}>
+                    {area}{label ? ` (${label})` : ''}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Midline</p>
+            <div className="pill-grid">
+              {MIDLINE_AREA_LIST.map((area) => {
+                const sel = painSelections.some((s) => s.area === area)
+                return (
+                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}>
+                    {area}
+                  </button>
+                )
+              })}
+            </div>
+            {painSelections.length > 0 && (
+              <div className="muted" style={{ marginTop: 10, fontSize: '0.85rem' }}>
+                Selected: {painSelectionsToString(painSelections)}
+              </div>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Intensity 0–10</label>
+            <select value={pe.intensity} onChange={(e) => setPe({ ...pe, intensity: e.target.value })}>
+              <option value="">—</option>
+              {Array.from({ length: 11 }, (_, i) => i).map((n) => <option key={n} value={String(n)}>{n}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Pain type(s)</label>
+            <div className="pill-grid">
+              {PAIN_TYPE_OPTIONS.map((t) => (
+                <button key={t} type="button" className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`}
+                  onClick={() => togglePainType(t)}>{t}</button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group"><label>Triggers</label><input value={pe.triggers} onChange={(e) => setPe({ ...pe, triggers: e.target.value })} placeholder="Weather, activity, stress…" /></div>
+          <div className="form-group"><label>Relief & medications taken</label><textarea value={pe.relief_and_meds} onChange={(e) => setPe({ ...pe, relief_and_meds: e.target.value })} /></div>
+          <div className="form-group"><label>Notes</label><textarea value={pe.notes} onChange={(e) => setPe({ ...pe, notes: e.target.value })} /></div>
+          <button type="button" className="btn btn-primary btn-block" onClick={savePain} disabled={busy}>Save</button>
+        </div>
+      )}
+
+      {/* MCAS */}
+      {screen === 'mcas' && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>MCAS episode</h3>
+          <div className="form-row">
+            <div className="form-group"><label>Date</label><input type="date" value={mx.episode_date} onChange={(e) => setMx({ ...mx, episode_date: e.target.value })} /></div>
+            <div className="form-group"><label>Time</label><input type="time" value={mx.episode_time} onChange={(e) => setMx({ ...mx, episode_time: e.target.value })} /></div>
+          </div>
+          <div className="form-group"><label>Trigger</label><input value={mx.trigger} onChange={(e) => setMx({ ...mx, trigger: e.target.value })} placeholder="Food, meds, stress, weather…" /></div>
+          <div className="form-group"><label>Symptoms</label><textarea value={mx.symptoms} onChange={(e) => setMx({ ...mx, symptoms: e.target.value })} placeholder="Describe symptoms…" /></div>
+          <div className="form-row">
+            <div className="form-group"><label>Onset</label><input value={mx.onset} onChange={(e) => setMx({ ...mx, onset: e.target.value })} placeholder="How quickly?" /></div>
+            <div className="form-group">
+              <label>Severity</label>
+              <select value={mx.severity} onChange={(e) => setMx({ ...mx, severity: e.target.value })}>
+                <option value="">—</option>
+                <option>Mild</option><option>Moderate</option><option>Severe</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group"><label>Relief & medications taken</label><textarea value={mx.relief_and_meds} onChange={(e) => setMx({ ...mx, relief_and_meds: e.target.value })} /></div>
+          <div className="form-group"><label>Notes</label><textarea value={mx.notes} onChange={(e) => setMx({ ...mx, notes: e.target.value })} /></div>
+          <button type="button" className="btn btn-primary btn-block" onClick={saveMcas} disabled={busy}>Save</button>
         </div>
       )}
     </div>
