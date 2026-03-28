@@ -35,7 +35,7 @@ export function QuickLogPage () {
   const [pendingDoctorName, setPendingDoctorName] = useState('')
 
   const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [doctorMeds, setDoctorMeds] = useState<MedRow[]>([])
+  const [, setDoctorMeds] = useState<MedRow[]>([])
 
   const defaults = useMemo(() => ({ date: todayISO(), time: nowTime() }), [])
 
