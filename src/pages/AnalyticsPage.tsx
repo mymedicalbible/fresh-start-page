@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format, subDays } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
