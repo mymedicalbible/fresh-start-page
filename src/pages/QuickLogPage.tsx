@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   PAIN_AREA_LIST, MIDLINE_AREA_LIST,
-  painSelectionsToString, type PainAreaSelection, type PainSide,
+  painSelectionsToString, type PainAreaSelection,
 } from '../lib/parse'
 
 type Screen = 'menu' | 'visit' | 'reaction' | 'mcas' | 'pain' | 'questions' | 'medication' | 'diagnosis'
