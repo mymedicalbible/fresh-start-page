@@ -56,7 +56,6 @@ export function DashboardPage () {
         </div>
       )}
 
-      {/* TRACK */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <button type="button" onClick={() => toggle('track')}
           style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
@@ -73,7 +72,6 @@ export function DashboardPage () {
         )}
       </div>
 
-      {/* DOCTORS */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <button type="button" onClick={() => toggle('doctors')}
           style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
@@ -90,7 +88,6 @@ export function DashboardPage () {
         )}
       </div>
 
-      {/* MEDICATIONS — single button, no collapsible */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <Link to="/app/meds"
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: '1rem' }}>
@@ -102,8 +99,3 @@ export function DashboardPage () {
     </div>
   )
 }
-```
-
-After pasting, before you do anything else, run:
-```
-git diff src/pages/DashboardPage.tsx
