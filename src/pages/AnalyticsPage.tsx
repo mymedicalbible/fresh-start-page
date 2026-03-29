@@ -18,9 +18,17 @@ type McasRow = {
   episode_date: string
   episode_time: string | null
   trigger: string
+  severity: string | null
 }
 
 type DayRange = '7' | '30' | '60' | '90' | '120' | 'all'
+
+type HourPopup = {
+  type: 'pain' | 'mcas'
+  hour: number
+  items: { label: string; sub: string }[]
+  avgIntensity?: number
+} | null
 
 function safeNum (n: any) {
   const x = Number(n)
@@ -35,6 +43,18 @@ function hourFromTime (time: string | null): number | null {
   return Number.isNaN(h) ? null : h
 }
 
+function formatHour (h: number) {
+  if (h === 0) return '12am'
+  if (h < 12) return `${h}am`
+  if (h === 12) return '12pm'
+  return `${h - 12}pm`
+}
+
+function parseLocationToAreas (location: string): string[] {
+  if (!location) return []
+  return location.split(',').map((p) => p.trim()).filter(Boolean)
+}
+
 export function AnalyticsPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -42,6 +62,7 @@ export function AnalyticsPage () {
   const [mcas, setMcas] = useState<McasRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState<DayRange>('120')
+  const [popup, setPopup] = useState<HourPopup>(null)
 
   useEffect(() => {
     if (!user) return
@@ -57,7 +78,7 @@ export function AnalyticsPage () {
         if (since) pq = pq.gte('entry_date', since)
 
         let mq = supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, trigger')
+          .select('id, episode_date, episode_time, trigger, severity')
           .eq('user_id', user.id).order('episode_date', { ascending: true })
         if (since) mq = mq.gte('episode_date', since)
 
@@ -69,12 +90,6 @@ export function AnalyticsPage () {
       } catch (e: any) { setError(e?.message ?? String(e)) }
     })()
   }, [user, range])
-
-  // Parse location into individual labeled areas e.g. "Left Knee", "Right Knee"
-  function parseLocationToAreas (location: string): string[] {
-    if (!location) return []
-    return location.split(',').map((p) => p.trim()).filter(Boolean)
-  }
 
   const areaStats = useMemo(() => {
     const map = new Map<string, { sum: number; n: number }>()
@@ -90,8 +105,7 @@ export function AnalyticsPage () {
     }
     return [...map.entries()]
       .map(([area, v]) => ({ area, avg: Math.round((v.sum / v.n) * 10) / 10, n: v.n }))
-      .sort((a, b) => b.n - a.n)
-      .slice(0, 10)
+      .sort((a, b) => b.n - a.n).slice(0, 10)
   }, [pain])
 
   const mcasTopTriggers = useMemo(() => {
@@ -101,40 +115,69 @@ export function AnalyticsPage () {
     }
     return [...map.entries()]
       .map(([trigger, n]) => ({ trigger, n }))
-      .sort((a, b) => b.n - a.n)
-      .slice(0, 10)
+      .sort((a, b) => b.n - a.n).slice(0, 10)
   }, [mcas])
 
-  // Time heatmap — pain by hour
+  // Pain by hour with entries stored
   const painByHour = useMemo(() => {
-    const map = new Map<number, number>()
-    for (let i = 0; i < 24; i++) map.set(i, 0)
+    const map = new Map<number, { count: number; entries: PainRow[] }>()
+    for (let i = 0; i < 24; i++) map.set(i, { count: 0, entries: [] })
     for (const row of pain) {
       const h = hourFromTime(row.entry_time)
-      if (h !== null) map.set(h, (map.get(h) ?? 0) + 1)
+      if (h !== null) {
+        const cur = map.get(h)!
+        cur.count += 1
+        cur.entries.push(row)
+        map.set(h, cur)
+      }
     }
-    return [...map.entries()].map(([hour, count]) => ({ hour, count }))
+    return [...map.entries()].map(([hour, data]) => ({ hour, ...data }))
   }, [pain])
 
-  // Time heatmap — MCAS by hour
+  // MCAS by hour with entries stored
   const mcasByHour = useMemo(() => {
-    const map = new Map<number, number>()
-    for (let i = 0; i < 24; i++) map.set(i, 0)
+    const map = new Map<number, { count: number; entries: McasRow[] }>()
+    for (let i = 0; i < 24; i++) map.set(i, { count: 0, entries: [] })
     for (const row of mcas) {
       const h = hourFromTime(row.episode_time)
-      if (h !== null) map.set(h, (map.get(h) ?? 0) + 1)
+      if (h !== null) {
+        const cur = map.get(h)!
+        cur.count += 1
+        cur.entries.push(row)
+        map.set(h, cur)
+      }
     }
-    return [...map.entries()].map(([hour, count]) => ({ hour, count }))
+    return [...map.entries()].map(([hour, data]) => ({ hour, ...data }))
   }, [mcas])
 
   const maxPainHour = Math.max(...painByHour.map((h) => h.count), 1)
   const maxMcasHour = Math.max(...mcasByHour.map((h) => h.count), 1)
 
-  function formatHour (h: number) {
-    if (h === 0) return '12am'
-    if (h < 12) return `${h}am`
-    if (h === 12) return '12pm'
-    return `${h - 12}pm`
+  function openPainPopup (hour: number, entries: PainRow[]) {
+    if (entries.length === 0) return
+    const intensities = entries.map((e) => safeNum(e.intensity)).filter((x): x is number => x !== null)
+    const avg = intensities.length > 0
+      ? Math.round((intensities.reduce((a, b) => a + b, 0) / intensities.length) * 10) / 10
+      : undefined
+    setPopup({
+      type: 'pain', hour,
+      avgIntensity: avg,
+      items: entries.map((e) => ({
+        label: e.location ?? 'Unknown area',
+        sub: `${e.entry_date} · Intensity: ${e.intensity ?? '—'}`,
+      })),
+    })
+  }
+
+  function openMcasPopup (hour: number, entries: McasRow[]) {
+    if (entries.length === 0) return
+    setPopup({
+      type: 'mcas', hour,
+      items: entries.map((e) => ({
+        label: e.trigger,
+        sub: `${e.episode_date}${e.severity ? ` · ${e.severity}` : ''}`,
+      })),
+    })
   }
 
   if (!user) return null
@@ -142,6 +185,38 @@ export function AnalyticsPage () {
   return (
     <div style={{ paddingBottom: 40 }}>
       {error && <div className="banner error">{error}</div>}
+
+      {/* POPUP */}
+      {popup && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 20,
+        }} onClick={() => setPopup(null)}>
+          <div className="card" style={{ maxWidth: 360, width: '100%', maxHeight: '70vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>
+                {popup.type === 'pain' ? '🩹 Pain' : '🔬 MCAS'} at {formatHour(popup.hour)}
+              </h3>
+              <button type="button" className="btn btn-ghost" onClick={() => setPopup(null)}>✕</button>
+            </div>
+            {popup.avgIntensity !== undefined && (
+              <div style={{ marginBottom: 10, padding: '6px 12px', background: '#f5f3ff', borderRadius: 8, fontSize: '0.85rem', fontWeight: 600, color: '#5b21b6' }}>
+                Avg intensity: {popup.avgIntensity}/10
+              </div>
+            )}
+            <div style={{ display: 'grid', gap: 8 }}>
+              {popup.items.map((item, i) => (
+                <div key={i} className="list-item">
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.label}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>{item.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -164,7 +239,7 @@ export function AnalyticsPage () {
       {/* TOP PAIN AREAS */}
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Top pain areas</h2>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Left and right are tracked separately.</p>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>Left and right tracked separately.</p>
         {areaStats.length === 0 ? <p className="muted">No pain data yet.</p> : null}
         <div style={{ display: 'grid', gap: 10 }}>
           {areaStats.map((a) => (
@@ -203,22 +278,26 @@ export function AnalyticsPage () {
       {/* PAIN TIME HEATMAP */}
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Pain by time of day</h2>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Only entries with a logged time are shown.</p>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
         {painByHour.every((h) => h.count === 0)
           ? <p className="muted">No timed pain entries yet.</p>
           : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
-              {painByHour.map(({ hour, count }) => (
+              {painByHour.map(({ hour, count, entries }) => (
                 <div key={hour} style={{ textAlign: 'center' }}>
-                  <div style={{
-                    height: 36, borderRadius: 6,
-                    background: count === 0 ? 'var(--border)' : `rgba(167,139,250,${0.2 + (count / maxPainHour) * 0.8})`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
-                    color: count > 0 ? '#5b21b6' : '#aaa',
-                  }}>
+                  <button
+                    type="button"
+                    onClick={() => openPainPopup(hour, entries)}
+                    style={{
+                      width: '100%', height: 36, borderRadius: 6, border: 'none',
+                      background: count === 0 ? 'var(--border)' : `rgba(167,139,250,${0.2 + (count / maxPainHour) * 0.8})`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
+                      color: count > 0 ? '#5b21b6' : '#aaa',
+                      cursor: count > 0 ? 'pointer' : 'default',
+                    }}>
                     {count > 0 ? count : ''}
-                  </div>
+                  </button>
                   <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
                 </div>
               ))}
@@ -229,22 +308,26 @@ export function AnalyticsPage () {
       {/* MCAS TIME HEATMAP */}
       <div className="card">
         <h2 style={{ marginTop: 0 }}>MCAS episodes by time of day</h2>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Only episodes with a logged time are shown.</p>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
         {mcasByHour.every((h) => h.count === 0)
           ? <p className="muted">No timed MCAS entries yet.</p>
           : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
-              {mcasByHour.map(({ hour, count }) => (
+              {mcasByHour.map(({ hour, count, entries }) => (
                 <div key={hour} style={{ textAlign: 'center' }}>
-                  <div style={{
-                    height: 36, borderRadius: 6,
-                    background: count === 0 ? 'var(--border)' : `rgba(96,165,250,${0.2 + (count / maxMcasHour) * 0.8})`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
-                    color: count > 0 ? '#1d4ed8' : '#aaa',
-                  }}>
+                  <button
+                    type="button"
+                    onClick={() => openMcasPopup(hour, entries)}
+                    style={{
+                      width: '100%', height: 36, borderRadius: 6, border: 'none',
+                      background: count === 0 ? 'var(--border)' : `rgba(96,165,250,${0.2 + (count / maxMcasHour) * 0.8})`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
+                      color: count > 0 ? '#1d4ed8' : '#aaa',
+                      cursor: count > 0 ? 'pointer' : 'default',
+                    }}>
                     {count > 0 ? count : ''}
-                  </div>
+                  </button>
                   <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
                 </div>
               ))}
