@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom' // Removed useNavigate
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -13,7 +13,7 @@ type UpcomingAppt = {
 
 export function DashboardPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
+  // Removed: const navigate = useNavigate()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [open, setOpen] = useState<Record<string, boolean>>({ track: true, doctors: false })
 
@@ -23,86 +23,85 @@ export function DashboardPage () {
 
   useEffect(() => {
     if (!user) return
-    async function load () {
-      const today = new Date().toISOString().slice(0, 10)
-      const { data } = await supabase
-        .from('appointments')
-        .select('id, doctor, specialty, appointment_date, appointment_time')
-        .eq('user_id', user!.id)
-        .eq('visit_logged', false)
-        .gte('appointment_date', today)
-        .order('appointment_date', { ascending: true })
-        .limit(5)
-      setUpcoming((data ?? []) as UpcomingAppt[])
-    }
-    load()
+    supabase.from('appointments')
+      .select('id, doctor, specialty, appointment_date, appointment_time')
+      .eq('user_id', user.id)
+      .gte('appointment_date', new Date().toISOString().split('T')[0])
+      .order('appointment_date', { ascending: true })
+      .limit(3)
+      .then(({ data }) => setUpcoming((data ?? []) as UpcomingAppt[]))
   }, [user])
 
-  if (!user) return <div>Loading...</div>
+  if (!user) return null
 
   return (
-    <div style={{ display: 'grid', gap: 12, padding: '8px 0 40px' }}>
+    <div style={{ paddingBottom: 60 }}>
+      <header style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>Medical Bible</h1>
+        <p className="muted" style={{ margin: 0 }}>Welcome back, {user.email?.split('@')[0]}</p>
+      </header>
 
-      {upcoming.length > 0 && (
-        <div className="banner info">
-          <strong>Upcoming appointments</strong>
-          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-            {upcoming.map((u) => (
-              <li key={u.id} className="muted">
-                {u.appointment_date}
-                {u.appointment_time ? ` · ${u.appointment_time}` : ''}
-                {` · ${u.doctor}`}
-                {u.specialty ? ` (${u.specialty})` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* TRACK */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <button type="button" onClick={() => toggle('track')}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
-          <span>⚡ Track symptoms</span>
-          <span>{open.track ? '▲' : '▼'}</span>
-        </button>
-        {open.track && (
-          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
-            <Link to="/app/log?tab=pain" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🩹 Log pain</Link>
-            <Link to="/app/log?tab=mcas" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🔬 MCAS episode</Link>
-            <Link to="/app/analytics" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📈 Charts & trends</Link>
-            <Link to="/app/records" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🗂️ View all records</Link>
-          </div>
-        )}
-      </div>
-
-      {/* DOCTORS */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <button type="button" onClick={() => toggle('doctors')}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
-          <span>👩‍⚕️ Doctors & diagnoses</span>
-          <span>{open.doctors ? '▲' : '▼'}</span>
-        </button>
-        {open.doctors && (
-          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
-            <Link to="/app/doctors" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>👩‍⚕️ My doctors — profiles & history</Link>
-            <Link to="/app/visits" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🏥 Doctor visits</Link>
-            <Link to="/app/diagnoses" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📋 Diagnoses directory</Link>
-            <Link to="/app/questions" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>❓ Questions</Link>
-            <Link to="/app/tests" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🧪 Tests & orders</Link>
-          </div>
-        )}
-      </div>
-
-      {/* MEDICATIONS */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <Link to="/app/meds"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: '1rem' }}>
-          <span>💊 Medications</span>
-          <span>→</span>
+      {/* QUICK ACTIONS */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+        <Link to="/app/log" className="card" style={{ padding: '16px 12px', textAlign: 'center', textDecoration: 'none', background: 'var(--primary)', color: 'white', border: 'none' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📝</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Quick Log</div>
+        </Link>
+        <Link to="/app/visits" className="card" style={{ padding: '16px 12px', textAlign: 'center', textDecoration: 'none' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>🏥</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Visits</div>
         </Link>
       </div>
 
+      {/* UPCOMING */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>📅 Upcoming</h3>
+          <Link to="/app/doctors" style={{ fontSize: '0.85rem', fontWeight: 600 }}>See all</Link>
+        </div>
+        {upcoming.length === 0 ? (
+          <p className="muted" style={{ fontSize: '0.9rem', margin: 0 }}>No upcoming appointments found.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {upcoming.map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
+                <div style={{ textAlign: 'center', minWidth: 45, padding: '4px', background: '#f0f0f0', borderRadius: 8 }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>{new Date(a.appointment_date).toLocaleString('default', { month: 'short' })}</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{new Date(a.appointment_date).getDate() + 1}</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{a.doctor}</div>
+                  <div className="muted" style={{ fontSize: '0.8rem' }}>{a.specialty || 'General'} • {a.appointment_time || 'TBD'}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* DIRECTORY TILES */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Link to="/app/questions" className="card" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: 4 }}>❓</div>
+          <div style={{ fontWeight: 700 }}>Questions</div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>Archive & Drafts</div>
+        </Link>
+        <Link to="/app/meds" className="card" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: 4 }}>💊</div>
+          <div style={{ fontWeight: 700 }}>Meds</div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>Current & Past</div>
+        </Link>
+        <Link to="/app/tests" className="card" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: 4 }}>🔬</div>
+          <div style={{ fontWeight: 700 }}>Lab Orders</div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>Results & Files</div>
+        </Link>
+        <Link to="/app/records" className="card" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: 4 }}>📊</div>
+          <div style={{ fontWeight: 700 }}>Health Logs</div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>Pain & MCAS</div>
+        </Link>
+      </div>
     </div>
   )
 }
