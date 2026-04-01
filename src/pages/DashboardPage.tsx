@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { addDays } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+
+type UpcomingAppt = {
+  id: string
+  doctor: string
+  specialty: string | null
+  appointment_date: string
+  appointment_time: string | null
+}
 
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [upcoming, setUpcoming] = useState<{ question: string; appointment_date: string | null; doctor: string | null }[]>([])
+  const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [open, setOpen] = useState<Record<string, boolean>>({ track: true, doctors: false })
 
   function toggle (section: string) {
@@ -17,24 +24,16 @@ export function DashboardPage () {
   useEffect(() => {
     if (!user) return
     async function load () {
-      const today = new Date()
-      const horizon = addDays(today, 2)
+      const today = new Date().toISOString().slice(0, 10)
       const { data } = await supabase
-        .from('doctor_questions')
-        .select('question, appointment_date, doctor, status')
+        .from('appointments')
+        .select('id, doctor, specialty, appointment_date, appointment_time')
         .eq('user_id', user!.id)
-        .or('status.eq.Unanswered,status.is.null')
-        .not('appointment_date', 'is', null)
-      const rows = (data ?? []).filter((q) => {
-        if (!q.appointment_date) return false
-        const d = new Date(q.appointment_date + 'T12:00:00')
-        return d >= today && d <= horizon
-      })
-      setUpcoming(rows.map((r) => ({
-        question: r.question,
-        appointment_date: r.appointment_date,
-        doctor: r.doctor,
-      })))
+        .eq('visit_logged', false)
+        .gte('appointment_date', today)
+        .order('appointment_date', { ascending: true })
+        .limit(5)
+      setUpcoming((data ?? []) as UpcomingAppt[])
     }
     load()
   }, [user])
@@ -48,9 +47,12 @@ export function DashboardPage () {
         <div className="banner info">
           <strong>Upcoming appointments</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-            {upcoming.map((u, i) => (
-              <li key={i} className="muted">
-                {u.appointment_date}{u.doctor ? ` · ${u.doctor}` : ''} — {u.question}
+            {upcoming.map((u) => (
+              <li key={u.id} className="muted">
+                {u.appointment_date}
+                {u.appointment_time ? ` · ${u.appointment_time}` : ''}
+                {` · ${u.doctor}`}
+                {u.specialty ? ` (${u.specialty})` : ''}
               </li>
             ))}
           </ul>

@@ -1,5 +1,3 @@
-// Left/Right aware pain area parsing
-
 export type PainSide = 'left' | 'right' | 'both'
 
 export type PainAreaSelection = {
@@ -7,28 +5,18 @@ export type PainAreaSelection = {
   side: PainSide
 }
 
-const PAIN_AREAS = [
+export const PAIN_AREA_LIST = [
   'Knee', 'Hip', 'Shoulder', 'Ankle', 'Foot', 'Hand', 'Wrist',
   'Elbow', 'Arm', 'Thigh', 'Calf', 'Shin', 'Eye', 'Ear',
 ]
 
-const BILATERAL_AREAS = new Set(PAIN_AREAS)
-
-export const PAIN_AREA_LIST = PAIN_AREAS
-
-export function isBilateral (area: string) {
-  return BILATERAL_AREAS.has(area)
-}
-
-const MIDLINE_AREAS = [
+export const MIDLINE_AREA_LIST = [
   'Back', 'Neck', 'Head', 'Chest', 'Abdomen', 'Jaw', 'Spine',
 ]
 
-export const MIDLINE_AREA_LIST = MIDLINE_AREAS
-
 export function painSelectionsToString (selections: PainAreaSelection[]): string {
   return selections.map((s) => {
-    if (MIDLINE_AREAS.includes(s.area)) return s.area
+    if (MIDLINE_AREA_LIST.includes(s.area)) return s.area
     if (s.side === 'both') return `Left & Right ${s.area}`
     return `${s.side === 'left' ? 'Left' : 'Right'} ${s.area}`
   }).join(', ')
@@ -36,21 +24,7 @@ export function painSelectionsToString (selections: PainAreaSelection[]): string
 
 export function parsePainAreas (locationText: string): string[] {
   if (!locationText) return []
-  const parts = locationText.split(',').map((p) => p.trim()).filter(Boolean)
-  const areas: string[] = []
-  for (const part of parts) {
-    const lower = part.toLowerCase()
-    let found = false
-    for (const area of [...PAIN_AREAS, ...MIDLINE_AREAS]) {
-      if (lower.includes(area.toLowerCase())) {
-        areas.push(area)
-        found = true
-        break
-      }
-    }
-    if (!found) areas.push(part)
-  }
-  return [...new Set(areas)]
+  return locationText.split(',').map((p) => p.trim()).filter(Boolean)
 }
 
 export function titleCase (s: string) {
@@ -96,7 +70,9 @@ export function parseSideEffectTokens (sideEffectsText: string): string[] {
 export function splitQuestionsIntoRows (raw: string): string[] {
   const text = (raw ?? '').replace(/\r\n/g, '\n')
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  const cleaned = lines.map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)\s*/g, '').trim()).filter((l) => l.length > 0)
+  const cleaned = lines
+    .map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)\s*/g, '').trim())
+    .filter((l) => l.length > 0)
   if (cleaned.length <= 1) {
     const alt = splitBySeparators(raw).map((s) => s.trim()).filter((s) => s.length > 0)
     return alt.length > 0 ? alt : cleaned
