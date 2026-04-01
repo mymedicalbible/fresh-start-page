@@ -209,7 +209,6 @@ export function QuestionsArchivePage () {
       {Object.entries(grouped).map(([doctor, qs]) => {
         const isOpen = openDoctors[doctor] ?? true
         const answeredCount = qs.filter((q) => q.answer).length
-
         return (
           <div key={doctor} className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -222,7 +221,6 @@ export function QuestionsArchivePage () {
               </div>
               <span>{isOpen ? '▲' : '▼'}</span>
             </div>
-
             {isOpen && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 10 }}>
                 {qs.map((q) => (
@@ -233,28 +231,19 @@ export function QuestionsArchivePage () {
                         {q.priority ?? ''}{q.appointment_date ? ` · Appt: ${q.appointment_date}` : ''}
                       </span>
                     </div>
-                    {q.answer
-                      ? (
-                        <div style={{ marginTop: 6, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8, borderLeft: '3px solid #22c55e' }}>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#16a34a', marginBottom: 2 }}>ANSWER</div>
-                          <div style={{ fontSize: '0.9rem' }}>{q.answer}</div>
-                        </div>
-                      )
-                      : (
-                        <div style={{ marginTop: 8 }}>
-                          <textarea
-                            placeholder="Write answer here…"
-                            value={answerDraft[q.id] ?? ''}
-                            onChange={(e) => setAnswerDraft((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                            style={{ marginBottom: 6 }}
-                          />
-                          <button type="button" className="btn btn-secondary"
-                            style={{ fontSize: '0.8rem', padding: '4px 12px' }}
-                            onClick={() => saveAnswer(q)}>
-                            Save answer
-                          </button>
-                        </div>
-                      )}
+                    {q.answer ? (
+                      <div style={{ marginTop: 6, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8, borderLeft: '3px solid #22c55e' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#16a34a', marginBottom: 2 }}>ANSWER</div>
+                        <div style={{ fontSize: '0.9rem' }}>{q.answer}</div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8 }}>
+                        <textarea placeholder="Write answer here…" value={answerDraft[q.id] ?? ''} onChange={(e) => setAnswerDraft((prev) => ({ ...prev, [q.id]: e.target.value }))} style={{ marginBottom: 6 }} />
+                        <button type="button" className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 12px' }} onClick={() => saveAnswer(q)}>
+                          Save answer
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
