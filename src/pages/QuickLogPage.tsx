@@ -29,13 +29,19 @@ export function QuickLogPage () {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialTab = (searchParams.get('tab') ?? 'visit') as Screen
+  
+  // UI State
   const [screen, setScreen] = useState<Screen>(initialTab)
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [showNewDoctorPrompt, setShowNewDoctorPrompt] = useState(false)
   const [pendingDoctorName, setPendingDoctorName] = useState('')
   const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [, setDoctorMeds] = useState<MedRow[]>([])
+  
+  // New States for Fixes
+  const [isAddingNewDoctor, setIsAddingNewDoctor] = useState(false)
+  const [painStep, setPainStep] = useState(1)
+
   const defaults = useMemo(() => ({ date: todayISO(), time: nowTime() }), [])
 
   useEffect(() => {
@@ -53,7 +59,7 @@ export function QuickLogPage () {
   const isDoctorScreen = screen === 'visit' || screen === 'questions' || screen === 'diagnosis'
   const isPainScreen = screen === 'pain' || screen === 'mcas'
 
-  // ===== Doctor visit =====
+  // ===== Doctor visit State =====
   const [dv, setDv] = useState({
     visit_date: defaults.date, visit_time: defaults.time,
     doctor: '', specialty: '', reason: '', findings: '',
@@ -68,20 +74,28 @@ export function QuickLogPage () {
       .select('id, medication, dose').eq('user_id', user!.id)
       .ilike('notes', `%${doctorName}%`)
     const meds = (data ?? []) as MedRow[]
-    setDoctorMeds(meds)
     setDvMeds(meds.map((m) => ({ medication: m.medication, dose: m.dose ?? '', action: 'keep' })))
   }
 
   function handleDoctorSelect (doctorName: string) {
+    if (doctorName === '__new__') {
+      setIsAddingNewDoctor(true)
+      setDv(prev => ({ ...prev, doctor: '', specialty: '' }))
+      setDvMeds([])
+      return
+    }
+    setIsAddingNewDoctor(false)
     const doc = doctors.find((d) => d.name === doctorName)
     setDv((prev) => ({ ...prev, doctor: doctorName, specialty: doc?.specialty ?? prev.specialty }))
     if (doctorName) loadDoctorMeds(doctorName)
-    else { setDoctorMeds([]); setDvMeds([]) }
+    else { setDvMeds([]) }
   }
 
   async function saveDoctor () {
     if (!dv.doctor.trim()) { showBanner('error', 'Doctor name is required.'); return }
     setBusy(true)
+    
+    // 1. Save Visit
     const { error: visitError } = await supabase.from('doctor_visits').insert({
       user_id: user!.id, visit_date: dv.visit_date, visit_time: dv.visit_time || null,
       doctor: dv.doctor, specialty: dv.specialty || null, reason: dv.reason || null,
@@ -91,6 +105,7 @@ export function QuickLogPage () {
     })
     if (visitError) { setBusy(false); showBanner('error', visitError.message); return }
 
+    // 2. Save Tests
     const validTests = dvTests.filter((t) => t.test_name.trim())
     if (validTests.length > 0) {
       await supabase.from('tests_ordered').insert(
@@ -101,6 +116,7 @@ export function QuickLogPage () {
       )
     }
 
+    // 3. Save Appointment
     if (dv.next_appt_date) {
       await supabase.from('appointments').insert({
         user_id: user!.id, doctor: dv.doctor, specialty: dv.specialty || null,
@@ -108,6 +124,7 @@ export function QuickLogPage () {
       })
     }
 
+    // 4. Update/Remove Meds
     for (const m of dvMeds) {
       if (m.action === 'remove') {
         await supabase.from('current_medications')
@@ -115,6 +132,7 @@ export function QuickLogPage () {
       }
     }
 
+    // 5. Add New Med
     if (newMedEntry.medication.trim()) {
       await supabase.from('current_medications').upsert({
         user_id: user!.id, medication: newMedEntry.medication.trim(),
@@ -126,6 +144,7 @@ export function QuickLogPage () {
     setBusy(false)
     const { data: existing } = await supabase.from('doctors')
       .select('id').eq('user_id', user!.id).ilike('name', dv.doctor.trim()).limit(1)
+    
     if (!existing || existing.length === 0) {
       setPendingDoctorName(dv.doctor.trim())
       setShowNewDoctorPrompt(true)
@@ -135,7 +154,7 @@ export function QuickLogPage () {
     }
   }
 
-  // ===== MCAS =====
+  // ===== MCAS State & Logic =====
   const [mx, setMx] = useState({
     episode_date: defaults.date, episode_time: defaults.time,
     trigger: '', symptoms: '', onset: '', severity: '', relief_and_meds: '', notes: '',
@@ -148,19 +167,19 @@ export function QuickLogPage () {
       user_id: user!.id, episode_date: mx.episode_date, episode_time: mx.episode_time || null,
       trigger: mx.trigger, symptoms: mx.symptoms, onset: mx.onset || null,
       severity: mx.severity || null, relief: mx.relief_and_meds || null,
-      medications_taken: null, notes: mx.notes || null,
+      notes: mx.notes || null,
     })
     setBusy(false)
     if (error) showBanner('error', error.message)
     else { showBanner('success', 'MCAS episode saved.'); navigate('/app') }
   }
 
-  // ===== Pain =====
+  // ===== Pain State & Logic =====
   const [painSelections, setPainSelections] = useState<PainAreaSelection[]>([])
   const [painTypePicks, setPainTypePicks] = useState<string[]>([])
   const [pe, setPe] = useState({
     entry_date: defaults.date, entry_time: defaults.time,
-    intensity: '' as string, triggers: '', relief_and_meds: '', notes: '',
+    intensity: '5', triggers: '', relief_and_meds: '', notes: '',
   })
 
   function togglePainArea (area: string) {
@@ -181,10 +200,6 @@ export function QuickLogPage () {
     return 'L+R'
   }
 
-  function togglePainType (name: string) {
-    setPainTypePicks((prev) => prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name])
-  }
-
   async function savePain () {
     const loc = painSelectionsToString(painSelections)
     const inten = Number(pe.intensity)
@@ -198,35 +213,23 @@ export function QuickLogPage () {
       location: loc, intensity: inten,
       pain_type: painTypePicks.length > 0 ? painTypePicks.join(', ') : null,
       triggers: pe.triggers || null, relief_methods: pe.relief_and_meds || null,
-      medications_taken: null, notes: pe.notes || null,
+      notes: pe.notes || null,
     })
     setBusy(false)
     if (error) showBanner('error', error.message)
     else {
       showBanner('success', 'Pain entry saved.')
-      setPainSelections([]); setPainTypePicks([])
       navigate('/app')
     }
   }
 
-  // ===== Questions =====
+  // ===== Questions State & Logic =====
   const [qDoctor, setQDoctor] = useState('')
   const [qApptDate, setQApptDate] = useState('')
   const [questions, setQuestions] = useState([{ text: '', priority: 'Medium' as 'High' | 'Medium' | 'Low' }])
 
-  function addQuestion () { setQuestions((prev) => [...prev, { text: '', priority: 'Medium' }]) }
-  function removeQuestion (i: number) { setQuestions((prev) => prev.filter((_, idx) => idx !== i)) }
   function updateQuestion (i: number, field: 'text' | 'priority', value: string) {
     setQuestions((prev) => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
-  }
-  function moveQuestion (i: number, dir: -1 | 1) {
-    setQuestions((prev) => {
-      const next = [...prev]
-      const swap = i + dir
-      if (swap < 0 || swap >= next.length) return prev;
-      [next[i], next[swap]] = [next[swap], next[i]]
-      return next
-    })
   }
 
   async function saveQuestions () {
@@ -238,7 +241,7 @@ export function QuickLogPage () {
         user_id: user!.id, date_created: todayISO(),
         appointment_date: qApptDate || null, doctor: qDoctor || null,
         question: q.text.trim(), priority: q.priority,
-        category: null, answer: null, status: 'Unanswered',
+        status: 'Unanswered',
       }))
     )
     setBusy(false)
@@ -246,7 +249,7 @@ export function QuickLogPage () {
     else { showBanner('success', `Saved ${valid.length} question(s).`); navigate('/app') }
   }
 
-  // ===== Diagnosis =====
+  // ===== Diagnosis State & Logic =====
   const [dn, setDn] = useState({
     note_date: defaults.date, diagnoses_mentioned: '',
     diagnoses_ruled_out: '', doctor: '', notes: '',
@@ -267,6 +270,7 @@ export function QuickLogPage () {
 
   if (!user) return null
 
+  // Confirmation screen for adding new doctor to the master list
   if (showNewDoctorPrompt) {
     return (
       <div className="card">
@@ -287,49 +291,32 @@ export function QuickLogPage () {
   }
 
   return (
-    <div style={{ paddingBottom: 40 }}>
+    <div style={{ paddingBottom: 60 }}>
       {banner && <div className={`banner ${banner.type}`}>{banner.text}</div>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0 16px' }}>
         <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
       </div>
 
-      {/* DOCTOR LOG TABS — only show when on a doctor screen */}
-      {isDoctorScreen && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 10 }}>
-          {([
-            ['visit', '🏥 Visit'],
-            ['questions', '❓ Questions'],
-            ['diagnosis', '📋 Diagnosis'],
-          ] as [DoctorScreen, string][]).map(([id, label]) => (
-            <button key={id} type="button"
-              className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.85rem' }}
-              onClick={() => setScreen(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 10, overflowX: 'auto' }}>
+        {([
+          ['visit', '🏥 Visit'],
+          ['questions', '❓ Questions'],
+          ['diagnosis', '📋 Diagnosis'],
+          ['pain', '🩹 Pain'],
+          ['mcas', '🔬 MCAS'],
+        ] as [Screen, string][]).map(([id, label]) => (
+          <button key={id} type="button"
+            className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+            onClick={() => { setScreen(id); setPainStep(1); }}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {/* PAIN TABS — only show when on a pain screen */}
-      {isPainScreen && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 10 }}>
-          {([
-            ['pain', '🩹 Pain'],
-            ['mcas', '🔬 MCAS'],
-          ] as [Screen, string][]).map(([id, label]) => (
-            <button key={id} type="button"
-              className={`btn ${screen === id ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.85rem' }}
-              onClick={() => setScreen(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* DOCTOR VISIT */}
+      {/* 🏥 DOCTOR VISIT */}
       {screen === 'visit' && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Doctor visit</h3>
@@ -337,112 +324,154 @@ export function QuickLogPage () {
             <div className="form-group"><label>Date</label><input type="date" value={dv.visit_date} onChange={(e) => setDv({ ...dv, visit_date: e.target.value })} /></div>
             <div className="form-group"><label>Time</label><input type="time" value={dv.visit_time} onChange={(e) => setDv({ ...dv, visit_time: e.target.value })} /></div>
           </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Doctor</label>
+          
+          <div className="form-group">
+            <label>Doctor</label>
+            {!isAddingNewDoctor ? (
               <select value={dv.doctor} onChange={(e) => handleDoctorSelect(e.target.value)}>
                 <option value="">— Select doctor —</option>
                 {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
                 <option value="__new__">+ New doctor…</option>
               </select>
-              {dv.doctor === '__new__' && (
-                <input style={{ marginTop: 6 }} placeholder="Type doctor name"
-                  onChange={(e) => handleDoctorSelect(e.target.value)} />
-              )}
-            </div>
-            <div className="form-group">
-              <label>Specialty</label>
-              <input value={dv.specialty} onChange={(e) => setDv({ ...dv, specialty: e.target.value })} placeholder="Auto-filled from doctor list" />
-            </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input 
+                  autoFocus 
+                  placeholder="Type doctor name..." 
+                  value={dv.doctor} 
+                  onChange={(e) => setDv({ ...dv, doctor: e.target.value })} 
+                />
+                <button type="button" className="btn btn-ghost" onClick={() => setIsAddingNewDoctor(false)}>✕</button>
+              </div>
+            )}
           </div>
-          <div className="form-group"><label>Reason for visit</label><textarea value={dv.reason} onChange={(e) => setDv({ ...dv, reason: e.target.value })} /></div>
+
+          <div className="form-group">
+            <label>Specialty</label>
+            <input value={dv.specialty} onChange={(e) => setDv({ ...dv, specialty: e.target.value })} placeholder="e.g. Cardiology" />
+          </div>
+
+          <div className="form-group"><label>Reason</label><textarea value={dv.reason} onChange={(e) => setDv({ ...dv, reason: e.target.value })} /></div>
           <div className="form-group"><label>Findings</label><textarea value={dv.findings} onChange={(e) => setDv({ ...dv, findings: e.target.value })} /></div>
 
           <div className="form-group">
-            <label style={{ fontWeight: 600 }}>Tests / orders</label>
-            {dvTests.map((t, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-                <input style={{ flex: 2 }} value={t.test_name} placeholder="Test name"
-                  onChange={(e) => setDvTests((prev) => prev.map((x, idx) => idx === i ? { ...x, test_name: e.target.value } : x))} />
-                <input style={{ flex: 2 }} value={t.reason} placeholder="Reason"
-                  onChange={(e) => setDvTests((prev) => prev.map((x, idx) => idx === i ? { ...x, reason: e.target.value } : x))} />
-                {dvTests.length > 1 && (
-                  <button type="button" className="btn btn-ghost" style={{ color: 'red' }}
-                    onClick={() => setDvTests((prev) => prev.filter((_, idx) => idx !== i))}>✕</button>
-                )}
-              </div>
-            ))}
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.85rem' }}
-              onClick={() => setDvTests((prev) => [...prev, { test_name: '', reason: '' }])}>+ Add test</button>
-          </div>
-
-          <div className="form-group">
-            <label style={{ fontWeight: 600 }}>Medications from this doctor</label>
-            {dvMeds.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No medications linked to this doctor yet.</p>}
+            <label style={{ fontWeight: 600 }}>Update Medications</label>
             {dvMeds.map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '0.9rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
-                <button type="button"
-                  className={`btn ${m.action === 'remove' ? 'btn-primary' : 'btn-ghost'}`}
-                  style={{ fontSize: '0.75rem', padding: '2px 10px', color: m.action === 'remove' ? 'white' : 'red' }}
-                  onClick={() => setDvMeds((prev) => prev.map((x, idx) => idx === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.9rem', color: m.action === 'remove' ? '#ccc' : 'inherit' }}>
+                  {m.medication} {m.dose}
+                </span>
+                <button type="button" className="btn btn-ghost" style={{ color: 'red', fontSize: '0.75rem' }}
+                  onClick={() => setDvMeds(prev => prev.map((x, idx) => idx === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
                   {m.action === 'remove' ? 'Undo' : 'Remove'}
                 </button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input style={{ flex: 2 }} value={newMedEntry.medication} placeholder="Add new medication"
-                onChange={(e) => setNewMedEntry((prev) => ({ ...prev, medication: e.target.value }))} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <input style={{ flex: 2 }} value={newMedEntry.medication} placeholder="New med name"
+                onChange={(e) => setNewMedEntry({ ...newMedEntry, medication: e.target.value })} />
               <input style={{ flex: 1 }} value={newMedEntry.dose} placeholder="Dose"
-                onChange={(e) => setNewMedEntry((prev) => ({ ...prev, dose: e.target.value }))} />
+                onChange={(e) => setNewMedEntry({ ...newMedEntry, dose: e.target.value })} />
             </div>
           </div>
 
-          <div className="form-group"><label>Instructions</label><textarea value={dv.instructions} onChange={(e) => setDv({ ...dv, instructions: e.target.value })} /></div>
           <div className="form-group"><label>Notes</label><textarea value={dv.notes} onChange={(e) => setDv({ ...dv, notes: e.target.value })} /></div>
-
-          <div className="form-group">
-            <label style={{ fontWeight: 600 }}>📅 Schedule next appointment</label>
-            <div className="form-row">
-              <div className="form-group"><label>Date</label><input type="date" value={dv.next_appt_date} onChange={(e) => setDv({ ...dv, next_appt_date: e.target.value })} /></div>
-              <div className="form-group"><label>Time</label><input type="time" value={dv.next_appt_time} onChange={(e) => setDv({ ...dv, next_appt_time: e.target.value })} /></div>
-            </div>
-          </div>
-
-          <button type="button" className="btn btn-primary btn-block" onClick={saveDoctor} disabled={busy}>Save visit</button>
+          <button type="button" className="btn btn-primary btn-block" onClick={saveDoctor} disabled={busy}>Save Visit</button>
         </div>
       )}
 
-      {/* QUESTIONS */}
+      {/* 🩹 PROGRESSIVE PAIN LOG */}
+      {screen === 'pain' && (
+        <div className="card">
+          {painStep === 1 && (
+            <div>
+              <h3 style={{ textAlign: 'center' }}>How bad is the pain?</h3>
+              <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: '4rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: 20 }}>{pe.intensity}</div>
+                <input type="range" min="0" max="10" value={pe.intensity} 
+                  onChange={(e) => setPe({ ...pe, intensity: e.target.value })}
+                  style={{ width: '100%', height: '30px' }} 
+                />
+              </div>
+              <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next</button>
+            </div>
+          )}
+
+          {painStep === 2 && (
+            <div>
+              <h3>Where is it?</h3>
+              <div className="pill-grid" style={{ marginBottom: 20 }}>
+                {PAIN_AREA_LIST.map((area) => (
+                  <button key={area} type="button" className={`pill ${painSelections.some(s => s.area === area) ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}>
+                    {area} {getSideLabel(area)}
+                  </button>
+                ))}
+              </div>
+              <div className="pill-grid" style={{ borderTop: '1px solid var(--border)', paddingTop: 15 }}>
+                {MIDLINE_AREA_LIST.map((area) => (
+                  <button key={area} type="button" className={`pill ${painSelections.some(s => s.area === area) ? 'on' : ''}`}
+                    onClick={() => togglePainArea(area)}>{area}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                <button className="btn btn-secondary flex-1" onClick={() => setPainStep(1)}>Back</button>
+                <button className="btn btn-primary flex-1" onClick={() => setPainStep(3)}>Next</button>
+              </div>
+            </div>
+          )}
+
+          {painStep === 3 && (
+            <div>
+              <h3>Type & Notes</h3>
+              <div className="pill-grid" style={{ marginBottom: 15 }}>
+                {PAIN_TYPE_OPTIONS.map((t) => (
+                  <button key={t} type="button" className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`}
+                    onClick={() => setPainTypePicks(prev => prev.includes(t) ? prev.filter(p => p !== t) : [...prev, t])}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <textarea placeholder="Notes (Triggers, relief, etc.)" value={pe.notes} onChange={(e) => setPe({ ...pe, notes: e.target.value })} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                <button className="btn btn-secondary flex-1" onClick={() => setPainStep(2)}>Back</button>
+                <button className="btn btn-primary flex-1" onClick={savePain} disabled={busy}>Save Log</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 🔬 MCAS */}
+      {screen === 'mcas' && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>MCAS Episode</h3>
+          <div className="form-group"><label>Trigger</label><input value={mx.trigger} onChange={(e) => setMx({ ...mx, trigger: e.target.value })} placeholder="Food, heat, stress..." /></div>
+          <div className="form-group"><label>Symptoms</label><textarea value={mx.symptoms} onChange={(e) => setMx({ ...mx, symptoms: e.target.value })} /></div>
+          <div className="form-group">
+            <label>Severity</label>
+            <select value={mx.severity} onChange={(e) => setMx({ ...mx, severity: e.target.value })}>
+              <option value="">—</option>
+              <option>Mild</option><option>Moderate</option><option>Severe</option>
+            </select>
+          </div>
+          <button type="button" className="btn btn-primary btn-block" onClick={saveMcas} disabled={busy}>Save MCAS Log</button>
+        </div>
+      )}
+
+      {/* ❓ QUESTIONS */}
       {screen === 'questions' && (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Questions for doctor</h3>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Doctor</label>
-              <select value={qDoctor} onChange={(e) => setQDoctor(e.target.value)}>
-                <option value="">— Select doctor —</option>
-                {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Appointment date</label>
-              <input type="date" value={qApptDate} onChange={(e) => setQApptDate(e.target.value)} />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+          <h3 style={{ marginTop: 0 }}>Questions</h3>
+          <select value={qDoctor} onChange={(e) => setQDoctor(e.target.value)}>
+            <option value="">— Select doctor —</option>
+            {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </select>
+          <div style={{ marginTop: 15 }}>
             {questions.map((q, i) => (
-              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: '#fafafa' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Question {i + 1}</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px' }} onClick={() => moveQuestion(i, -1)} disabled={i === 0}>↑</button>
-                    <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px' }} onClick={() => moveQuestion(i, 1)} disabled={i === questions.length - 1}>↓</button>
-                    {questions.length > 1 && <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', color: 'red' }} onClick={() => removeQuestion(i)}>✕</button>}
-                  </div>
-                </div>
-                <textarea value={q.text} onChange={(e) => updateQuestion(i, 'text', e.target.value)} placeholder="Type your question…" style={{ marginBottom: 8 }} />
-                <select value={q.priority} onChange={(e) => updateQuestion(i, 'priority', e.target.value)}>
+              <div key={i} style={{ marginBottom: 15, padding: 10, background: '#f9f9f9', borderRadius: 8 }}>
+                <textarea value={q.text} onChange={(e) => updateQuestion(i, 'text', e.target.value)} placeholder="Type question..." />
+                <select value={q.priority} onChange={(e) => updateQuestion(i, 'priority', e.target.value as any)}>
                   <option value="High">🔴 High</option>
                   <option value="Medium">🟡 Medium</option>
                   <option value="Low">🟢 Low</option>
@@ -450,119 +479,22 @@ export function QuickLogPage () {
               </div>
             ))}
           </div>
-          <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 12 }} onClick={addQuestion}>+ Add another question</button>
-          <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 10 }} onClick={saveQuestions} disabled={busy}>
-            Save {questions.filter((q) => q.text.trim()).length} question(s)
-          </button>
+          <button type="button" className="btn btn-primary btn-block" onClick={saveQuestions} disabled={busy}>Save Questions</button>
         </div>
       )}
 
-      {/* DIAGNOSIS */}
+      {/* 📋 DIAGNOSIS */}
       {screen === 'diagnosis' && (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Diagnosis note</h3>
-          <div className="form-group"><label>Date</label><input type="date" value={dn.note_date} onChange={(e) => setDn({ ...dn, note_date: e.target.value })} /></div>
-          <div className="form-group">
-            <label>Doctor</label>
+          <h3 style={{ marginTop: 0 }}>Diagnosis Note</h3>
+          <div className="form-group"><label>Doctor</label>
             <select value={dn.doctor} onChange={(e) => setDn({ ...dn, doctor: e.target.value })}>
               <option value="">— Select doctor —</option>
               {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
             </select>
           </div>
-          <div className="form-group"><label>Diagnoses mentioned</label><textarea value={dn.diagnoses_mentioned} onChange={(e) => setDn({ ...dn, diagnoses_mentioned: e.target.value })} /></div>
-          <div className="form-group"><label>Diagnoses ruled out</label><textarea value={dn.diagnoses_ruled_out} onChange={(e) => setDn({ ...dn, diagnoses_ruled_out: e.target.value })} /></div>
-          <div className="form-group"><label>Notes</label><textarea value={dn.notes} onChange={(e) => setDn({ ...dn, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={saveDiagnosis} disabled={busy}>Save</button>
-        </div>
-      )}
-
-      {/* PAIN */}
-      {screen === 'pain' && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Pain log</h3>
-          <div className="form-row">
-            <div className="form-group"><label>Date</label><input type="date" value={pe.entry_date} onChange={(e) => setPe({ ...pe, entry_date: e.target.value })} /></div>
-            <div className="form-group"><label>Time</label><input type="time" value={pe.entry_time} onChange={(e) => setPe({ ...pe, entry_time: e.target.value })} /></div>
-          </div>
-          <div className="form-group">
-            <label>Area(s) — tap once = Left, twice = Right, three times = Both, four = deselect</label>
-            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Bilateral (left/right)</p>
-            <div className="pill-grid" style={{ marginBottom: 12 }}>
-              {PAIN_AREA_LIST.map((area) => {
-                const label = getSideLabel(area)
-                const sel = painSelections.some((s) => s.area === area)
-                return (
-                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
-                    onClick={() => togglePainArea(area)}>
-                    {area}{label ? ` (${label})` : ''}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>Midline</p>
-            <div className="pill-grid">
-              {MIDLINE_AREA_LIST.map((area) => {
-                const sel = painSelections.some((s) => s.area === area)
-                return (
-                  <button key={area} type="button" className={`pill ${sel ? 'on' : ''}`}
-                    onClick={() => togglePainArea(area)}>
-                    {area}
-                  </button>
-                )
-              })}
-            </div>
-            {painSelections.length > 0 && (
-              <div className="muted" style={{ marginTop: 10, fontSize: '0.85rem' }}>
-                Selected: {painSelectionsToString(painSelections)}
-              </div>
-            )}
-          </div>
-          <div className="form-group">
-            <label>Intensity 0–10</label>
-            <select value={pe.intensity} onChange={(e) => setPe({ ...pe, intensity: e.target.value })}>
-              <option value="">—</option>
-              {Array.from({ length: 11 }, (_, i) => i).map((n) => <option key={n} value={String(n)}>{n}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Pain type(s)</label>
-            <div className="pill-grid">
-              {PAIN_TYPE_OPTIONS.map((t) => (
-                <button key={t} type="button" className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`}
-                  onClick={() => togglePainType(t)}>{t}</button>
-              ))}
-            </div>
-          </div>
-          <div className="form-group"><label>Triggers</label><input value={pe.triggers} onChange={(e) => setPe({ ...pe, triggers: e.target.value })} placeholder="Weather, activity, stress…" /></div>
-          <div className="form-group"><label>Relief & medications taken</label><textarea value={pe.relief_and_meds} onChange={(e) => setPe({ ...pe, relief_and_meds: e.target.value })} /></div>
-          <div className="form-group"><label>Notes</label><textarea value={pe.notes} onChange={(e) => setPe({ ...pe, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={savePain} disabled={busy}>Save</button>
-        </div>
-      )}
-
-      {/* MCAS */}
-      {screen === 'mcas' && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>MCAS episode</h3>
-          <div className="form-row">
-            <div className="form-group"><label>Date</label><input type="date" value={mx.episode_date} onChange={(e) => setMx({ ...mx, episode_date: e.target.value })} /></div>
-            <div className="form-group"><label>Time</label><input type="time" value={mx.episode_time} onChange={(e) => setMx({ ...mx, episode_time: e.target.value })} /></div>
-          </div>
-          <div className="form-group"><label>Trigger</label><input value={mx.trigger} onChange={(e) => setMx({ ...mx, trigger: e.target.value })} placeholder="Food, meds, stress, weather…" /></div>
-          <div className="form-group"><label>Symptoms</label><textarea value={mx.symptoms} onChange={(e) => setMx({ ...mx, symptoms: e.target.value })} placeholder="Describe symptoms…" /></div>
-          <div className="form-row">
-            <div className="form-group"><label>Onset</label><input value={mx.onset} onChange={(e) => setMx({ ...mx, onset: e.target.value })} placeholder="How quickly?" /></div>
-            <div className="form-group">
-              <label>Severity</label>
-              <select value={mx.severity} onChange={(e) => setMx({ ...mx, severity: e.target.value })}>
-                <option value="">—</option>
-                <option>Mild</option><option>Moderate</option><option>Severe</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-group"><label>Relief & medications taken</label><textarea value={mx.relief_and_meds} onChange={(e) => setMx({ ...mx, relief_and_meds: e.target.value })} /></div>
-          <div className="form-group"><label>Notes</label><textarea value={mx.notes} onChange={(e) => setMx({ ...mx, notes: e.target.value })} /></div>
-          <button type="button" className="btn btn-primary btn-block" onClick={saveMcas} disabled={busy}>Save</button>
+          <div className="form-group"><label>Diagnoses Mentioned</label><textarea value={dn.diagnoses_mentioned} onChange={(e) => setDn({ ...dn, diagnoses_mentioned: e.target.value })} /></div>
+          <button type="button" className="btn btn-primary btn-block" onClick={saveDiagnosis} disabled={busy}>Save Note</button>
         </div>
       )}
     </div>

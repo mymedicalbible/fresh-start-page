@@ -1,6 +1,6 @@
-# Medical Tracker (Supabase + Vite + React)
+# Medical Bible Project (Supabase + Vite + React)
 
-Multi-user health diary migrated from Google Apps Script: quick logs, records lists, charts, and doctor document uploads via Supabase.
+Multi-user health diary migrated from Google Apps Script: quick logs, records, analytics, and doctor visit document uploads via Supabase.
 
 ## Prerequisites
 
@@ -48,7 +48,17 @@ Then go to **Records → Doctor visits** and upload files for a specific visit.
 
 ## Project layout
 
-- `src/pages/QuickLogPage.tsx` — visit, reaction, MCAS, pain, questions, meds, diagnosis forms
-- `src/pages/RecordsPage.tsx` — browsable history lists + document uploads
+- `src/App.tsx` — routes (login + protected app)
+- `src/pages/LoginPage.tsx` — sign-in UI
+- `src/pages/DashboardPage.tsx` — overview dashboard
+- `src/pages/QuickLogPage.tsx` — fast entry for key daily/visit data
+- `src/pages/RecordsPage.tsx` — browsable history lists + document uploads entry points
+- `src/pages/VisitsPage.tsx` — doctor visits (and associated documents)
+- `src/pages/DoctorsPage.tsx` — doctor directory
+- `src/pages/TestsOrderedPage.tsx` — tests ordered tracking
+- `src/pages/MedicationsPage.tsx` — medications tracking
+- `src/pages/QuestionsArchivePage.tsx` — questions archive
+- `src/pages/DiagnosesDirectoryPage.tsx` — diagnoses directory
 - `src/pages/AnalyticsPage.tsx` — pain/MCAS/side-effect charts (no AI)
-- `supabase/migrations/` — tables, RLS, auth trigger, Realtime publication
+- `src/lib/supabase.ts` — Supabase client bootstrap
+- `supabase/migrations/` — tables, RLS, auth trigger, Realtime publication + storage policies
