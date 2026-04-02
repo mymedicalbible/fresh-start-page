@@ -8,11 +8,6 @@ import {
   type PainAreaSelection 
 } from '../lib/parse'
 
-// Fallback if the lib import fails or is empty
-const SAFE_AREAS = (PAIN_AREA_LIST && PAIN_AREA_LIST.length > 0) 
-  ? PAIN_AREA_LIST 
-  : ['Head', 'Neck', 'Shoulder', 'Arm', 'Back', 'Hip', 'Knee', 'Foot']
-
 const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
 
 export function QuickLogPage() {
@@ -20,17 +15,18 @@ export function QuickLogPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   
-  // UI Control
   const [screen, setScreen] = useState<'visit' | 'pain' | 'mcas' | 'questions'>((searchParams.get('tab') as any) || 'visit')
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)
-  const [banner, setBanner] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
-  // Doctor State
   const [doctors, setDoctors] = useState<{id: string, name: string}[]>([])
   const [isAddingNewDoctor, setIsAddingNewDoctor] = useState(false)
 
-  // Unified Form State (Prevents input focus loss)
+  // Visit Medications State
+  const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string }[]>([])
+  const [newMed, setNewMed] = useState({ medication: '', dose: '' })
+
+  // Unified Form State
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     doctor: '',
@@ -41,7 +37,7 @@ export function QuickLogPage() {
     symptoms: '',
     mcas_severity: 'Moderate',
     question: '',
-    q_priority: 'Medium'
+    priority: 'Medium'
   })
 
   const [painSelections, setPainSelections] = useState<PainAreaSelection[]>([])
@@ -53,43 +49,33 @@ export function QuickLogPage() {
       .then(({ data }) => setDoctors(data || []))
   }, [user])
 
-  const showMsg = (type: 'success' | 'error', text: string) => {
-    setBanner({ type, text }); setTimeout(() => setBanner(null), 4000)
-  }
-
   const handleSave = async () => {
     if (!user) return
     setBusy(true)
-    let error;
-
     try {
       if (screen === 'visit') {
-        const { error: err } = await supabase.from('doctor_visits').insert({
-          user_id: user.id, visit_date: form.date, doctor: form.doctor, findings: form.findings, notes: form.notes
+        const medsString = dvMeds.map(m => `${m.medication} (${m.dose})`).join(', ')
+        await supabase.from('doctor_visits').insert({
+          user_id: user.id, visit_date: form.date, doctor: form.doctor, 
+          findings: form.findings, new_meds: medsString
         })
-        error = err
       } else if (screen === 'pain') {
-        const { error: err } = await supabase.from('pain_entries').insert({
+        await supabase.from('pain_entries').insert({
           user_id: user.id, entry_date: form.date, intensity: Number(form.intensity),
           location: painSelectionsToString(painSelections), pain_type: painTypePicks.join(', '), notes: form.notes
         })
-        error = err
       } else if (screen === 'mcas') {
-        const { error: err } = await supabase.from('mcas_episodes').insert({
+        await supabase.from('mcas_episodes').insert({
           user_id: user.id, episode_date: form.date, trigger: form.trigger, symptoms: form.symptoms, severity: form.mcas_severity
         })
-        error = err
       } else if (screen === 'questions') {
-        const { error: err } = await supabase.from('doctor_questions').insert({
-          user_id: user.id, date_created: form.date, doctor: form.doctor, question: form.question, priority: form.q_priority, status: 'Unanswered'
+        await supabase.from('doctor_questions').insert({
+          user_id: user.id, date_created: form.date, doctor: form.doctor, question: form.question, priority: form.priority, status: 'Unanswered'
         })
-        error = err
       }
-
-      if (error) throw error
       navigate('/app')
     } catch (e: any) {
-      showMsg('error', e.message)
+      alert(e.message)
     } finally {
       setBusy(false)
     }
@@ -98,25 +84,23 @@ export function QuickLogPage() {
   if (!user) return null
 
   return (
-    <div className="page-container" style={{ padding: '16px', maxWidth: '500px', margin: '0 auto', paddingBottom: '100px' }}>
-      {banner && <div className={`banner ${banner.type}`} style={{ position: 'fixed', top: 10, left: 10, right: 10, zIndex: 1000 }}>{banner.text}</div>}
-
+    <div style={{ padding: '16px', maxWidth: '500px', margin: '0 auto', minHeight: '100vh' }}>
       <button className="btn btn-ghost" onClick={() => navigate('/app')} style={{ marginBottom: 15 }}>← Back</button>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, overflowX: 'auto' }}>
+      {/* Main Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 25, overflowX: 'auto' }}>
         {['visit', 'pain', 'mcas', 'questions'].map(t => (
           <button key={t} onClick={() => { setScreen(t as any); setPainStep(1); }}
-            className={`btn ${screen === t ? 'btn-primary' : 'btn-secondary'}`} style={{ flexShrink: 0 }}>
+            className={`btn ${screen === t ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1, fontSize: '0.75rem' }}>
             {t.toUpperCase()}
           </button>
         ))}
       </div>
 
-      {/* VISIT SCREEN */}
+      {/* VISIT CARD */}
       {screen === 'visit' && (
-        <div className="card fade-in">
-          <h3>🏥 Doctor Visit</h3>
+        <div className="card shadow" style={{ borderRadius: '16px', padding: '20px' }}>
+          <h3 style={{ marginTop: 0 }}>🏥 Doctor Visit</h3>
           <div className="form-group">
             <label>Doctor</label>
             {!isAddingNewDoctor ? (
@@ -126,32 +110,53 @@ export function QuickLogPage() {
                 <option value="NEW">+ New Doctor...</option>
               </select>
             ) : (
-              <div style={{ display: 'flex', gap: 5 }}>
-                <input autoFocus placeholder="Name..." value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})} />
-                <button className="btn btn-ghost" onClick={() => { setIsAddingNewDoctor(false); setForm({...form, doctor: ''}); }}>✕</button>
-              </div>
+              <input autoFocus placeholder="Name..." value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})} />
             )}
           </div>
-          <textarea placeholder="Findings..." value={form.findings} onChange={e => setForm({...form, findings: e.target.value})} rows={4} style={{ marginTop: '10px' }} />
-          <button className="btn btn-primary btn-block" style={{ marginTop: 15 }} onClick={handleSave} disabled={busy || !form.doctor}>Save Visit</button>
+          
+          <label>Findings</label>
+          <textarea value={form.findings} onChange={e => setForm({...form, findings: e.target.value})} rows={3} style={{ marginBottom: '15px' }} />
+
+          <div style={{ background: '#f9f9f9', padding: '12px', borderRadius: '12px', marginBottom: '15px' }}>
+            <label style={{ fontWeight: 'bold', fontSize: '0.8rem' }}>NEW MEDICATIONS</label>
+            <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
+              <input placeholder="Med" value={newMed.medication} onChange={e => setNewMed({...newMed, medication: e.target.value})} />
+              <input placeholder="Dose" style={{ width: '80px' }} value={newMed.dose} onChange={e => setNewMed({...newMed, dose: e.target.value})} />
+              <button className="btn btn-secondary" onClick={() => {
+                if(newMed.medication) { setDvMeds([...dvMeds, newMed]); setNewMed({medication:'', dose:''}); }
+              }}>Add</button>
+            </div>
+            {dvMeds.map((m, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.9rem' }}>
+                <span>{m.medication} {m.dose}</span>
+                <button onClick={() => setDvMeds(dvMeds.filter((_, idx) => idx !== i))} style={{ color: 'red', border: 'none', background: 'none' }}>✕</button>
+              </div>
+            ))}
+          </div>
+
+          <button className="btn btn-primary btn-block" onClick={handleSave} disabled={busy}>Save Visit</button>
         </div>
       )}
 
-      {/* PAIN SCREEN */}
+      {/* PROGRESSIVE PAIN LOG CARDS */}
       {screen === 'pain' && (
-        <div className="card fade-in">
+        <div style={{ position: 'relative', height: '400px' }}>
+          {/* STEP 1: INTENSITY */}
           {painStep === 1 && (
-            <div style={{ textAlign: 'center' }}>
-              <h1 style={{ fontSize: '4rem', color: 'var(--primary)', margin: '15px 0' }}>{form.intensity}</h1>
-              <input type="range" min="0" max="10" value={form.intensity} onChange={e => setForm({...form, intensity: e.target.value})} style={{ width: '100%', height: '40px' }} />
-              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => setPainStep(2)}>Next: Location</button>
+            <div className="card shadow fade-in" style={{ borderRadius: '20px', textAlign: 'center', padding: '30px' }}>
+              <p className="muted">HOW BAD IS IT?</p>
+              <h1 style={{ fontSize: '5rem', margin: '20px 0', color: 'var(--primary)' }}>{form.intensity}</h1>
+              <input type="range" min="0" max="10" value={form.intensity} onChange={e => setForm({...form, intensity: e.target.value})} style={{ width: '100%', marginBottom: '30px' }} />
+              <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next →</button>
             </div>
           )}
+
+          {/* STEP 2: LOCATION */}
           {painStep === 2 && (
-            <div>
-              <h3>Where is it?</h3>
-              <div className="pill-grid">
-                {SAFE_AREAS.map(a => {
+            <div className="card shadow fade-in" style={{ borderRadius: '20px', padding: '20px' }}>
+              <p className="muted">WHERE DOES IT HURT?</p>
+              <div className="pill-grid" style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '15px' }}>
+                {(PAIN_AREA_LIST || []).map(a => {
                   const sel = painSelections.find(s => s.area === a)
                   return (
                     <button key={a} className={`pill ${sel ? 'on' : ''}`} onClick={() => {
@@ -168,28 +173,39 @@ export function QuickLogPage() {
                   )
                 })}
               </div>
-              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => setPainStep(3)}>Next: Details</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary flex-1" onClick={() => setPainStep(1)}>Back</button>
+                <button className="btn btn-primary flex-1" onClick={() => setPainStep(3)}>Next →</button>
+              </div>
             </div>
           )}
+
+          {/* STEP 3: TYPE */}
           {painStep === 3 && (
-            <div>
-              <div className="pill-grid" style={{ marginBottom: 15 }}>
+            <div className="card shadow fade-in" style={{ borderRadius: '20px', padding: '20px' }}>
+              <p className="muted">DESCRIBE THE PAIN</p>
+              <div className="pill-grid" style={{ marginBottom: '15px' }}>
                 {PAIN_TYPES.map(t => (
-                  <button key={t} className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`} onClick={() => setPainTypePicks(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])}>{t}</button>
+                  <button key={t} className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`} onClick={() => setPainTypePicks(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])}>
+                    {t}
+                  </button>
                 ))}
               </div>
-              <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} />
-              <button className="btn btn-primary btn-block" style={{ marginTop: 15 }} onClick={handleSave} disabled={busy}>Save Pain Log</button>
+              <textarea placeholder="Any notes or triggers?" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginBottom: '15px' }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary flex-1" onClick={() => setPainStep(2)}>Back</button>
+                <button className="btn btn-primary flex-1" onClick={handleSave} disabled={busy}>Finish ✓</button>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* MCAS SCREEN */}
+      {/* MCAS CARD */}
       {screen === 'mcas' && (
-        <div className="card fade-in">
+        <div className="card shadow" style={{ borderRadius: '16px', padding: '20px' }}>
           <h3>🔬 MCAS Log</h3>
-          <div className="form-group"><label>Trigger</label><input value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} placeholder="Food, heat, stress..." /></div>
+          <div className="form-group"><label>Trigger</label><input value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} placeholder="What caused it?" /></div>
           <div className="form-group"><label>Symptoms</label><textarea value={form.symptoms} onChange={e => setForm({...form, symptoms: e.target.value})} rows={3} /></div>
           <div className="form-group">
             <label>Severity</label>
@@ -197,23 +213,22 @@ export function QuickLogPage() {
               <option>Mild</option><option>Moderate</option><option>Severe</option>
             </select>
           </div>
-          <button className="btn btn-primary btn-block" style={{ marginTop: 15 }} onClick={handleSave} disabled={busy || !form.trigger}>Save Episode</button>
+          <button className="btn btn-primary btn-block" onClick={handleSave} disabled={busy}>Save Episode</button>
         </div>
       )}
 
-      {/* QUESTIONS SCREEN */}
+      {/* QUESTIONS CARD */}
       {screen === 'questions' && (
-        <div className="card fade-in">
-          <h3>❓ Ask a Doctor</h3>
+        <div className="card shadow" style={{ borderRadius: '16px', padding: '20px' }}>
+          <h3>❓ Quick Question</h3>
           <div className="form-group">
-            <label>For Doctor</label>
-            <select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>
-              <option value="">General / Any</option>
-              {doctors.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+            <label>Priority</label>
+            <select value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}>
+              <option>Low</option><option>Medium</option><option>High</option>
             </select>
           </div>
-          <textarea placeholder="Your question..." value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={5} />
-          <button className="btn btn-primary btn-block" style={{ marginTop: 15 }} onClick={handleSave} disabled={busy || !form.question}>Save Question</button>
+          <textarea placeholder="What do you need to ask?" value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={5} />
+          <button className="btn btn-primary btn-block" style={{ marginTop: 15 }} onClick={handleSave} disabled={busy}>Save Question</button>
         </div>
       )}
     </div>
