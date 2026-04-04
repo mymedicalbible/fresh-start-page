@@ -72,14 +72,14 @@ export function AnalyticsPage () {
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState<DayRange>('120')
   const [popup, setPopup] = useState<HourPopup>(null)
-  const [dataLoading, setDataLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [expandPainAreas, setExpandPainAreas] = useState(false)
   const [expandMcasTrig, setExpandMcasTrig] = useState(false)
 
 
   useEffect(() => {
     if (!user) return
-    setDataLoading(true)
+    setLoading(true)
     void (async () => {
       try {
         const since = range === 'all'
@@ -105,7 +105,7 @@ export function AnalyticsPage () {
         setPain((p.data ?? []) as PainRow[])
         setMcas((m.data ?? []) as McasRow[])
       } catch (e: any) { setError(e?.message ?? String(e)) }
-      finally { setDataLoading(false) }
+      finally { setLoading(false) }
     })()
   }, [user, range])
 
@@ -249,7 +249,7 @@ export function AnalyticsPage () {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
           <h2 style={{ margin: 0 }}>Charts & trends</h2>
         </div>
         <div className="form-group" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -266,17 +266,16 @@ export function AnalyticsPage () {
       </div>
 
 
-      {/* TOP PAIN AREAS */}
+      {/* TOP PAIN AREAS — collapsed shows top 3 */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ margin: 0 }}>Top pain areas</h2>
-          {areaStats.length > 3 && (
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.78rem' }} onClick={() => setExpandPainAreas((v) => !v)}>
-              {expandPainAreas ? 'Show less' : `+ ${areaStats.length - 3} more`}
-            </button>
-          )}
-        </div>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Left and right tracked separately.</p>
+        <button type="button" onClick={() => setExpandPainAreas((v) => !v)}
+          style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+          <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span>Top pain areas</span>
+            <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandPainAreas ? '▲' : '▼'}</span>
+          </h2>
+        </button>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>Left and right tracked separately. {expandPainAreas ? 'Showing all.' : 'Showing top 3 — expand for full list.'}</p>
         {areaStats.length === 0 ? <p className="muted">No pain data yet.</p> : null}
         <div style={{ display: 'grid', gap: 10 }}>
           {(expandPainAreas ? areaStats : areaStats.slice(0, 3)).map((a) => (
@@ -291,19 +290,23 @@ export function AnalyticsPage () {
             </div>
           ))}
         </div>
+        {!expandPainAreas && areaStats.length > 3 && (
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }} onClick={() => setExpandPainAreas(true)}>
+            Show all ({areaStats.length})
+          </button>
+        )}
       </div>
 
 
-      {/* MCAS TRIGGERS */}
+      {/* MCAS TRIGGERS — collapsed shows top 3 */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ margin: 0 }}>MCAS most common triggers</h2>
-          {mcasTopTriggers.length > 3 && (
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.78rem' }} onClick={() => setExpandMcasTrig((v) => !v)}>
-              {expandMcasTrig ? 'Show less' : `+ ${mcasTopTriggers.length - 3} more`}
-            </button>
-          )}
-        </div>
+        <button type="button" onClick={() => setExpandMcasTrig((v) => !v)}
+          style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+          <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span>MCAS most common triggers</span>
+            <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandMcasTrig ? '▲' : '▼'}</span>
+          </h2>
+        </button>
         {mcasTopTriggers.length === 0 ? <p className="muted">No MCAS episodes yet.</p> : null}
         <div style={{ display: 'grid', gap: 10 }}>
           {(expandMcasTrig ? mcasTopTriggers : mcasTopTriggers.slice(0, 3)).map((a) => (
@@ -318,6 +321,11 @@ export function AnalyticsPage () {
             </div>
           ))}
         </div>
+        {!expandMcasTrig && mcasTopTriggers.length > 3 && (
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }} onClick={() => setExpandMcasTrig(true)}>
+            Show all ({mcasTopTriggers.length})
+          </button>
+        )}
       </div>
 
 
@@ -325,9 +333,7 @@ export function AnalyticsPage () {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Pain by time of day</h2>
         <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
-        {dataLoading ? (
-          <p className="muted" style={{ marginTop: 10 }}>Loading…</p>
-        ) : painByHour.every((h) => h.count === 0)
+        {loading ? <p className="muted">Loading…</p> : painByHour.every((h) => h.count === 0)
           ? <p className="muted">No timed pain entries yet.</p>
           : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
@@ -358,9 +364,7 @@ export function AnalyticsPage () {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>MCAS episodes by time of day</h2>
         <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
-        {dataLoading ? (
-          <p className="muted" style={{ marginTop: 10 }}>Loading…</p>
-        ) : mcasByHour.every((h) => h.count === 0)
+        {loading ? <p className="muted">Loading…</p> : mcasByHour.every((h) => h.count === 0)
           ? <p className="muted">No timed MCAS entries yet.</p>
           : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>

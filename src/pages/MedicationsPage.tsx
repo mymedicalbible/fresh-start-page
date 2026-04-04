@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+
 type MedRow = {
   id: string
   medication: string
@@ -14,6 +15,7 @@ type MedRow = {
   side_effects: string | null
   notes: string | null
 }
+
 
 type ArchivedMed = {
   id: string
@@ -28,7 +30,9 @@ type ArchivedMed = {
   notes: string | null
 }
 
+
 type Doctor = { id: string; name: string }
+
 
 function emptyMed () {
   return {
@@ -38,7 +42,9 @@ function emptyMed () {
   }
 }
 
+
 function todayISO () { return new Date().toISOString().slice(0, 10) }
+
 
 export function MedicationsPage () {
   const { user } = useAuth()
@@ -55,16 +61,19 @@ export function MedicationsPage () {
   const [busy, setBusy] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
 
+
   // Delete popup — separate state for reason dropdown and extra notes
   const [deleteTarget, setDeleteTarget] = useState<MedRow | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
   const [deleteNotes, setDeleteNotes] = useState('')
+
 
   // Effect logging
   const [effectForm, setEffectForm] = useState<Record<string, {
     positive: string; side_effects: string; severity: string; score: string; notes: string
   }>>({})
   const [showEffectId, setShowEffectId] = useState<string | null>(null)
+
 
   useEffect(() => {
     if (!user) return
@@ -73,6 +82,7 @@ export function MedicationsPage () {
     supabase.from('doctors').select('id, name').eq('user_id', user.id).order('name')
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
+
 
   async function load () {
     if (!user) return
@@ -83,6 +93,7 @@ export function MedicationsPage () {
     else setRows((data ?? []) as MedRow[])
   }
 
+
   async function loadArchived () {
     if (!user) return
     const { data, error: e } = await supabase
@@ -92,12 +103,14 @@ export function MedicationsPage () {
     else setArchived((data ?? []) as ArchivedMed[])
   }
 
+
   async function saveMed () {
     if (!addForm.medication.trim()) { setError('Medication name is required.'); return }
     setBusy(true)
     const notesVal = addForm.prescribed_by
       ? `Prescribed by: ${addForm.prescribed_by}`
       : (editingId ? rows.find((r) => r.id === editingId)?.notes ?? null : null)
+
 
     if (editingId) {
       const { error: e } = await supabase.from('current_medications').update({
@@ -137,6 +150,7 @@ export function MedicationsPage () {
     load()
   }
 
+
   function startEdit (med: MedRow) {
     const prescribedBy = med.notes?.startsWith('Prescribed by:')
       ? med.notes.replace('Prescribed by: ', '').trim()
@@ -157,6 +171,7 @@ export function MedicationsPage () {
     setExpandedId(null)
   }
 
+
   async function confirmDelete () {
     if (!deleteTarget) return
     if (!deleteReason) { setError('Please select a reason.'); return }
@@ -167,6 +182,7 @@ export function MedicationsPage () {
     const fullReason = deleteNotes.trim()
       ? `${deleteReason} — ${deleteNotes.trim()}`
       : deleteReason
+
 
     const { error: archiveErr } = await supabase.from('medications_archive').insert({
       user_id: user!.id,
@@ -181,7 +197,9 @@ export function MedicationsPage () {
       notes: deleteTarget.notes,
     })
 
+
     if (archiveErr) { setError(archiveErr.message); setBusy(false); return }
+
 
     await supabase.from('current_medications').delete().eq('id', deleteTarget.id)
     setBusy(false)
@@ -193,6 +211,7 @@ export function MedicationsPage () {
     load()
     loadArchived()
   }
+
 
   async function saveEffect (med: MedRow) {
     const ef = effectForm[med.id]
@@ -212,8 +231,8 @@ export function MedicationsPage () {
       ].filter(Boolean).join('\n') || null,
     })
     if (e) {
-      setBusy(false)
       setError(e.message)
+      setBusy(false)
       return
     }
     setBusy(false)
@@ -222,7 +241,9 @@ export function MedicationsPage () {
     setTimeout(() => setBanner(null), 4000)
   }
 
+
   if (!user) return null
+
 
   return (
     <div style={{ paddingBottom: 40 }}>
@@ -233,6 +254,7 @@ export function MedicationsPage () {
         </div>
       )}
       {banner && <div className="banner success">{banner}</div>}
+
 
       {/* DELETE POPUP */}
       {deleteTarget && (
@@ -297,10 +319,11 @@ export function MedicationsPage () {
         </div>
       )}
 
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
             <h2 style={{ margin: 0 }}>Medications</h2>
           </div>
           <button
@@ -316,6 +339,7 @@ export function MedicationsPage () {
           </button>
         </div>
       </div>
+
 
       {/* ADD / EDIT FORM */}
       {showAddForm && (
@@ -380,11 +404,13 @@ export function MedicationsPage () {
         </div>
       )}
 
+
       {rows.length === 0 && !showAddForm && (
         <div className="card">
           <p className="muted">No medications yet. Tap "+ Add medication" to get started.</p>
         </div>
       )}
+
 
       {/* CURRENT MEDICATIONS */}
       {rows.map((med) => {
@@ -394,6 +420,7 @@ export function MedicationsPage () {
         const prescribedBy = med.notes?.startsWith('Prescribed by:')
           ? med.notes.replace('Prescribed by: ', '').trim()
           : null
+
 
         return (
           <div key={med.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -414,6 +441,7 @@ export function MedicationsPage () {
               <span>{isOpen ? '▲' : '▼'}</span>
             </div>
 
+
             {isOpen && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
                 {med.effectiveness && (
@@ -425,6 +453,7 @@ export function MedicationsPage () {
                 {med.start_date && (
                   <div className="muted" style={{ fontSize: '0.85rem' }}>Started: {med.start_date}</div>
                 )}
+
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-secondary" style={{ fontSize: '0.8rem' }}
@@ -442,6 +471,7 @@ export function MedicationsPage () {
                     🗑️ Remove
                   </button>
                 </div>
+
 
                 {showEffect && (
                   <div style={{ marginTop: 8, display: 'grid', gap: 10, background: '#f9f9f9', borderRadius: 10, padding: 12 }}>
@@ -504,6 +534,7 @@ export function MedicationsPage () {
         )
       })}
 
+
       {/* MEDICATION ARCHIVE */}
       <div style={{ marginTop: 24 }}>
         <button
@@ -515,6 +546,7 @@ export function MedicationsPage () {
           <span style={{ fontWeight: 600 }}>📦 Medication archive ({archived.length})</span>
           <span>{showArchive ? '▲' : '▼'}</span>
         </button>
+
 
         {showArchive && (
           <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>

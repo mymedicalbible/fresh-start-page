@@ -1,18 +1,22 @@
 export type PainSide = 'left' | 'right' | 'both'
 
+
 export type PainAreaSelection = {
   area: string
   side: PainSide
 }
+
 
 export const PAIN_AREA_LIST = [
   'Knee', 'Hip', 'Shoulder', 'Ankle', 'Foot', 'Hand', 'Wrist',
   'Elbow', 'Arm', 'Thigh', 'Calf', 'Shin', 'Eye', 'Ear',
 ]
 
+
 export const MIDLINE_AREA_LIST = [
   'Back', 'Neck', 'Head', 'Chest', 'Abdomen', 'Jaw', 'Spine',
 ]
+
 
 /**
  * Converts selections to a database-friendly string.
@@ -26,6 +30,7 @@ export function painSelectionsToString(selections: PainAreaSelection[]): string 
   }).join(', ')
 }
 
+
 /**
  * Helper to capitalize words properly
  */
@@ -34,6 +39,7 @@ export function titleCase(s: string) {
   if (!trimmed) return ''
   return trimmed.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase())
 }
+
 
 /**
  * Splits text by common separators (newlines, commas, bullets, etc.)
@@ -46,11 +52,13 @@ function splitBySeparators(text: string) {
     .filter(Boolean)
 }
 
+
 function normalizeToken(tok: string) {
   const t = tok.trim()
   if (!t) return ''
   return titleCase(t)
 }
+
 
 /**
  * MCAS Trigger Parsing
@@ -59,7 +67,7 @@ function normalizeToken(tok: string) {
 export function parseTriggerTokens(triggerText: string | null): string[] {
   if (!triggerText) return []
   const tokens = splitBySeparators(triggerText)
-  
+ 
   const mapped = tokens.map((t) => {
     const lt = t.toLowerCase()
     if (lt.includes('food') || lt.includes('meal')) return 'Food'
@@ -71,8 +79,10 @@ export function parseTriggerTokens(triggerText: string | null): string[] {
     return normalizeToken(t)
   })
 
+
   return [...new Set(mapped)].filter(Boolean)
 }
+
 
 /**
  * Side Effect Parsing
@@ -82,16 +92,18 @@ export function parseSideEffectTokens(sideEffectsText: string): string[] {
   return [...new Set(tokens.map((t) => normalizeToken(t)).filter(Boolean))]
 }
 
+
 /**
  * Splits lists of questions or tests into clean individual rows
  */
 export function splitQuestionsIntoRows(raw: string): string[] {
   const text = (raw ?? '').replace(/\r\n/g, '\n')
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  
+ 
   const cleaned = lines
     .map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)\s*/g, '').trim())
     .filter((l) => l.length > 0)
+
 
   if (cleaned.length <= 1) {
     const alt = splitBySeparators(raw).map((s) => s.trim()).filter((s) => s.length > 0)
@@ -100,9 +112,11 @@ export function splitQuestionsIntoRows(raw: string): string[] {
   return cleaned
 }
 
+
 export function splitTestsIntoItems(raw: string): string[] {
   const tokens = (raw ?? '').replace(/\r\n/g, '\n').split('\n')
     .map((l) => l.replace(/^(\d+[\).]\s+|[-•]\s+)/g, '').trim()).filter(Boolean)
+
 
   if (tokens.length <= 1) {
     return splitBySeparators(raw).map((t) => normalizeToken(t)).filter(Boolean)

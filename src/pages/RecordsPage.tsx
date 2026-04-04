@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+
 type Tab = 'pain' | 'mcas'
+
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -12,11 +14,13 @@ type PainRow = {
   relief_methods: string | null; notes: string | null
 }
 
+
 type McasRow = {
   id: string; episode_date: string; episode_time: string | null
   trigger: string; symptoms: string; severity: string | null
   relief: string | null; notes: string | null
 }
+
 
 export function RecordsPage () {
   const { user } = useAuth()
@@ -26,6 +30,7 @@ export function RecordsPage () {
   const [pain, setPain] = useState<PainRow[]>([])
   const [mcas, setMcas] = useState<McasRow[]>([])
   const [error, setError] = useState<string | null>(null)
+
 
   useEffect(() => {
     if (!user) return
@@ -43,6 +48,7 @@ export function RecordsPage () {
     load().catch((e) => setError(String(e)))
   }, [user])
 
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
     if (!term) return { pain, mcas }
@@ -53,17 +59,21 @@ export function RecordsPage () {
     }
   }, [q, pain, mcas])
 
+
   if (!user) return null
+
 
   return (
     <div>
       {error && <div className="banner error">{error}</div>}
 
+
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
-          <h2 style={{ margin: 0 }}>Records</h2>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+          <h2 style={{ margin: 0 }}>Pain & MCAS summary</h2>
         </div>
+
 
         <div className="tabs">
           {([['pain', 'Pain'], ['mcas', 'MCAS']] as [Tab, string][]).map(([id, label]) => (
@@ -75,11 +85,13 @@ export function RecordsPage () {
           ))}
         </div>
 
+
         <div className="form-group" style={{ marginBottom: 6, marginTop: 10 }}>
           <label>Search</label>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" />
         </div>
       </div>
+
 
       {/* PAIN */}
       {tab === 'pain' && (
@@ -102,6 +114,7 @@ export function RecordsPage () {
           ))}
         </div>
       )}
+
 
       {/* MCAS */}
       {tab === 'mcas' && (

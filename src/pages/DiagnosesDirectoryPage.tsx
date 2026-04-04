@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+
 type DiagnosisRow = {
   id: string
   diagnosis: string
@@ -12,12 +13,15 @@ type DiagnosisRow = {
   notes: string | null
 }
 
+
 type Doctor = { id: string; name: string }
-type StatusFilter = 'Active' | 'Archived' | 'All'
+type StatusFilter = 'Active' | 'Closed' | 'All'
+
 
 const QUICK_ADD_CHIPS = [
   'MCAS', 'POTS', 'EDS', 'Fibromyalgia', 'Lupus', 'Hashimoto\'s',
 ]
+
 
 const DIAGNOSIS_SUGGESTIONS = [
   'MCAS', 'POTS', 'EDS (Ehlers-Danlos Syndrome)', 'Fibromyalgia',
@@ -39,6 +43,7 @@ const DIAGNOSIS_SUGGESTIONS = [
   'Anxiety Disorder', 'Depression', 'PTSD', 'ADHD', 'Autism Spectrum',
 ]
 
+
 const STATUS_OPTIONS = [
   { value: 'Suspected', label: '🟡 Suspected', color: '#fef3c7', text: '#92400e' },
   { value: 'Confirmed', label: '🟢 Confirmed', color: '#d1fae5', text: '#065f46' },
@@ -46,7 +51,9 @@ const STATUS_OPTIONS = [
   { value: 'Resolved', label: '⚪ Resolved', color: '#f3f4f6', text: '#374151' },
 ]
 
+
 function todayISO () { return new Date().toISOString().slice(0, 10) }
+
 
 export function DiagnosesDirectoryPage () {
   const { user } = useAuth()
@@ -66,12 +73,14 @@ export function DiagnosesDirectoryPage () {
   })
   const [editingId, setEditingId] = useState<string | null>(null)
 
+
   useEffect(() => {
     if (!user) return
     load()
     supabase.from('doctors').select('id, name').eq('user_id', user.id).order('name')
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
+
 
   async function load () {
     const { data, error: e } = await supabase
@@ -81,6 +90,7 @@ export function DiagnosesDirectoryPage () {
     if (e) setError(e.message)
     else setRows((data ?? []) as DiagnosisRow[])
   }
+
 
   function handleSearchChange (text: string) {
     setSearchText(text)
@@ -95,17 +105,20 @@ export function DiagnosesDirectoryPage () {
     }
   }
 
+
   function selectSuggestion (s: string) {
     setForm((prev) => ({ ...prev, diagnosis: s }))
     setSearchText(s)
     setSuggestions([])
   }
 
+
   function quickAdd (name: string) {
     setForm({ diagnosis: name, doctor: '', date_diagnosed: todayISO(), status: 'Suspected', notes: '' })
     setSearchText(name)
     setShowForm(true)
   }
+
 
   async function saveDiagnosis () {
     if (!form.diagnosis.trim()) { setError('Diagnosis name is required.'); return }
@@ -134,10 +147,12 @@ export function DiagnosesDirectoryPage () {
     load()
   }
 
+
   async function updateStatus (id: string, status: string) {
     await supabase.from('diagnoses_directory').update({ status }).eq('id', id)
     load()
   }
+
 
   function startEdit (row: DiagnosisRow) {
     setEditingId(row.id)
@@ -150,13 +165,18 @@ export function DiagnosesDirectoryPage () {
     setShowForm(true)
   }
 
-  const norm = (s: string) => s.trim().toLowerCase()
+
+  function normStatus (s: string) {
+    return s.trim().toLowerCase().replace(/\s+/g, ' ')
+  }
+
   const filtered = rows.filter((r) => {
-    const st = norm(r.status)
-    if (statusFilter === 'Active') return st === 'suspected' || st === 'confirmed'
-    if (statusFilter === 'Archived') return st === 'ruled out' || st === 'resolved'
+    const s = normStatus(r.status ?? '')
+    if (statusFilter === 'Active') return s === 'suspected' || s === 'confirmed'
+    if (statusFilter === 'Closed') return s === 'ruled out' || s === 'resolved'
     return true
   })
+
 
   const grouped = filtered.reduce<Record<string, DiagnosisRow[]>>((acc, r) => {
     const key = r.doctor ?? 'No doctor assigned'
@@ -165,18 +185,22 @@ export function DiagnosesDirectoryPage () {
     return acc
   }, {})
 
+
   const statusStyle = (status: string) => {
-    const s = STATUS_OPTIONS.find((x) => norm(x.value) === norm(status))
+    const s = STATUS_OPTIONS.find((x) => x.value === status)
     return s ? { background: s.color, color: s.text } : {}
   }
 
+
   if (!user) return null
+
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
+
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -186,6 +210,7 @@ export function DiagnosesDirectoryPage () {
             {showForm && !editingId ? 'Cancel' : '+ Add diagnosis'}
           </button>
         </div>
+
 
         {/* QUICK ADD CHIPS */}
         {!showForm && (
@@ -202,18 +227,28 @@ export function DiagnosesDirectoryPage () {
           </div>
         )}
 
+
         {/* STATUS FILTER */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-          <button type="button" className={`btn ${statusFilter === 'Active' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('Active')}>Active</button>
-          <button type="button" className={`btn ${statusFilter === 'Archived' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('Archived')} title="Resolved and ruled-out diagnoses">Resolved / ruled out</button>
-          <button type="button" className={`btn ${statusFilter === 'All' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('All')}>All</button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {(['Active', 'Closed', 'All'] as StatusFilter[]).map((f) => (
+            <button key={f} type="button"
+              className={`btn ${statusFilter === f ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.85rem' }}
+              onClick={() => setStatusFilter(f)}
+              title={f === 'Closed' ? 'Ruled out or resolved' : undefined}>
+              {f}
+            </button>
+          ))}
+          <span className="muted" style={{ fontSize: '0.75rem' }}>Closed = ruled out or resolved</span>
         </div>
       </div>
+
 
       {/* ADD / EDIT FORM */}
       {showForm && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>{editingId ? 'Edit diagnosis' : 'Add diagnosis'}</h3>
+
 
           <div className="form-group" style={{ position: 'relative' }}>
             <label>Diagnosis name</label>
@@ -239,6 +274,7 @@ export function DiagnosesDirectoryPage () {
             )}
           </div>
 
+
           <div className="form-group">
             <label>Status</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -257,6 +293,7 @@ export function DiagnosesDirectoryPage () {
             </div>
           </div>
 
+
           <div className="form-row">
             <div className="form-group">
               <label>Doctor (optional)</label>
@@ -272,12 +309,14 @@ export function DiagnosesDirectoryPage () {
             </div>
           </div>
 
+
           <div className="form-group">
             <label>Notes (optional)</label>
             <textarea value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Any context, symptoms, or details…" />
           </div>
+
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="btn btn-primary" onClick={saveDiagnosis} disabled={busy}>Save</button>
@@ -287,14 +326,16 @@ export function DiagnosesDirectoryPage () {
         </div>
       )}
 
+
       {/* GROUPED LIST */}
       {Object.keys(grouped).length === 0 && (
         <div className="card">
           <p className="muted">
-            {statusFilter === 'Active' ? 'No active diagnoses yet. Use the quick add chips above!' : 'No archived diagnoses.'}
+            {statusFilter === 'Active' ? 'No active diagnoses yet. Use the quick add chips above!' : statusFilter === 'Closed' ? 'No closed diagnoses yet.' : 'No diagnoses yet.'}
           </p>
         </div>
       )}
+
 
       {Object.entries(grouped).map(([doctor, diagList]) => {
         const isOpen = openDoctors[doctor] ?? true
@@ -309,6 +350,7 @@ export function DiagnosesDirectoryPage () {
               <span>{isOpen ? '▲' : '▼'}</span>
             </div>
 
+
             {isOpen && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 10 }}>
                 {diagList.map((r) => (
@@ -321,6 +363,7 @@ export function DiagnosesDirectoryPage () {
                     </div>
                     {r.date_diagnosed && <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Diagnosed: {r.date_diagnosed}</div>}
                     {r.notes && <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>{r.notes}</div>}
+
 
                     <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                       <button type="button" className="btn btn-ghost" style={{ fontSize: '0.75rem', padding: '2px 8px' }}

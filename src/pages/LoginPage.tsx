@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
+
 export function LoginPage () {
   const { user, loading, signIn, signUp } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -12,6 +13,7 @@ export function LoginPage () {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+
   if (loading) {
     return (
       <div className="login-wrap muted">
@@ -20,7 +22,9 @@ export function LoginPage () {
     )
   }
 
-  if (user) return <Navigate to="/dashboard" replace />
+
+  if (user) return <Navigate to="/app" replace />
+
 
   async function onSubmit (e: React.FormEvent) {
     e.preventDefault()
@@ -48,6 +52,7 @@ export function LoginPage () {
     }
   }
 
+
   return (
     <div className="login-wrap">
       <div className="login-card card">
@@ -56,6 +61,7 @@ export function LoginPage () {
           <h2 style={{ margin: '8px 0 4px' }}>Medical Tracker</h2>
           <p className="muted" style={{ margin: 0 }}>Quick logs → organized history (multi-user)</p>
         </div>
+
 
         <div className="tabs" style={{ marginBottom: 16 }}>
           <button
@@ -74,8 +80,10 @@ export function LoginPage () {
           </button>
         </div>
 
+
         {error && <div className="banner error">{error}</div>}
         {info && <div className="banner success">{info}</div>}
+
 
         <form onSubmit={onSubmit}>
           {mode === 'register' && (
@@ -116,6 +124,7 @@ export function LoginPage () {
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
         </form>
+
 
         <p className="muted" style={{ marginTop: 16, fontSize: '0.8rem' }}>
           Health data is stored under your account in Supabase. Use a strong password and enable RLS as deployed in the included migration.

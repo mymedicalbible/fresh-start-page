@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+
 type TestRow = {
   id: string
   test_date: string
@@ -14,9 +15,12 @@ type TestRow = {
   notes: string | null
 }
 
+
 type Doctor = { id: string; name: string; specialty: string | null }
 
+
 function todayISO () { return new Date().toISOString().slice(0, 10) }
+
 
 export function TestsOrderedPage () {
   const { user } = useAuth()
@@ -37,17 +41,20 @@ export function TestsOrderedPage () {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+
   useEffect(() => {
     if (!user) return
     loadTests()
     loadDoctors()
   }, [user])
 
+
   async function loadDoctors () {
     const { data } = await supabase.from('doctors').select('id, name, specialty')
       .eq('user_id', user!.id).order('name')
     setDoctors((data ?? []) as Doctor[])
   }
+
 
   async function loadTests () {
     const { data, error: e } = await supabase.from('tests_ordered')
@@ -57,10 +64,12 @@ export function TestsOrderedPage () {
     else setTests((data ?? []) as TestRow[])
   }
 
+
   async function saveTests () {
     const valid = testEntries.filter((t) => t.test_name.trim())
     if (valid.length === 0) { setError('Enter at least one test name.'); return }
     setBusy(true)
+
 
     const insertedIds: string[] = []
     for (const t of valid) {
@@ -74,6 +83,7 @@ export function TestsOrderedPage () {
       if (e) { setError(e.message); setBusy(false); return }
       if (data?.id) insertedIds.push(data.id)
     }
+
 
     if (pendingFiles.length > 0 && insertedIds.length > 0) {
       const testId = insertedIds[0]
@@ -89,6 +99,7 @@ export function TestsOrderedPage () {
       }
     }
 
+
     setBusy(false)
     setBanner(`${valid.length} test(s) saved!`)
     setShowForm(false)
@@ -100,12 +111,14 @@ export function TestsOrderedPage () {
     loadTests()
   }
 
+
   async function updateStatus (id: string, status: string) {
     const { error: e } = await supabase.from('tests_ordered')
       .update({ status }).eq('id', id).eq('user_id', user!.id)
     if (e) { setError(e.message); return }
     setTests((prev) => prev.map((t) => t.id === id ? { ...t, status } : t))
   }
+
 
   async function loadDocs (testId: string) {
     if (!user) return
@@ -130,6 +143,7 @@ export function TestsOrderedPage () {
     setDocMap((prev) => ({ ...prev, [testId]: signed }))
   }
 
+
   async function uploadDoc (testId: string, file: File) {
     if (!user) return
     setUploadingId(testId)
@@ -152,19 +166,23 @@ export function TestsOrderedPage () {
     }
   }
 
+
   const filtered = tests.filter((t) =>
     view === 'current'
       ? t.status !== 'Archived'
       : t.status === 'Archived'
   )
 
+
   if (!user) return null
+
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
+
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -183,6 +201,7 @@ export function TestsOrderedPage () {
             onClick={() => setView('archived')}>Archived</button>
         </div>
       </div>
+
 
       {showForm && (
         <div className="card">
@@ -205,6 +224,7 @@ export function TestsOrderedPage () {
             </div>
           </div>
 
+
           <label style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>Tests / orders</label>
           {testEntries.map((t, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
@@ -223,6 +243,7 @@ export function TestsOrderedPage () {
             onClick={() => setTestEntries((prev) => [...prev, { test_name: '', reason: '' }])}>
             + Add another test
           </button>
+
 
           <div className="form-group">
             <label style={{ fontWeight: 600 }}>Attach documents / photos (optional)</label>
@@ -249,17 +270,20 @@ export function TestsOrderedPage () {
             )}
           </div>
 
+
           <button type="button" className="btn btn-primary btn-block" onClick={saveTests} disabled={busy}>
             Save orders
           </button>
         </div>
       )}
 
+
       {filtered.length === 0 && (
         <div className="card">
           <p className="muted">{view === 'current' ? 'No current orders.' : 'No archived orders.'}</p>
         </div>
       )}
+
 
       {filtered.map((t) => {
         const isOpen = expandedId === t.id
@@ -269,6 +293,7 @@ export function TestsOrderedPage () {
           : t.status === 'Archived'
             ? { background: '#e5e7eb', color: '#6b7280' }
             : { background: '#fef3c7', color: '#92400e' }
+
 
         return (
           <div key={t.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -290,11 +315,13 @@ export function TestsOrderedPage () {
               <span>{isOpen ? '▲' : '▼'}</span>
             </div>
 
+
             {isOpen && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 10 }}>
                 {t.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {t.reason}</div>}
                 {t.results && <div className="muted" style={{ fontSize: '0.85rem' }}>Results: {t.results}</div>}
                 {t.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {t.notes}</div>}
+
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {t.status === 'Pending' && (
@@ -310,6 +337,7 @@ export function TestsOrderedPage () {
                       onClick={() => updateStatus(t.id, 'Pending')}>Restore</button>
                   )}
                 </div>
+
 
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>Documents / photos</div>
