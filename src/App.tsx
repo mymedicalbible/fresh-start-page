@@ -3,9 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/AppLayout'
 import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { QuickLogPage } from './pages/QuickLogPage'
-import { AnalyticsPage } from './pages/AnalyticsPage'
+import DashboardPage from "./pages/DashboardPage";
+import QuickLogPage from "./pages/QuickLogPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import { MedicationsPage } from './pages/MedicationsPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { DoctorsPage } from './pages/DoctorsPage'
