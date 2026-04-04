@@ -1,52 +1,110 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react'
+import { format, subDays } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { parseTriggerTokens } from '../lib/parse'
 
-interface CollapsibleGridProps {
-  title: string;
-  data: { [key: string]: any, count: number }[];
-  labelKey: string;
-}
+// Re-inserting your types
+type PainRow = { id: string; entry_date: string; entry_time: string | null; location: string | null; intensity: number | null }
+type McasRow = { id: string; episode_date: string; episode_time: string | null; trigger: string; severity: string | null }
+type DayRange = '7' | '30' | '60' | '90' | '120' | 'all'
 
-// Helper component
-export const CollapsibleGrid: React.FC<CollapsibleGridProps> = ({ title, data, labelKey }) => {
-  const [expanded, setExpanded] = useState(false);
-  const visibleItems = expanded ? data : data.slice(0, 3);
-
-  return (
-    <div className="bg-white p-6 rounded-[32px] shadow-sm mb-6 border border-slate-50">
-      <h3 className="font-bold text-slate-800 mb-4">{title}</h3>
-      <div className="space-y-3">
-        {visibleItems.map((item: any, idx: number) => (
-          <div key={idx} className="flex justify-between items-center text-sm">
-            <span className="text-slate-600 font-medium">{item[labelKey]}</span>
-            <span className="font-bold text-slate-900 bg-slate-50 px-3 py-1 rounded-full text-[10px] border border-slate-100">
-              {item.count} LOGS
-            </span>
-          </div>
-        ))}
-      </div>
-      {data.length > 3 && (
-        <button 
-          onClick={() => setExpanded(!expanded)}
-          className="w-full mt-4 text-[10px] font-black text-indigo-500 uppercase tracking-widest pt-3 border-t border-slate-50"
-        >
-          {expanded ? "Collapse List" : `+ View ${data.length - 3} More Triggers`}
-        </button>
-      )}
-    </div>
-  );
-};
-
-// Main Page component
 const AnalyticsPage = () => {
+  const { user } = useAuth()
+  const [range, setRange] = useState<DayRange>('30')
+  const [painData, setPainData] = useState<PainRow[]>([])
+  const [mcasData, setMcasData] = useState<McasRow[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  // NEW: Collapsible States
+  const [expandPain, setExpandPain] = useState(false)
+  const [expandMcas, setExpandMcas] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    const fetchData = async () => {
+      setLoading(true)
+      const { data: p } = await supabase.from('pain_entries').select('*').eq('user_id', user.id)
+      const { data: m } = await supabase.from('mcas_entries').select('*').eq('user_id', user.id)
+      setPainData(p || [])
+      setMcasData(m || [])
+      setLoading(false)
+    }
+    fetchData()
+  }, [user, range])
+
+  // Logic for Top Spikes
+  const areaStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    painData.forEach(r => { if(r.location) counts[r.location] = (counts[r.location] || 0) + 1 })
+    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a,b) => b.count - a.count)
+  }, [painData])
+
+  const triggerStats = useMemo(() => {
+    const counts: Record<string, number> = {}
+    mcasData.forEach(r => {
+      const tokens = parseTriggerTokens(r.trigger)
+      tokens.forEach(t => { counts[t] = (counts[t] || 0) + 1 })
+    })
+    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a,b) => b.count - a.count)
+  }, [mcasData])
+
+  if (loading) return <div className="p-8 text-center animate-pulse">Loading Trends...</div>
+
   return (
     <div className="p-4 bg-slate-50 min-h-screen pb-24">
-       <h1 className="text-2xl font-bold mb-6 px-2">Trends & Spikes</h1>
-       {/* You will place your data-fetching logic and CollapsibleGrids here */}
-       <div className="bg-white p-8 rounded-[2rem] text-center text-slate-400 italic">
-          Analytics data loading...
-       </div>
-    </div>
-  );
-};
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Analytics</h1>
+        <select value={range} onChange={(e) => setRange(e.target.value as DayRange)} className="bg-white border-none rounded-xl text-sm font-bold p-2 shadow-sm">
+          <option value="7">7 Days</option>
+          <option value="30">30 Days</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
 
-export default AnalyticsPage;
+      {/* HEATMAP PLACEHOLDER (Your existing D3/Chart logic goes here) */}
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm mb-6 h-48 flex items-center justify-center text-slate-300 italic">
+        Heatmap View (Interactive)
+      </div>
+
+      {/* COLLAPSIBLE PAIN AREAS */}
+      <section className="bg-white p-6 rounded-[2.5rem] shadow-sm mb-4">
+        <h3 className="font-bold text-slate-800 mb-4">Pain Hotspots</h3>
+        <div className="space-y-3">
+          {(expandPain ? areaStats : areaStats.slice(0, 3)).map(item => (
+            <div key={item.label} className="flex justify-between items-center">
+              <span className="text-sm text-slate-600">{item.label}</span>
+              <span className="bg-slate-50 px-3 py-1 rounded-full text-xs font-bold">{item.count} logs</span>
+            </div>
+          ))}
+        </div>
+        {areaStats.length > 3 && (
+          <button onClick={() => setExpandPain(!expandPain)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+            {expandPain ? "Show Less" : `+ View ${areaStats.length - 3} More`}
+          </button>
+        )}
+      </section>
+
+      {/* COLLAPSIBLE MCAS TRIGGERS */}
+      <section className="bg-white p-6 rounded-[2.5rem] shadow-sm">
+        <h3 className="font-bold text-slate-800 mb-4">Top Triggers</h3>
+        <div className="space-y-3">
+          {(expandMcas ? triggerStats : triggerStats.slice(0, 3)).map(item => (
+            <div key={item.label} className="flex justify-between items-center">
+              <span className="text-sm text-slate-600">{item.label}</span>
+              <span className="bg-slate-50 px-3 py-1 rounded-full text-xs font-bold">{item.count} logs</span>
+            </div>
+          ))}
+        </div>
+        {triggerStats.length > 3 && (
+          <button onClick={() => setExpandMcas(!expandMcas)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+            {expandMcas ? "Show Less" : `+ View ${triggerStats.length - 3} More`}
+          </button>
+        )}
+      </section>
+    </div>
+  )
+}
+
+export default AnalyticsPage
