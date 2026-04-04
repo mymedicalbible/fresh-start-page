@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import DashboardPage from './pages/DashboardPage'
 import QuickLogPage from './pages/QuickLogPage'
-import AnalyticsPage from './pages/AnalyticsPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { VisitsPage } from './pages/VisitsPage'
 import { DoctorsPage } from './pages/DoctorsPage'
 import { MedicationsPage } from './pages/MedicationsPage'

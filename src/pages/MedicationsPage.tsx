@@ -211,8 +211,12 @@ export function MedicationsPage () {
         ef.notes,
       ].filter(Boolean).join('\n') || null,
     })
+    if (e) {
+      setBusy(false)
+      setError(e.message)
+      return
+    }
     setBusy(false)
-    if (e) { setError(e.message); return }
     setBanner('Effects logged!')
     setShowEffectId(null)
     setTimeout(() => setBanner(null), 4000)

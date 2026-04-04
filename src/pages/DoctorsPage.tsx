@@ -63,14 +63,9 @@ export function DoctorsPage () {
   const [diagDirMap, setDiagDirMap] = useState<Record<string, DiagDirRow[]>>({})
   const [medMap, setMedMap] = useState<Record<string, MedRow[]>>({})
   const [testMap, setTestMap] = useState<Record<string, TestRow[]>>({})
-  const [inlineVisit, setInlineVisit] = useState<Record<string, boolean>>({})
   const [inlineQuestion, setInlineQuestion] = useState<Record<string, boolean>>({})
   const [inlineDiagnosis, setInlineDiagnosis] = useState<Record<string, boolean>>({})
   const [inlineMed, setInlineMed] = useState<Record<string, boolean>>({})
-  const [visitForm, setVisitForm] = useState<Record<string, any>>({})
-  const [visitTests, setVisitTests] = useState<Record<string, { test_name: string; reason: string }[]>>({})
-  const [visitMeds, setVisitMeds] = useState<Record<string, { medication: string; dose: string; action: 'keep' | 'remove' }[]>>({})
-  const [newMedEntry, setNewMedEntry] = useState<Record<string, { medication: string; dose: string }>>({})
   const [questionForms, setQuestionForms] = useState<Record<string, { text: string; priority: string }[]>>({})
   const [diagnosisForm, setDiagnosisForm] = useState<Record<string, any>>({})
   const [medForm, setMedForm] = useState<Record<string, any>>({})
@@ -152,7 +147,7 @@ export function DoctorsPage () {
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
         .order('created_at', { ascending: false }),
       supabase.from('current_medications').select('id, medication, dose, frequency, purpose')
-        .eq('user_id', user!.id).ilike('notes', `%${doctorName}%`).limit(20),
+        .eq('user_id', user!.id).ilike('notes', `Prescribed by: ${doctorName}%`).limit(20),
       supabase.from('tests_ordered').select('id, test_date, test_name, status')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
         .order('test_date', { ascending: false }).limit(20),
@@ -163,71 +158,11 @@ export function DoctorsPage () {
     setDiagDirMap((prev) => ({ ...prev, [docId]: (dd.data ?? []) as DiagDirRow[] }))
     setMedMap((prev) => ({ ...prev, [docId]: (m.data ?? []) as MedRow[] }))
     setTestMap((prev) => ({ ...prev, [docId]: (t.data ?? []) as TestRow[] }))
-    const meds = (m.data ?? []) as MedRow[]
-    setVisitMeds((prev) => ({
-      ...prev,
-      [docId]: meds.map((med) => ({ medication: med.medication, dose: med.dose ?? '', action: 'keep' as const })),
-    }))
   }
 
   async function toggleDoctor (doc: Doctor) {
     if (expandedId === doc.id) { setExpandedId(null); return }
     setExpandedId(doc.id)
-    await loadDoctorTree(doc.id, doc.name)
-  }
-
-  async function saveInlineVisit (doc: Doctor) {
-    const vf = visitForm[doc.id] ?? {}
-    if (!vf.visit_date) { setError('Date is required.'); return }
-    const tests = (visitTests[doc.id] ?? [{ test_name: '', reason: '' }]).filter((t) => t.test_name.trim())
-    const meds = visitMeds[doc.id] ?? []
-    const nm = newMedEntry[doc.id] ?? { medication: '', dose: '' }
-    setBusy(true)
-    const { error: ve } = await supabase.from('doctor_visits').insert({
-      user_id: user!.id, visit_date: vf.visit_date, visit_time: vf.visit_time || null,
-      doctor: doc.name, specialty: doc.specialty || null,
-      reason: vf.reason || null, findings: vf.findings || null,
-      tests_ordered: tests.map((t) => t.test_name).join(', ') || null,
-      instructions: vf.instructions || null,
-      follow_up: vf.next_appt_date || null, notes: vf.notes || null,
-    })
-    if (ve) { setError(ve.message); setBusy(false); return }
-    if (tests.length > 0) {
-      await supabase.from('tests_ordered').insert(
-        tests.map((t) => ({
-          user_id: user!.id, test_date: vf.visit_date,
-          doctor: doc.name, test_name: t.test_name,
-          reason: t.reason || null, status: 'Pending',
-        }))
-      )
-    }
-    if (vf.next_appt_date) {
-      await supabase.from('appointments').insert({
-        user_id: user!.id, doctor: doc.name,
-        specialty: doc.specialty || null,
-        appointment_date: vf.next_appt_date,
-        appointment_time: vf.next_appt_time || null,
-      })
-    }
-    for (const m of meds) {
-      if (m.action === 'remove') {
-        await supabase.from('current_medications')
-          .delete().eq('user_id', user!.id).eq('medication', m.medication)
-      }
-    }
-    if (nm.medication.trim()) {
-      await supabase.from('current_medications').upsert({
-        user_id: user!.id, medication: nm.medication.trim(),
-        dose: nm.dose || null,
-        notes: `Prescribed by: ${doc.name}`,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,medication' })
-    }
-    setBusy(false)
-    setInlineVisit((prev) => ({ ...prev, [doc.id]: false }))
-    setVisitForm((prev) => ({ ...prev, [doc.id]: {} }))
-    setVisitTests((prev) => ({ ...prev, [doc.id]: [{ test_name: '', reason: '' }] }))
-    setNewMedEntry((prev) => ({ ...prev, [doc.id]: { medication: '', dose: '' } }))
     await loadDoctorTree(doc.id, doc.name)
   }
 
@@ -388,13 +323,9 @@ export function DoctorsPage () {
         const diagDir = diagDirMap[doc.id] ?? []
         const meds = medMap[doc.id] ?? []
         const tests = testMap[doc.id] ?? []
-        const vf = visitForm[doc.id] ?? {}
         const df = diagnosisForm[doc.id] ?? {}
         const mf = medForm[doc.id] ?? {}
         const qs = questionForms[doc.id] ?? [{ text: '', priority: 'Medium' }]
-        const dvTests = visitTests[doc.id] ?? [{ test_name: '', reason: '' }]
-        const dvMeds = visitMeds[doc.id] ?? []
-        const nm = newMedEntry[doc.id] ?? { medication: '', dose: '' }
 
         return (
           <div key={doc.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -450,68 +381,15 @@ export function DoctorsPage () {
                     </button>
                     <button type="button" className="btn btn-secondary"
                       style={{ fontSize: '0.78rem', padding: '3px 10px' }}
-                      onClick={() => setInlineVisit((prev) => ({ ...prev, [doc.id]: !inlineVisit[doc.id] }))}>
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const sp = new URLSearchParams({ tab: 'visit', doctor: doc.name })
+                        if (doc.specialty) sp.set('specialty', doc.specialty)
+                        navigate(`/log?${sp.toString()}`)
+                      }}>
                       + Log visit
                     </button>
                   </div>
-
-                  {inlineVisit[doc.id] && (
-                    <div style={{ padding: '0 16px 12px' }}>
-                      <div style={{ background: '#f9f9f9', borderRadius: 10, padding: 12, display: 'grid', gap: 8 }}>
-                        <div className="form-row">
-                          <div className="form-group"><label>Date</label><input type="date" value={vf.visit_date ?? todayISO()} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, visit_date: e.target.value } }))} /></div>
-                          <div className="form-group"><label>Time</label><input type="time" value={vf.visit_time ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, visit_time: e.target.value } }))} /></div>
-                        </div>
-                        <div className="form-group"><label>Reason</label><textarea value={vf.reason ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, reason: e.target.value } }))} /></div>
-                        <div className="form-group"><label>Findings</label><textarea value={vf.findings ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, findings: e.target.value } }))} /></div>
-                        <div className="form-group">
-                          <label>Tests / orders</label>
-                          {dvTests.map((t, i) => (
-                            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                              <input style={{ flex: 2 }} value={t.test_name} placeholder="Test name"
-                                onChange={(e) => setVisitTests((p) => ({ ...p, [doc.id]: dvTests.map((x, idx) => idx === i ? { ...x, test_name: e.target.value } : x) }))} />
-                              <input style={{ flex: 2 }} value={t.reason} placeholder="Reason"
-                                onChange={(e) => setVisitTests((p) => ({ ...p, [doc.id]: dvTests.map((x, idx) => idx === i ? { ...x, reason: e.target.value } : x) }))} />
-                              {dvTests.length > 1 && (
-                                <button type="button" className="btn btn-ghost" style={{ color: 'red' }}
-                                  onClick={() => setVisitTests((p) => ({ ...p, [doc.id]: dvTests.filter((_, idx) => idx !== i) }))}>✕</button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }}
-                            onClick={() => setVisitTests((p) => ({ ...p, [doc.id]: [...dvTests, { test_name: '', reason: '' }] }))}>+ Add test</button>
-                        </div>
-                        <div className="form-group">
-                          <label>Medications</label>
-                          {dvMeds.map((m, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                              <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
-                              <button type="button" className="btn btn-ghost"
-                                style={{ fontSize: '0.75rem', color: m.action === 'remove' ? 'red' : '#888' }}
-                                onClick={() => setVisitMeds((p) => ({ ...p, [doc.id]: dvMeds.map((x, idx) => idx === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x) }))}>
-                                {m.action === 'remove' ? 'Undo' : 'Remove'}
-                              </button>
-                            </div>
-                          ))}
-                          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                            <input style={{ flex: 2 }} value={nm.medication} placeholder="Add medication"
-                              onChange={(e) => setNewMedEntry((p) => ({ ...p, [doc.id]: { ...nm, medication: e.target.value } }))} />
-                            <input style={{ flex: 1 }} value={nm.dose} placeholder="Dose"
-                              onChange={(e) => setNewMedEntry((p) => ({ ...p, [doc.id]: { ...nm, dose: e.target.value } }))} />
-                          </div>
-                        </div>
-                        <div className="form-group"><label>Notes</label><textarea value={vf.notes ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, notes: e.target.value } }))} /></div>
-                        <div className="form-group">
-                          <label>Next appointment</label>
-                          <div className="form-row">
-                            <div className="form-group"><input type="date" value={vf.next_appt_date ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, next_appt_date: e.target.value } }))} /></div>
-                            <div className="form-group"><input type="time" value={vf.next_appt_time ?? ''} onChange={(e) => setVisitForm((p) => ({ ...p, [doc.id]: { ...vf, next_appt_time: e.target.value } }))} /></div>
-                          </div>
-                        </div>
-                        <button type="button" className="btn btn-primary btn-block" onClick={() => saveInlineVisit(doc)} disabled={busy}>Save visit</button>
-                      </div>
-                    </div>
-                  )}
 
                   {sections.visits && (
                     <div style={{ padding: '0 16px 12px', display: 'grid', gap: 8 }}>

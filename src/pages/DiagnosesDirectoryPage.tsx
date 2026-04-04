@@ -150,9 +150,11 @@ export function DiagnosesDirectoryPage () {
     setShowForm(true)
   }
 
+  const norm = (s: string) => s.trim().toLowerCase()
   const filtered = rows.filter((r) => {
-    if (statusFilter === 'Active') return r.status === 'Suspected' || r.status === 'Confirmed'
-    if (statusFilter === 'Archived') return r.status === 'Ruled Out' || r.status === 'Resolved'
+    const st = norm(r.status)
+    if (statusFilter === 'Active') return st === 'suspected' || st === 'confirmed'
+    if (statusFilter === 'Archived') return st === 'ruled out' || st === 'resolved'
     return true
   })
 
@@ -164,7 +166,7 @@ export function DiagnosesDirectoryPage () {
   }, {})
 
   const statusStyle = (status: string) => {
-    const s = STATUS_OPTIONS.find((x) => x.value === status)
+    const s = STATUS_OPTIONS.find((x) => norm(x.value) === norm(status))
     return s ? { background: s.color, color: s.text } : {}
   }
 
@@ -201,15 +203,10 @@ export function DiagnosesDirectoryPage () {
         )}
 
         {/* STATUS FILTER */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          {(['Active', 'Archived', 'All'] as StatusFilter[]).map((f) => (
-            <button key={f} type="button"
-              className={`btn ${statusFilter === f ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.85rem' }}
-              onClick={() => setStatusFilter(f)}>
-              {f}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+          <button type="button" className={`btn ${statusFilter === 'Active' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('Active')}>Active</button>
+          <button type="button" className={`btn ${statusFilter === 'Archived' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('Archived')} title="Resolved and ruled-out diagnoses">Resolved / ruled out</button>
+          <button type="button" className={`btn ${statusFilter === 'All' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.85rem' }} onClick={() => setStatusFilter('All')}>All</button>
         </div>
       </div>
 

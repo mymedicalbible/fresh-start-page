@@ -1,119 +1,336 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { VisitLogWizard } from '../components/VisitLogWizard'
+import {
+  PAIN_AREA_LIST,
+  MIDLINE_AREA_LIST,
+  painSelectionsToString,
+  parseTriggerTokens,
+  type PainAreaSelection,
+} from '../lib/parse'
 
-export default function QuickLogPage() {
+const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
+
+const TAB_LABELS: Record<string, string> = {
+  visit: 'Visit',
+  pain: 'Pain',
+  mcas: 'MCAS',
+  questions: 'Qs',
+}
+
+function tabFromParams (raw: string | null): 'visit' | 'pain' | 'mcas' | 'questions' {
+  const t = raw || 'pain'
+  if (t === 'visit' || t === 'pain' || t === 'mcas' || t === 'questions') return t
+  return 'pain'
+}
+
+export default function QuickLogPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const initialType = searchParams.get('type') || 'pain'
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [activeTab, setActiveTab] = useState(initialType)
-  const [step, setStep] = useState(1)
-  
-  // Data States
-  const [doctors, setDoctors] = useState<any[]>([])
-  const [pastReasons, setPastReasons] = useState<string[]>([])
-  
-  // Form State
-  const [visitForm, setVisitForm] = useState({
+  const tabParam = searchParams.get('tab') ?? searchParams.get('type') ?? 'pain'
+  const [screen, setScreen] = useState<'visit' | 'pain' | 'mcas' | 'questions'>(() => tabFromParams(tabParam))
+
+  const [painStep, setPainStep] = useState(1)
+  const [busy, setBusy] = useState(false)
+
+  const [suggestedTriggers, setSuggestedTriggers] = useState<string[]>([])
+
+  const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    doctor_id: '',
-    specialty: '',
-    reason: '',
-    questions: '',
-    meds: ''
+    doctor: '',
+    findings: '',
+    intensity: 5,
+    notes: '',
+    trigger: '',
+    symptoms: '',
+    mcas_severity: 'Moderate',
+    question: '',
+    priority: 'Medium',
   })
 
-  useEffect(() => {
-    const loadMetadata = async () => {
-      const { data: d } = await supabase.from('doctors').select('*')
-      const { data: v } = await supabase.from('doctor_visits').select('reason_for_visit')
-      setDoctors(d || [])
-      setPastReasons([...new Set(v?.map(i => i.reason_for_visit).filter(Boolean))] as string[])
-    }
-    loadMetadata()
-  }, [])
+  const [painSelections, setPainSelections] = useState<PainAreaSelection[]>([])
+  const [painTypePicks, setPainTypePicks] = useState<string[]>([])
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  const saveVisit = async (status: 'completed' | 'pending') => {
+  const doctorFromUrl = searchParams.get('doctor') ?? ''
+  const specialtyFromUrl = searchParams.get('specialty') ?? ''
+  const resumeVisitId = searchParams.get('resume')
+
+  useEffect(() => {
+    setScreen(tabFromParams(tabParam))
+  }, [tabParam])
+
+  useEffect(() => {
     if (!user) return
-    const { error } = await supabase.from('doctor_visits').insert([{
-      user_id: user.id,
-      visit_date: visitForm.date,
-      doctor_id: visitForm.doctor_id,
-      reason_for_visit: visitForm.reason,
-      questions: visitForm.questions,
-      medications_discussed: visitForm.meds,
-      status: status
-    }])
-    if (!error) navigate('/dashboard')
+    void (async () => {
+      const { data: mcasData } = await supabase.from('mcas_episodes')
+        .select('trigger')
+        .eq('user_id', user.id)
+        .order('episode_date', { ascending: false })
+        .limit(40)
+      if (mcasData) {
+        const allTokens = mcasData.flatMap((d) => parseTriggerTokens(d.trigger))
+        setSuggestedTriggers(Array.from(new Set(allTokens)).slice(0, 10))
+      }
+    })()
+  }, [user])
+
+  useLayoutEffect(() => {
+    if (screen !== 'pain' || painStep !== 1) return
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = form.intensity * 70
+  }, [screen, painStep, form.intensity])
+
+  const handleWheelScroll = () => {
+    if (!scrollRef.current) return
+    const index = Math.round(scrollRef.current.scrollTop / 70)
+    if (index >= 0 && index <= 10 && index !== form.intensity) {
+      setForm((prev) => ({ ...prev, intensity: index }))
+    }
+  }
+
+  const setTab = (t: 'visit' | 'pain' | 'mcas' | 'questions') => {
+    setScreen(t)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', t)
+      return next
+    })
+    setPainStep(1)
+  }
+
+  const handleSave = async () => {
+    if (!user) return
+    setBusy(true)
+    try {
+      if (screen === 'pain') {
+        const { error } = await supabase.from('pain_entries').insert({
+          user_id: user.id,
+          entry_date: form.date,
+          intensity: form.intensity,
+          location: painSelectionsToString(painSelections),
+          pain_type: painTypePicks.join(', '),
+          notes: form.notes,
+        })
+        if (error) throw error
+      } else if (screen === 'mcas') {
+        const { error } = await supabase.from('mcas_episodes').insert({
+          user_id: user.id,
+          episode_date: form.date,
+          trigger: form.trigger || '—',
+          symptoms: form.symptoms || '—',
+          severity: form.mcas_severity,
+        })
+        if (error) throw error
+      } else if (screen === 'questions') {
+        const { error } = await supabase.from('doctor_questions').insert({
+          user_id: user.id,
+          date_created: form.date,
+          doctor: form.doctor || null,
+          question: form.question,
+          priority: form.priority,
+          status: 'Unanswered',
+        })
+        if (error) throw error
+      }
+      navigate('/dashboard')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      alert(`Save failed: ${msg}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <div className="p-4 max-w-xl mx-auto pb-24">
-      {/* TAB SELECTOR */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl mb-8">
-        {['pain', 'mcas', 'visit'].map(t => (
-          <button 
+    <div style={{ padding: '16px', maxWidth: '450px', margin: '0 auto' }}>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')} style={{ marginBottom: 15 }}>
+        ← Back
+      </button>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        {(['visit', 'pain', 'mcas', 'questions'] as const).map((t) => (
+          <button
             key={t}
-            onClick={() => { setActiveTab(t); setStep(1); }}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition ${activeTab === t ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`btn ${screen === t ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ flex: 1, fontSize: '0.72rem', padding: '8px 4px', whiteSpace: 'nowrap' }}
           >
-            {t}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
 
-      {activeTab === 'visit' ? (
-        <div className="space-y-6">
-          {step === 1 && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 space-y-4">
-              <h2 className="text-xl font-bold">Visit Details</h2>
-              <input type="date" className="w-full p-4 rounded-2xl bg-white border border-slate-100" value={visitForm.date} onChange={e => setVisitForm({...visitForm, date: e.target.value})} />
-              <select className="w-full p-4 rounded-2xl bg-white border border-slate-100" value={visitForm.doctor_id} onChange={e => {
-                const d = doctors.find(doc => doc.id === e.target.value);
-                setVisitForm({...visitForm, doctor_id: e.target.value, specialty: d?.specialty || ''})
-              }}>
-                <option value="">Select Doctor</option>
-                {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <input className="w-full p-4 rounded-2xl bg-slate-50 text-slate-400 border-none" value={visitForm.specialty} placeholder="Specialty (Auto)" readOnly />
-              
-              <p className="text-[10px] font-bold text-slate-400 uppercase px-2">Frequent Reasons</p>
-              <div className="flex flex-wrap gap-2">
-                {pastReasons.slice(0, 5).map(r => (
-                  <button key={r} onClick={() => setVisitForm({...visitForm, reason: r})} className="px-3 py-1 bg-white border border-slate-100 rounded-full text-xs">{r}</button>
+      {screen === 'visit' && (
+        <VisitLogWizard
+          resumeVisitId={resumeVisitId}
+          initialDoctorName={doctorFromUrl}
+          initialSpecialty={specialtyFromUrl}
+          onDone={() => navigate('/dashboard')}
+          onCancel={() => navigate('/dashboard')}
+        />
+      )}
+
+      {screen === 'pain' && (
+        <div className="card shadow" style={{ borderRadius: '24px' }}>
+          <div style={{ padding: '8px 0 12px', textAlign: 'center' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setTab('visit')}>
+              Had a doctor visit? Log it →
+            </button>
+          </div>
+          {painStep === 1 && (
+            <div className="fade-in" style={{ textAlign: 'center' }}>
+              <p className="muted">INTENSITY</p>
+              <div style={{ position: 'relative', height: '210px', margin: '20px 0' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 70,
+                    left: 0,
+                    right: 0,
+                    height: 70,
+                    background: 'var(--primary)',
+                    opacity: 0.1,
+                    borderRadius: 12,
+                    pointerEvents: 'none',
+                  }}
+                />
+                <div
+                  ref={scrollRef}
+                  onScroll={handleWheelScroll}
+                  style={{ height: 210, overflowY: 'scroll', scrollSnapType: 'y mandatory', scrollbarWidth: 'none' }}
+                >
+                  <div style={{ height: 70 }} />
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <div
+                      key={n}
+                      style={{
+                        height: 70,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: n === form.intensity ? '3rem' : '1.5rem',
+                        fontWeight: 'bold',
+                        color: n === form.intensity ? 'var(--primary)' : '#ccc',
+                        scrollSnapAlign: 'center',
+                        transition: '0.2s',
+                      }}
+                    >
+                      {n}
+                    </div>
+                  ))}
+                  <div style={{ height: 70 }} />
+                </div>
+              </div>
+              <button type="button" className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>
+                Next →
+              </button>
+            </div>
+          )}
+          {painStep === 2 && (
+            <div className="fade-in">
+              <p className="muted">LOCATION</p>
+              <div className="pill-grid" style={{ maxHeight: 250, overflowY: 'auto' }}>
+                {[...MIDLINE_AREA_LIST, ...PAIN_AREA_LIST].map((a) => {
+                  const sel = painSelections.find((s) => s.area === a)
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      className={`pill ${sel ? 'on' : ''}`}
+                      onClick={() => {
+                        setPainSelections((prev) => {
+                          const exists = prev.find((s) => s.area === a)
+                          if (!exists) return [...prev, { area: a, side: 'left' }]
+                          if (MIDLINE_AREA_LIST.includes(a)) return prev.filter((s) => s.area !== a)
+                          if (exists.side === 'left') return prev.map((s) => (s.area === a ? { ...s, side: 'right' } : s))
+                          if (exists.side === 'right') return prev.map((s) => (s.area === a ? { ...s, side: 'both' } : s))
+                          return prev.filter((s) => s.area !== a)
+                        })
+                      }}
+                    >
+                      {a}{' '}
+                      {sel && !MIDLINE_AREA_LIST.includes(a)
+                        ? `(${sel.side === 'both' ? 'L+R' : sel.side[0].toUpperCase()})`
+                        : ''}
+                    </button>
+                  )
+                })}
+              </div>
+              <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => setPainStep(3)}>
+                Next →
+              </button>
+            </div>
+          )}
+          {painStep === 3 && (
+            <div className="fade-in">
+              <p className="muted">TYPE & NOTES</p>
+              <div className="pill-grid">
+                {PAIN_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`pill ${painTypePicks.includes(t) ? 'on' : ''}`}
+                    onClick={() => setPainTypePicks((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]))}
+                  >
+                    {t}
+                  </button>
                 ))}
               </div>
-              <input className="w-full p-4 rounded-2xl bg-white border border-slate-100" placeholder="Or type new reason..." value={visitForm.reason} onChange={e => setVisitForm({...visitForm, reason: e.target.value})} />
-              <button onClick={() => setStep(2)} className="w-full bg-indigo-600 text-white p-5 rounded-[2rem] font-bold">Next: Questions →</button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="animate-in fade-in slide-in-from-right-4 space-y-4">
-              <h2 className="text-xl font-bold">Questions for the Doctor</h2>
-              <textarea className="w-full p-6 rounded-[2rem] bg-white border border-slate-100 min-h-[250px]" placeholder="Write questions here..." value={visitForm.questions} onChange={e => setVisitForm({...visitForm, questions: e.target.value})} />
-              <button onClick={() => setStep(3)} className="w-full bg-indigo-600 text-white p-5 rounded-[2rem] font-bold">Next: Outcomes →</button>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="animate-in fade-in slide-in-from-right-4 space-y-4">
-              <h2 className="text-xl font-bold">Notes & Outcome</h2>
-              <textarea className="w-full p-6 rounded-[2rem] bg-white border border-slate-100 min-h-[200px]" placeholder="Discussed meds, tests, next steps..." value={visitForm.meds} onChange={e => setVisitForm({...visitForm, meds: e.target.value})} />
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => saveVisit('pending')} className="bg-slate-100 p-5 rounded-[2rem] font-bold">Save Pending</button>
-                <button onClick={() => saveVisit('completed')} className="bg-indigo-600 text-white p-5 rounded-[2rem] font-bold">Complete Visit</button>
-              </div>
+              <textarea
+                placeholder="Notes..."
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                rows={3}
+                style={{ marginTop: 15 }}
+              />
+              <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={handleSave} disabled={busy}>
+                Finish ✓
+              </button>
             </div>
           )}
         </div>
-      ) : (
-        <div className="text-center text-slate-400 py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-          {activeTab.toUpperCase()} Log Content Restored
-          <p className="text-[10px] mt-2 italic">Standard slider/trigger logic active...</p>
+      )}
+
+      {screen === 'mcas' && (
+        <div className="card shadow" style={{ borderRadius: '16px' }}>
+          <div style={{ padding: '8px 0 12px', textAlign: 'center' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setTab('visit')}>
+              Had a doctor visit? Log it →
+            </button>
+          </div>
+          <h3>MCAS</h3>
+          <div className="form-group">
+            <label>Trigger</label>
+            <input value={form.trigger} onChange={(e) => setForm({ ...form, trigger: e.target.value })} placeholder="What caused it?" />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+              {suggestedTriggers.map((tag) => (
+                <button key={tag} type="button" className="pill" style={{ fontSize: '0.7rem' }} onClick={() => setForm({ ...form, trigger: tag })}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea placeholder="Symptoms..." value={form.symptoms} onChange={(e) => setForm({ ...form, symptoms: e.target.value })} rows={3} />
+          <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={handleSave} disabled={busy}>
+            Save episode
+          </button>
+        </div>
+      )}
+
+      {screen === 'questions' && (
+        <div className="card shadow" style={{ borderRadius: '16px' }}>
+          <h3>Ask</h3>
+          <textarea placeholder="Question…" value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} rows={5} />
+          <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={handleSave} disabled={busy}>
+            Save question
+          </button>
         </div>
       )}
     </div>
