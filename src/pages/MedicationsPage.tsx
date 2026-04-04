@@ -296,7 +296,7 @@ export function MedicationsPage () {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+            <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
             <h2 style={{ margin: 0 }}>Medications</h2>
           </div>
           <button

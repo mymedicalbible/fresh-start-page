@@ -20,7 +20,7 @@ export function LoginPage () {
     )
   }
 
-  if (user) return <Navigate to="/app" replace />
+  if (user) return <Navigate to="/dashboard" replace />
 
   async function onSubmit (e: React.FormEvent) {
     e.preventDefault()

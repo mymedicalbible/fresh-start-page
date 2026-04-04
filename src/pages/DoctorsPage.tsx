@@ -323,7 +323,7 @@ export function DoctorsPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
 
       <div className="card">
@@ -758,7 +758,7 @@ export function DoctorsPage () {
                     </button>
                     <button type="button" className="btn btn-secondary"
                       style={{ fontSize: '0.78rem', padding: '3px 10px' }}
-                      onClick={() => navigate('/app/tests')}>
+                      onClick={() => navigate('/tests')}>
                       All tests
                     </button>
                   </div>

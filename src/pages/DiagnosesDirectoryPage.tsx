@@ -172,7 +172,7 @@ export function DiagnosesDirectoryPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 

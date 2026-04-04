@@ -199,7 +199,7 @@ export function VisitsPage () {
   if (showNewDoctorPrompt) {
     return (
       <div style={{ padding: '8px 0 40px' }}>
-        <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+        <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
         <div className="card" style={{ marginTop: 12 }}>
           <h3 style={{ marginTop: 0 }}>Add to doctors list?</h3>
           <p className="muted">
@@ -207,7 +207,7 @@ export function VisitsPage () {
           </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-primary"
-              onClick={() => navigate(`/app/doctors?prefill=${encodeURIComponent(pendingDoctorName)}`)}>
+              onClick={() => navigate(`/doctors?prefill=${encodeURIComponent(pendingDoctorName)}`)}>
               Yes, add doctor
             </button>
             <button type="button" className="btn btn-ghost"
@@ -229,7 +229,7 @@ export function VisitsPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 

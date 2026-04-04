@@ -61,7 +61,7 @@ export function RecordsPage () {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate('/dashboard')}>← Home</button>
           <h2 style={{ margin: 0 }}>Records</h2>
         </div>
 

@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { format, subDays } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
+import { subDays } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { parseTriggerTokens } from '../lib/parse'
 
-// Re-inserting your types
 type PainRow = { id: string; entry_date: string; entry_time: string | null; location: string | null; intensity: number | null }
 type McasRow = { id: string; episode_date: string; episode_time: string | null; trigger: string; severity: string | null }
-type DayRange = '7' | '30' | '60' | '90' | '120' | 'all'
+type DayRange = '7' | '30' | 'all'
 
 const AnalyticsPage = () => {
   const { user } = useAuth()
@@ -16,8 +14,7 @@ const AnalyticsPage = () => {
   const [painData, setPainData] = useState<PainRow[]>([])
   const [mcasData, setMcasData] = useState<McasRow[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // NEW: Collapsible States
+
   const [expandPain, setExpandPain] = useState(false)
   const [expandMcas, setExpandMcas] = useState(false)
 
@@ -32,23 +29,36 @@ const AnalyticsPage = () => {
       setLoading(false)
     }
     fetchData()
-  }, [user, range])
+  }, [user])
 
-  // Logic for Top Spikes
+  const filteredPain = useMemo(() => {
+    if (range === 'all') return painData
+    const days = range === '7' ? 7 : 30
+    const minDate = subDays(new Date(), days)
+    return painData.filter((r) => new Date(r.entry_date) >= minDate)
+  }, [painData, range])
+
+  const filteredMcas = useMemo(() => {
+    if (range === 'all') return mcasData
+    const days = range === '7' ? 7 : 30
+    const minDate = subDays(new Date(), days)
+    return mcasData.filter((r) => new Date(r.episode_date) >= minDate)
+  }, [mcasData, range])
+
   const areaStats = useMemo(() => {
     const counts: Record<string, number> = {}
-    painData.forEach(r => { if(r.location) counts[r.location] = (counts[r.location] || 0) + 1 })
-    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a,b) => b.count - a.count)
-  }, [painData])
+    filteredPain.forEach((r) => { if (r.location) counts[r.location] = (counts[r.location] || 0) + 1 })
+    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+  }, [filteredPain])
 
   const triggerStats = useMemo(() => {
     const counts: Record<string, number> = {}
-    mcasData.forEach(r => {
+    filteredMcas.forEach((r) => {
       const tokens = parseTriggerTokens(r.trigger)
-      tokens.forEach(t => { counts[t] = (counts[t] || 0) + 1 })
+      tokens.forEach((t) => { counts[t] = (counts[t] || 0) + 1 })
     })
-    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a,b) => b.count - a.count)
-  }, [mcasData])
+    return Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
+  }, [filteredMcas])
 
   if (loading) return <div className="p-8 text-center animate-pulse">Loading Trends...</div>
 
@@ -63,16 +73,14 @@ const AnalyticsPage = () => {
         </select>
       </div>
 
-      {/* HEATMAP PLACEHOLDER (Your existing D3/Chart logic goes here) */}
       <div className="bg-white p-4 rounded-[2rem] shadow-sm mb-6 h-48 flex items-center justify-center text-slate-300 italic">
         Heatmap View (Interactive)
       </div>
 
-      {/* COLLAPSIBLE PAIN AREAS */}
       <section className="bg-white p-6 rounded-[2.5rem] shadow-sm mb-4">
         <h3 className="font-bold text-slate-800 mb-4">Pain Hotspots</h3>
         <div className="space-y-3">
-          {(expandPain ? areaStats : areaStats.slice(0, 3)).map(item => (
+          {(expandPain ? areaStats : areaStats.slice(0, 3)).map((item) => (
             <div key={item.label} className="flex justify-between items-center">
               <span className="text-sm text-slate-600">{item.label}</span>
               <span className="bg-slate-50 px-3 py-1 rounded-full text-xs font-bold">{item.count} logs</span>
@@ -80,17 +88,16 @@ const AnalyticsPage = () => {
           ))}
         </div>
         {areaStats.length > 3 && (
-          <button onClick={() => setExpandPain(!expandPain)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
-            {expandPain ? "Show Less" : `+ View ${areaStats.length - 3} More`}
+          <button type="button" onClick={() => setExpandPain(!expandPain)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+            {expandPain ? 'Show Less' : `+ View ${areaStats.length - 3} More`}
           </button>
         )}
       </section>
 
-      {/* COLLAPSIBLE MCAS TRIGGERS */}
       <section className="bg-white p-6 rounded-[2.5rem] shadow-sm">
         <h3 className="font-bold text-slate-800 mb-4">Top Triggers</h3>
         <div className="space-y-3">
-          {(expandMcas ? triggerStats : triggerStats.slice(0, 3)).map(item => (
+          {(expandMcas ? triggerStats : triggerStats.slice(0, 3)).map((item) => (
             <div key={item.label} className="flex justify-between items-center">
               <span className="text-sm text-slate-600">{item.label}</span>
               <span className="bg-slate-50 px-3 py-1 rounded-full text-xs font-bold">{item.count} logs</span>
@@ -98,8 +105,8 @@ const AnalyticsPage = () => {
           ))}
         </div>
         {triggerStats.length > 3 && (
-          <button onClick={() => setExpandMcas(!expandMcas)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
-            {expandMcas ? "Show Less" : `+ View ${triggerStats.length - 3} More`}
+          <button type="button" onClick={() => setExpandMcas(!expandMcas)} className="w-full mt-4 pt-3 border-t text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+            {expandMcas ? 'Show Less' : `+ View ${triggerStats.length - 3} More`}
           </button>
         )}
       </section>
