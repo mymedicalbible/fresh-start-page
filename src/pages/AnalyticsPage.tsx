@@ -3,8 +3,6 @@ import { format, subDays } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { parseTriggerTokens } from '../lib/parse'
-
 
 type PainRow = {
   id: string
@@ -14,32 +12,28 @@ type PainRow = {
   intensity: number | null
 }
 
-
-type McasRow = {
+type SymptomRow = {
   id: string
   episode_date: string
   episode_time: string | null
-  trigger: string
+  activity: string | null
+  symptoms: string | null
   severity: string | null
 }
 
-
 type DayRange = '7' | '30' | '60' | '90' | '120' | 'all'
 
-
 type HourPopup = {
-  type: 'pain' | 'mcas'
+  type: 'pain' | 'symptoms'
   hour: number
   items: { label: string; sub: string }[]
   avgIntensity?: number
 } | null
 
-
 function safeNum (n: any) {
   const x = Number(n)
   return Number.isFinite(x) ? x : null
 }
-
 
 function hourFromTime (time: string | null): number | null {
   if (!time) return null
@@ -49,7 +43,6 @@ function hourFromTime (time: string | null): number | null {
   return Number.isNaN(h) ? null : h
 }
 
-
 function formatHour (h: number) {
   if (h === 0) return '12am'
   if (h < 12) return `${h}am`
@@ -57,25 +50,27 @@ function formatHour (h: number) {
   return `${h - 12}pm`
 }
 
-
 function parseLocationToAreas (location: string): string[] {
   if (!location) return []
   return location.split(',').map((p) => p.trim()).filter(Boolean)
 }
 
+function parseSymptomTokens (text: string | null): string[] {
+  if (!text) return []
+  return text.split(',').map(s => s.trim()).filter(Boolean)
+}
 
 export function AnalyticsPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [pain, setPain] = useState<PainRow[]>([])
-  const [mcas, setMcas] = useState<McasRow[]>([])
+  const [symptomEpisodes, setSymptomEpisodes] = useState<SymptomRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState<DayRange>('120')
   const [popup, setPopup] = useState<HourPopup>(null)
   const [loading, setLoading] = useState(true)
   const [expandPainAreas, setExpandPainAreas] = useState(false)
-  const [expandMcasTrig, setExpandMcasTrig] = useState(false)
-
+  const [expandSymptoms, setExpandSymptoms] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -86,30 +81,27 @@ export function AnalyticsPage () {
           ? null
           : format(subDays(new Date(), Number(range)), 'yyyy-MM-dd')
 
-
         let pq = supabase.from('pain_entries')
           .select('id, entry_date, entry_time, location, intensity')
           .eq('user_id', user.id).order('entry_date', { ascending: true })
         if (since) pq = pq.gte('entry_date', since)
 
-
-        let mq = supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, trigger, severity')
+        let sq = supabase.from('mcas_episodes')
+          .select('id, episode_date, episode_time, activity, symptoms, severity')
           .eq('user_id', user.id).order('episode_date', { ascending: true })
-        if (since) mq = mq.gte('episode_date', since)
+        if (since) sq = sq.gte('episode_date', since)
 
-
-        const [p, m] = await Promise.all([pq, mq])
+        const [p, s] = await Promise.all([pq, sq])
         if (p.error) throw new Error(p.error.message)
-        if (m.error) throw new Error(m.error.message)
+        if (s.error) throw new Error(s.error.message)
         setPain((p.data ?? []) as PainRow[])
-        setMcas((m.data ?? []) as McasRow[])
+        setSymptomEpisodes((s.data ?? []) as SymptomRow[])
       } catch (e: any) { setError(e?.message ?? String(e)) }
       finally { setLoading(false) }
     })()
   }, [user, range])
 
-
+  // Top pain areas
   const areaStats = useMemo(() => {
     const map = new Map<string, { sum: number; n: number }>()
     for (const row of pain) {
@@ -127,19 +119,20 @@ export function AnalyticsPage () {
       .sort((a, b) => b.n - a.n).slice(0, 10)
   }, [pain])
 
-
-  const mcasTopTriggers = useMemo(() => {
+  // Top symptoms by frequency (replaces MCAS triggers)
+  const topSymptoms = useMemo(() => {
     const map = new Map<string, number>()
-    for (const row of mcas) {
-      for (const t of parseTriggerTokens(row.trigger)) map.set(t, (map.get(t) ?? 0) + 1)
+    for (const row of symptomEpisodes) {
+      for (const s of parseSymptomTokens(row.symptoms)) {
+        map.set(s, (map.get(s) ?? 0) + 1)
+      }
     }
     return [...map.entries()]
-      .map(([trigger, n]) => ({ trigger, n }))
+      .map(([symptom, n]) => ({ symptom, n }))
       .sort((a, b) => b.n - a.n).slice(0, 10)
-  }, [mcas])
+  }, [symptomEpisodes])
 
-
-  // Pain by hour with entries stored
+  // Pain by hour
   const painByHour = useMemo(() => {
     const map = new Map<number, { count: number; entries: PainRow[] }>()
     for (let i = 0; i < 24; i++) map.set(i, { count: 0, entries: [] })
@@ -155,12 +148,11 @@ export function AnalyticsPage () {
     return [...map.entries()].map(([hour, data]) => ({ hour, ...data }))
   }, [pain])
 
-
-  // MCAS by hour with entries stored
-  const mcasByHour = useMemo(() => {
-    const map = new Map<number, { count: number; entries: McasRow[] }>()
+  // Symptoms by hour (replaces MCAS by hour)
+  const symptomsByHour = useMemo(() => {
+    const map = new Map<number, { count: number; entries: SymptomRow[] }>()
     for (let i = 0; i < 24; i++) map.set(i, { count: 0, entries: [] })
-    for (const row of mcas) {
+    for (const row of symptomEpisodes) {
       const h = hourFromTime(row.episode_time)
       if (h !== null) {
         const cur = map.get(h)!
@@ -170,12 +162,12 @@ export function AnalyticsPage () {
       }
     }
     return [...map.entries()].map(([hour, data]) => ({ hour, ...data }))
-  }, [mcas])
-
+  }, [symptomEpisodes])
 
   const maxPainHour = Math.max(...painByHour.map((h) => h.count), 1)
-  const maxMcasHour = Math.max(...mcasByHour.map((h) => h.count), 1)
-
+  const maxSympHour = Math.max(...symptomsByHour.map((h) => h.count), 1)
+  const hasPainHourData = painByHour.some((h) => h.count > 0)
+  const hasSympHourData = symptomsByHour.some((h) => h.count > 0)
 
   function openPainPopup (hour: number, entries: PainRow[]) {
     if (entries.length === 0) return
@@ -184,8 +176,7 @@ export function AnalyticsPage () {
       ? Math.round((intensities.reduce((a, b) => a + b, 0) / intensities.length) * 10) / 10
       : undefined
     setPopup({
-      type: 'pain', hour,
-      avgIntensity: avg,
+      type: 'pain', hour, avgIntensity: avg,
       items: entries.map((e) => ({
         label: e.location ?? 'Unknown area',
         sub: `${e.entry_date} · Intensity: ${e.intensity ?? '—'}`,
@@ -193,26 +184,25 @@ export function AnalyticsPage () {
     })
   }
 
-
-  function openMcasPopup (hour: number, entries: McasRow[]) {
+  function openSymptomsPopup (hour: number, entries: SymptomRow[]) {
     if (entries.length === 0) return
     setPopup({
-      type: 'mcas', hour,
+      type: 'symptoms', hour,
       items: entries.map((e) => ({
-        label: e.trigger,
-        sub: `${e.episode_date}${e.severity ? ` · ${e.severity}` : ''}`,
+        label: e.symptoms ?? 'No symptoms listed',
+        sub: `${e.episode_date}${e.severity ? ` · ${e.severity}` : ''}${e.activity ? ` · ${e.activity}` : ''}`,
       })),
     })
   }
 
+  const visiblePainAreas = expandPainAreas ? areaStats : areaStats.slice(0, 3)
+  const visibleSymptoms = expandSymptoms ? topSymptoms : topSymptoms.slice(0, 3)
 
   if (!user) return null
-
 
   return (
     <div style={{ paddingBottom: 40 }}>
       {error && <div className="banner error">{error}</div>}
-
 
       {/* POPUP */}
       {popup && (
@@ -225,7 +215,7 @@ export function AnalyticsPage () {
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>
-                {popup.type === 'pain' ? '🩹 Pain' : '🔬 MCAS'} at {formatHour(popup.hour)}
+                {popup.type === 'pain' ? '🩹 Pain' : '🩺 Symptoms'} at {formatHour(popup.hour)}
               </h3>
               <button type="button" className="btn btn-ghost" onClick={() => setPopup(null)}>✕</button>
             </div>
@@ -246,7 +236,7 @@ export function AnalyticsPage () {
         </div>
       )}
 
-
+      {/* HEADER + DATE RANGE */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
@@ -265,130 +255,136 @@ export function AnalyticsPage () {
         </div>
       </div>
 
+      {loading && <div className="card"><p className="muted">Loading data…</p></div>}
 
-      {/* TOP PAIN AREAS — collapsed shows top 3 */}
-      <div className="card">
-        <button type="button" onClick={() => setExpandPainAreas((v) => !v)}
-          style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-          <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span>Top pain areas</span>
-            <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandPainAreas ? '▲' : '▼'}</span>
-          </h2>
-        </button>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Left and right tracked separately. {expandPainAreas ? 'Showing all.' : 'Showing top 3 — expand for full list.'}</p>
-        {areaStats.length === 0 ? <p className="muted">No pain data yet.</p> : null}
-        <div style={{ display: 'grid', gap: 10 }}>
-          {(expandPainAreas ? areaStats : areaStats.slice(0, 3)).map((a) => (
-            <div key={a.area} className="list-item" style={{ cursor: 'default' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <strong>{a.area}</strong>
-                <span className="muted">Avg: {a.avg}/10 · {a.n} {a.n === 1 ? 'entry' : 'entries'}</span>
-              </div>
-              <div style={{ marginTop: 6, background: 'var(--border)', borderRadius: 4, height: 6 }}>
-                <div style={{ width: `${(a.avg / 10) * 100}%`, background: '#a78bfa', borderRadius: 4, height: 6 }} />
-              </div>
-            </div>
-          ))}
-        </div>
-        {!expandPainAreas && areaStats.length > 3 && (
-          <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }} onClick={() => setExpandPainAreas(true)}>
-            Show all ({areaStats.length})
-          </button>
-        )}
-      </div>
-
-
-      {/* MCAS TRIGGERS — collapsed shows top 3 */}
-      <div className="card">
-        <button type="button" onClick={() => setExpandMcasTrig((v) => !v)}
-          style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-          <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span>MCAS most common triggers</span>
-            <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandMcasTrig ? '▲' : '▼'}</span>
-          </h2>
-        </button>
-        {mcasTopTriggers.length === 0 ? <p className="muted">No MCAS episodes yet.</p> : null}
-        <div style={{ display: 'grid', gap: 10 }}>
-          {(expandMcasTrig ? mcasTopTriggers : mcasTopTriggers.slice(0, 3)).map((a) => (
-            <div key={a.trigger} className="list-item" style={{ cursor: 'default' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <strong>{a.trigger}</strong>
-                <span className="muted">{a.n} {a.n === 1 ? 'episode' : 'episodes'}</span>
-              </div>
-              <div style={{ marginTop: 6, background: 'var(--border)', borderRadius: 4, height: 6 }}>
-                <div style={{ width: `${(a.n / (mcasTopTriggers[0]?.n || 1)) * 100}%`, background: '#60a5fa', borderRadius: 4, height: 6 }} />
-              </div>
-            </div>
-          ))}
-        </div>
-        {!expandMcasTrig && mcasTopTriggers.length > 3 && (
-          <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }} onClick={() => setExpandMcasTrig(true)}>
-            Show all ({mcasTopTriggers.length})
-          </button>
-        )}
-      </div>
-
-
-      {/* PAIN TIME HEATMAP */}
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Pain by time of day</h2>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
-        {loading ? <p className="muted">Loading…</p> : painByHour.every((h) => h.count === 0)
-          ? <p className="muted">No timed pain entries yet.</p>
-          : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
-              {painByHour.map(({ hour, count, entries }) => (
-                <div key={hour} style={{ textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => openPainPopup(hour, entries)}
-                    style={{
-                      width: '100%', height: 36, borderRadius: 6, border: 'none',
-                      background: count === 0 ? 'var(--border)' : `rgba(167,139,250,${0.2 + (count / maxPainHour) * 0.8})`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
-                      color: count > 0 ? '#5b21b6' : '#aaa',
-                      cursor: count > 0 ? 'pointer' : 'default',
-                    }}>
-                    {count > 0 ? count : ''}
-                  </button>
-                  <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
+      {!loading && (
+        <>
+          {/* TOP PAIN AREAS — collapsible, top 3 default */}
+          <div className="card">
+            <button type="button" onClick={() => setExpandPainAreas(v => !v)}
+              style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+              <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span>Top pain areas</span>
+                <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandPainAreas ? '▲' : '▼'}</span>
+              </h2>
+            </button>
+            <p className="muted" style={{ fontSize: '0.85rem', marginTop: -8 }}>Left and right tracked separately.</p>
+            {areaStats.length === 0
+              ? <p className="muted">No pain data yet.</p>
+              : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {visiblePainAreas.map((a) => (
+                    <div key={a.area} className="list-item" style={{ cursor: 'default' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <strong>{a.area}</strong>
+                        <span className="muted">Avg: {a.avg}/10 · {a.n} {a.n === 1 ? 'entry' : 'entries'}</span>
+                      </div>
+                      <div style={{ marginTop: 6, background: 'var(--border)', borderRadius: 4, height: 6 }}>
+                        <div style={{ width: `${(a.avg / 10) * 100}%`, background: '#a78bfa', borderRadius: 4, height: 6 }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-      </div>
+              )}
+            {!expandPainAreas && areaStats.length > 3 && (
+              <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }}
+                onClick={() => setExpandPainAreas(true)}>
+                Show all ({areaStats.length})
+              </button>
+            )}
+          </div>
 
-
-      {/* MCAS TIME HEATMAP */}
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>MCAS episodes by time of day</h2>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
-        {loading ? <p className="muted">Loading…</p> : mcasByHour.every((h) => h.count === 0)
-          ? <p className="muted">No timed MCAS entries yet.</p>
-          : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
-              {mcasByHour.map(({ hour, count, entries }) => (
-                <div key={hour} style={{ textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => openMcasPopup(hour, entries)}
-                    style={{
-                      width: '100%', height: 36, borderRadius: 6, border: 'none',
-                      background: count === 0 ? 'var(--border)' : `rgba(96,165,250,${0.2 + (count / maxMcasHour) * 0.8})`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
-                      color: count > 0 ? '#1d4ed8' : '#aaa',
-                      cursor: count > 0 ? 'pointer' : 'default',
-                    }}>
-                    {count > 0 ? count : ''}
-                  </button>
-                  <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
+          {/* TOP SYMPTOMS — replaces MCAS triggers */}
+          <div className="card">
+            <button type="button" onClick={() => setExpandSymptoms(v => !v)}
+              style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+              <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span>Most common symptoms</span>
+                <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandSymptoms ? '▲' : '▼'}</span>
+              </h2>
+            </button>
+            {topSymptoms.length === 0
+              ? <p className="muted">No symptom episodes logged yet.</p>
+              : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {visibleSymptoms.map((s) => (
+                    <div key={s.symptom} className="list-item" style={{ cursor: 'default' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <strong>{s.symptom}</strong>
+                        <span className="muted">{s.n} {s.n === 1 ? 'time' : 'times'}</span>
+                      </div>
+                      <div style={{ marginTop: 6, background: 'var(--border)', borderRadius: 4, height: 6 }}>
+                        <div style={{ width: `${(s.n / (topSymptoms[0]?.n || 1)) * 100}%`, background: '#34d399', borderRadius: 4, height: 6 }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-      </div>
+              )}
+            {!expandSymptoms && topSymptoms.length > 3 && (
+              <button type="button" className="btn btn-ghost" style={{ marginTop: 8, fontSize: '0.85rem' }}
+                onClick={() => setExpandSymptoms(true)}>
+                Show all ({topSymptoms.length})
+              </button>
+            )}
+          </div>
+
+          {/* PAIN TIME HEATMAP */}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Pain by time of day</h2>
+            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
+            {!hasPainHourData
+              ? <p className="muted">No timed pain entries yet.</p>
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
+                  {painByHour.map(({ hour, count, entries }) => (
+                    <div key={hour} style={{ textAlign: 'center' }}>
+                      <button type="button" onClick={() => openPainPopup(hour, entries)}
+                        style={{
+                          width: '100%', height: 36, borderRadius: 6, border: 'none',
+                          background: count === 0 ? 'var(--border)' : `rgba(167,139,250,${0.2 + (count / maxPainHour) * 0.8})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
+                          color: count > 0 ? '#5b21b6' : '#aaa',
+                          cursor: count > 0 ? 'pointer' : 'default',
+                        }}>
+                        {count > 0 ? count : ''}
+                      </button>
+                      <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+
+          {/* SYMPTOMS TIME HEATMAP — replaces MCAS by time */}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Symptoms by time of day</h2>
+            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what symptoms were logged at that time.</p>
+            {!hasSympHourData
+              ? <p className="muted">No timed symptom entries yet.</p>
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
+                  {symptomsByHour.map(({ hour, count, entries }) => (
+                    <div key={hour} style={{ textAlign: 'center' }}>
+                      <button type="button" onClick={() => openSymptomsPopup(hour, entries)}
+                        style={{
+                          width: '100%', height: 36, borderRadius: 6, border: 'none',
+                          background: count === 0 ? 'var(--border)' : `rgba(52,211,153,${0.2 + (count / maxSympHour) * 0.8})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.75rem', fontWeight: count > 0 ? 700 : 400,
+                          color: count > 0 ? '#065f46' : '#aaa',
+                          cursor: count > 0 ? 'pointer' : 'default',
+                        }}>
+                        {count > 0 ? count : ''}
+                      </button>
+                      <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>{formatHour(hour)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

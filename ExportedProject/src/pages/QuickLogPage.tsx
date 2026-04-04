@@ -6,6 +6,7 @@ import {
   PAIN_AREA_LIST,
   MIDLINE_AREA_LIST,
   painSelectionsToString,
+  parseTriggerTokens,
   type PainAreaSelection
 } from '../lib/parse'
 
@@ -14,7 +15,7 @@ const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull
 const TAB_LABEL: Record<string, string> = {
   visit: 'Visit',
   pain: 'Pain',
-  symptoms: 'Symptoms',
+  mcas: 'MCAS',
   questions: "Q's",
 }
 
@@ -23,34 +24,22 @@ function nowTime () {
   return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`
 }
 
-// Parse comma-separated symptom strings into unique tokens
-function parseSymptomTokens (text: string): string[] {
-  if (!text) return []
-  return text.split(',').map(s => s.trim()).filter(Boolean)
-}
-
 export function QuickLogPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
 
-  const [screen, setScreen] = useState<'visit' | 'pain' | 'symptoms' | 'questions'>(() => {
+  const [screen, setScreen] = useState<'visit' | 'pain' | 'mcas' | 'questions'>(() => {
     const t = searchParams.get('tab')
-    // map old 'mcas' param to 'symptoms' for backwards compat
-    if (t === 'symptoms' || t === 'mcas') return 'symptoms'
-    if (t === 'visit' || t === 'pain' || t === 'questions') return t
+    if (t === 'visit' || t === 'pain' || t === 'mcas' || t === 'questions') return t
     return 'visit'
   })
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)
 
   const [doctors, setDoctors] = useState<{ id: string; name: string }[]>([])
-
-  // Symptom suggestions — learned from past logs
-  const [pastSymptoms, setPastSymptoms] = useState<string[]>([])
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([])
-  const [newSymptomText, setNewSymptomText] = useState('')
+  const [suggestedTriggers, setSuggestedTriggers] = useState<string[]>([])
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -58,8 +47,9 @@ export function QuickLogPage () {
     doctor: '',
     intensity: 5,
     notes: '',
-    activity: '',        // what were you doing in the last 4 hours
-    severity: 'Moderate',
+    trigger: '',
+    symptoms: '',
+    mcas_severity: 'Moderate',
     relief: '',
     question: '',
     priority: 'Medium',
@@ -75,20 +65,12 @@ export function QuickLogPage () {
       const { data: docData } = await supabase.from('doctors').select('id, name').eq('user_id', user!.id).order('name')
       if (docData) setDoctors(docData)
 
-      // Load past symptoms to build suggestions
-      const { data: symData } = await supabase.from('mcas_episodes')
-        .select('symptoms')
-        .eq('user_id', user!.id)
-        .not('symptoms', 'is', null)
-        .order('episode_date', { ascending: false })
-        .limit(60)
-
-      if (symData) {
-        const allTokens = symData.flatMap((d: any) => parseSymptomTokens(d.symptoms ?? ''))
-        const counts = new Map<string, number>()
-        allTokens.forEach(t => counts.set(t, (counts.get(t) ?? 0) + 1))
-        const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s)
-        setPastSymptoms(sorted.slice(0, 20))
+      const { data: mcasData } = await supabase.from('mcas_episodes')
+        .select('trigger').eq('user_id', user!.id)
+        .order('episode_date', { ascending: false }).limit(40)
+      if (mcasData) {
+        const allTokens = mcasData.flatMap((d: any) => parseTriggerTokens(d.trigger))
+        setSuggestedTriggers([...new Set(allTokens)].slice(0, 10))
       }
     }
     loadInitialData()
@@ -96,15 +78,14 @@ export function QuickLogPage () {
 
   useEffect(() => {
     const t = searchParams.get('tab')
-    if (t === 'symptoms' || t === 'mcas') setScreen('symptoms')
-    else if (t === 'visit' || t === 'pain' || t === 'questions') setScreen(t)
+    if (t === 'visit' || t === 'pain' || t === 'mcas' || t === 'questions') setScreen(t)
   }, [searchParams])
 
   useEffect(() => {
     if (screen !== 'pain' || painStep !== 1 || !scrollRef.current) return
     const el = scrollRef.current
     requestAnimationFrame(() => { el.scrollTop = form.intensity * 70 })
-  }, [screen, painStep])
+  }, [screen, painStep, form.intensity])
 
   const handleWheelScroll = () => {
     if (!scrollRef.current) return
@@ -112,25 +93,6 @@ export function QuickLogPage () {
     if (index >= 0 && index <= 10 && index !== form.intensity) {
       setForm(prev => ({ ...prev, intensity: index }))
     }
-  }
-
-  function toggleSymptom (sym: string) {
-    setSelectedSymptoms(prev =>
-      prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym]
-    )
-  }
-
-  function addCustomSymptom () {
-    const trimmed = newSymptomText.trim()
-    if (!trimmed) return
-    if (!selectedSymptoms.includes(trimmed)) {
-      setSelectedSymptoms(prev => [...prev, trimmed])
-    }
-    // also add to suggestions if not already there
-    if (!pastSymptoms.includes(trimmed)) {
-      setPastSymptoms(prev => [trimmed, ...prev])
-    }
-    setNewSymptomText('')
   }
 
   async function handleSavePain () {
@@ -151,19 +113,17 @@ export function QuickLogPage () {
     navigate('/app')
   }
 
-  async function handleSaveSymptoms () {
+  async function handleSaveMcas () {
     if (!user) return
-    if (selectedSymptoms.length === 0) { setError('Please select or add at least one symptom.'); return }
     setBusy(true)
     setError(null)
     const { error: e } = await supabase.from('mcas_episodes').insert({
       user_id: user.id,
       episode_date: form.date,
       episode_time: form.time || null,
-      trigger: '',  // kept for schema compat, not used
-      activity: form.activity || null,
-      symptoms: selectedSymptoms.join(', '),
-      severity: form.severity,
+      trigger: form.trigger,
+      symptoms: form.symptoms,
+      severity: form.mcas_severity,
       relief: form.relief || null,
     })
     setBusy(false)
@@ -198,11 +158,9 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* TAB SWITCHER */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-        {(['visit', 'pain', 'symptoms', 'questions'] as const).map(t => (
-          <button key={t}
-            onClick={() => { setScreen(t); setPainStep(1); setSelectedSymptoms([]); setNewSymptomText('') }}
+        {(['visit', 'pain', 'mcas', 'questions'] as const).map(t => (
+          <button key={t} onClick={() => { setScreen(t); setPainStep(1) }}
             className={`btn ${screen === t ? 'btn-primary' : 'btn-secondary'}`}
             style={{ flex: 1, fontSize: '0.72rem', padding: '8px 4px' }}>
             {TAB_LABEL[t]}
@@ -223,7 +181,7 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* PAIN — 3-step wheel */}
+      {/* PAIN */}
       {screen === 'pain' && (
         <div className="card shadow" style={{ borderRadius: '24px' }}>
           {painStep === 1 && (
@@ -297,99 +255,47 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* SYMPTOMS — replaces MCAS */}
-      {screen === 'symptoms' && (
+      {/* MCAS - now includes time, severity, relief */}
+      {screen === 'mcas' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <h3 style={{ marginTop: 0 }}>🩺 Symptoms</h3>
-
-          {/* Date + time */}
+          <h3 style={{ marginTop: 0 }}>🔬 MCAS Episode</h3>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
             <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} style={{ flex: 2 }} />
             <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
           </div>
-
-          {/* What were you doing */}
           <div className="form-group">
-            <label>What were you doing in the last 4 hours?</label>
-            <input
-              value={form.activity}
-              onChange={e => setForm({...form, activity: e.target.value})}
-              placeholder="e.g. Eating, exercising, sleeping, working…"
-            />
-          </div>
-
-          {/* Symptom picker */}
-          <div className="form-group">
-            <label>Symptoms</label>
-            {pastSymptoms.length > 0 && (
-              <div className="pill-grid" style={{ marginBottom: 10 }}>
-                {pastSymptoms.map(sym => (
-                  <button
-                    key={sym}
-                    className={`pill ${selectedSymptoms.includes(sym) ? 'on' : ''}`}
-                    onClick={() => toggleSymptom(sym)}
-                    style={{ fontSize: '0.78rem' }}
-                  >
-                    {sym}
-                  </button>
+            <label>Trigger</label>
+            <input value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} placeholder="What caused it?" />
+            {suggestedTriggers.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                {suggestedTriggers.map(tag => (
+                  <button key={tag} className="pill" style={{ fontSize: '0.72rem' }}
+                    onClick={() => setForm({...form, trigger: tag})}>{tag}</button>
                 ))}
               </div>
             )}
-            {/* Add custom symptom */}
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
-                value={newSymptomText}
-                onChange={e => setNewSymptomText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addCustomSymptom()}
-                placeholder="Type a symptom and tap Add…"
-                style={{ flex: 1 }}
-              />
-              <button type="button" className="btn btn-secondary"
-                style={{ flexShrink: 0, fontSize: '0.82rem', padding: '8px 12px' }}
-                onClick={addCustomSymptom}>
-                Add
-              </button>
-            </div>
-            {selectedSymptoms.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#888', marginBottom: 6 }}>SELECTED</div>
-                <div className="pill-grid">
-                  {selectedSymptoms.map(sym => (
-                    <button key={sym} className="pill on" onClick={() => toggleSymptom(sym)}
-                      style={{ fontSize: '0.78rem' }}>
-                      {sym} ✕
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-
-          {/* Severity */}
+          <div className="form-group">
+            <label>Symptoms</label>
+            <textarea placeholder="What did you experience?" value={form.symptoms} onChange={e => setForm({...form, symptoms: e.target.value})} rows={3} />
+          </div>
           <div className="form-group">
             <label>Severity</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {['Mild', 'Moderate', 'Severe'].map(s => (
                 <button key={s} type="button"
-                  className={`btn ${form.severity === s ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn ${form.mcas_severity === s ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, fontSize: '0.85rem' }}
-                  onClick={() => setForm({...form, severity: s})}>{s}</button>
+                  onClick={() => setForm({...form, mcas_severity: s})}>{s}</button>
               ))}
             </div>
           </div>
-
-          {/* Relief */}
           <div className="form-group">
             <label>Relief & medications taken (optional)</label>
-            <input
-              value={form.relief}
-              onChange={e => setForm({...form, relief: e.target.value})}
-              placeholder="What helped?"
-            />
+            <input value={form.relief} onChange={e => setForm({...form, relief: e.target.value})} placeholder="What helped?" />
           </div>
-
-          <button className="btn btn-primary btn-block" onClick={handleSaveSymptoms} disabled={busy}>
-            {busy ? 'Saving…' : 'Save Symptoms'}
+          <button className="btn btn-primary btn-block" onClick={handleSaveMcas} disabled={busy}>
+            {busy ? 'Saving…' : 'Save Episode'}
           </button>
         </div>
       )}

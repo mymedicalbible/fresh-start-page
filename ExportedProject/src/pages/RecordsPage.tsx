@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-type Tab = 'pain' | 'symptoms'
+
+type Tab = 'pain' | 'mcas'
+
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -12,11 +14,13 @@ type PainRow = {
   relief_methods: string | null; notes: string | null
 }
 
-type SymptomRow = {
+
+type McasRow = {
   id: string; episode_date: string; episode_time: string | null
-  activity: string | null; symptoms: string | null
-  severity: string | null; relief: string | null; notes: string | null
+  trigger: string; symptoms: string; severity: string | null
+  relief: string | null; notes: string | null
 }
+
 
 export function RecordsPage () {
   const { user } = useAuth()
@@ -24,51 +28,55 @@ export function RecordsPage () {
   const [tab, setTab] = useState<Tab>('pain')
   const [q, setQ] = useState('')
   const [pain, setPain] = useState<PainRow[]>([])
-  const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
+  const [mcas, setMcas] = useState<McasRow[]>([])
   const [error, setError] = useState<string | null>(null)
+
 
   useEffect(() => {
     if (!user) return
     setError(null)
     async function load () {
-      const [p, s] = await Promise.all([
+      const [p, mm] = await Promise.all([
         supabase.from('pain_entries').select('*').eq('user_id', user!.id)
           .order('entry_date', { ascending: false }).limit(100),
-        supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, activity, symptoms, severity, relief, notes')
-          .eq('user_id', user!.id)
+        supabase.from('mcas_episodes').select('*').eq('user_id', user!.id)
           .order('episode_date', { ascending: false }).limit(100),
       ])
       if (p.error) setError(p.error.message); else setPain((p.data ?? []) as PainRow[])
-      if (s.error) setError(s.error.message); else setSymptoms((s.data ?? []) as SymptomRow[])
+      if (mm.error) setError(mm.error.message); else setMcas((mm.data ?? []) as McasRow[])
     }
     load().catch((e) => setError(String(e)))
   }, [user])
 
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return { pain, symptoms }
+    if (!term) return { pain, mcas }
     const f = (s: string | null) => (s ?? '').toLowerCase().includes(term)
     return {
       pain: pain.filter((r) => f(r.location) || f(String(r.intensity ?? '')) || f(r.pain_type) || f(r.notes) || f(r.relief_methods)),
-      symptoms: symptoms.filter((r) => f(r.symptoms) || f(r.activity) || f(r.notes) || f(r.relief) || f(r.severity)),
+      mcas: mcas.filter((r) => f(r.trigger) || f(r.symptoms) || f(r.notes) || f(r.relief)),
     }
-  }, [q, pain, symptoms])
+  }, [q, pain, mcas])
+
 
   if (!user) return null
+
 
   return (
     <div>
       {error && <div className="banner error">{error}</div>}
 
+
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
-          <h2 style={{ margin: 0 }}>Pain & symptoms</h2>
+          <h2 style={{ margin: 0 }}>Pain & MCAS summary</h2>
         </div>
 
+
         <div className="tabs">
-          {([['pain', 'Pain'], ['symptoms', 'Symptoms']] as [Tab, string][]).map(([id, label]) => (
+          {([['pain', 'Pain'], ['mcas', 'MCAS']] as [Tab, string][]).map(([id, label]) => (
             <button key={id} type="button"
               className={`tab ${tab === id ? 'active' : ''}`}
               onClick={() => setTab(id)}>
@@ -77,11 +85,13 @@ export function RecordsPage () {
           ))}
         </div>
 
+
         <div className="form-group" style={{ marginBottom: 6, marginTop: 10 }}>
           <label>Search</label>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" />
         </div>
       </div>
+
 
       {/* PAIN */}
       {tab === 'pain' && (
@@ -105,32 +115,22 @@ export function RecordsPage () {
         </div>
       )}
 
-      {/* SYMPTOMS */}
-      {tab === 'symptoms' && (
+
+      {/* MCAS */}
+      {tab === 'mcas' && (
         <div className="card">
-          <h3>Symptom log</h3>
-          {filtered.symptoms.length === 0 ? <p className="muted">No symptom entries yet.</p> : null}
-          {filtered.symptoms.map((r) => (
+          <h3>MCAS episodes</h3>
+          {filtered.mcas.length === 0 ? <p className="muted">No MCAS episodes yet.</p> : null}
+          {filtered.mcas.map((r) => (
             <div key={r.id} className="list-item">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <strong>{r.episode_date}{r.episode_time ? ` · ${r.episode_time}` : ''}</strong>
-                <span className="muted">{r.severity ? `${r.severity}` : ''}</span>
+                <span className="muted">{r.severity ? `Severity: ${r.severity}` : ''}</span>
               </div>
-              {r.symptoms && (
-                <div style={{ marginTop: 6 }}>
-                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Symptoms</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym, i) => (
-                      <span key={i} style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46' }}>
-                        {sym}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {r.activity && <div className="muted" style={{ marginTop: 6, fontSize: '0.85rem' }}>Activity: {r.activity}</div>}
-              {r.relief && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}>Relief: {r.relief}</div>}
-              {r.notes && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}>Notes: {r.notes}</div>}
+              <div className="muted" style={{ marginTop: 6 }}>Triggers: {r.trigger}</div>
+              <div className="muted" style={{ marginTop: 4 }}>Symptoms: {r.symptoms}</div>
+              {r.relief && <div className="muted" style={{ marginTop: 4 }}>Relief: {r.relief}</div>}
+              {r.notes && <div className="muted" style={{ marginTop: 4 }}>Notes: {r.notes}</div>}
             </div>
           ))}
         </div>

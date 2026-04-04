@@ -1,0 +1,5 @@
+# https://supabase.com/docs/guides/cli/config
+project_id = "medical-tracker"
+
+[api]
+enabled = true
