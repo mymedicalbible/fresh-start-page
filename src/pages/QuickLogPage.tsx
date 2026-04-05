@@ -148,7 +148,8 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
-    navigate('/app')
+    // Navigate to records so user can see the entry was saved
+    navigate('/app/records?tab=pain')
   }
 
   async function handleSaveSymptoms () {
@@ -168,7 +169,7 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
-    navigate('/app')
+    navigate('/app/records?tab=symptoms')
   }
 
   async function handleSaveQuestion () {
@@ -350,19 +351,6 @@ export function QuickLogPage () {
                 Add
               </button>
             </div>
-            {selectedSymptoms.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#888', marginBottom: 6 }}>SELECTED</div>
-                <div className="pill-grid">
-                  {selectedSymptoms.map(sym => (
-                    <button key={sym} className="pill on" onClick={() => toggleSymptom(sym)}
-                      style={{ fontSize: '0.78rem' }}>
-                      {sym} ✕
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Severity */}

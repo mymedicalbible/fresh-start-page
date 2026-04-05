@@ -28,7 +28,7 @@ export function QuestionsArchivePage () {
   const [questions, setQuestions] = useState<QuestionRow[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [viewMode, setViewMode] = useState<'all' | 'unanswered' | 'answered'>('all')
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
@@ -134,30 +134,20 @@ export function QuestionsArchivePage () {
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 
+      {/* ADD QUESTION FORM — visible at top by default */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>❓ Questions</h2>
-          <button type="button" className="btn btn-primary"
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showForm ? 16 : 0 }}>
+          <h2 style={{ margin: 0 }}>❓ Add Question</h2>
+          <button type="button" className="btn btn-ghost"
+            style={{ fontSize: '0.82rem' }}
             onClick={() => setShowForm((v) => !v)}>
-            {showForm ? 'Cancel' : '+ Add question'}
+            {showForm ? 'Hide ▲' : 'Show ▼'}
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-          <button type="button"
-            className={`btn ${viewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('all')}>All</button>
-          <button type="button"
-            className={`btn ${viewMode === 'unanswered' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('unanswered')}>Open</button>
-          <button type="button"
-            className={`btn ${viewMode === 'answered' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('answered')}>Answered</button>
-        </div>
-      </div>
 
       {showForm && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Add question</h3>
+        <>
+          <h3 style={{ marginTop: 0, display: 'none' }}>Add question</h3>
           <div className="form-row">
             <div className="form-group">
               <label>Date logged</label>
@@ -209,8 +199,25 @@ export function QuestionsArchivePage () {
           <button type="button" className="btn btn-primary btn-block" onClick={saveNewQuestions} disabled={busy}>
             Save question
           </button>
-        </div>
+        </>
       )}
+      </div>
+
+      {/* ARCHIVE — filter tabs + list */}
+      <div className="card" style={{ padding: '12px 16px' }}>
+        <h3 style={{ margin: '0 0 10px' }}>❓ All Questions</h3>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button"
+            className={`btn ${viewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('all')}>All</button>
+          <button type="button"
+            className={`btn ${viewMode === 'unanswered' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('unanswered')}>Open</button>
+          <button type="button"
+            className={`btn ${viewMode === 'answered' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('answered')}>Answered</button>
+        </div>
+      </div>
 
       {filtered.length === 0 && (
         <div className="card">

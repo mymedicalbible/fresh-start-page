@@ -11,18 +11,56 @@ type UpcomingAppt = {
   appointment_time: string | null
 }
 
+type HealthSummary = {
+  generatedAt: string
+  // Pain
+  painCount: number
+  painAvgIntensity: number | null
+  painTopAreas: { area: string; n: number }[]
+  painTopTypes: { type: string; n: number }[]
+  // Symptoms
+  symptomCount: number
+  topSymptoms: { symptom: string; n: number }[]
+  severityCounts: Record<string, number>
+  // Meds
+  medCount: number
+  // Tests
+  pendingTests: number
+  // Questions
+  openQuestions: number
+  // Visits
+  recentVisitCount: number
+  lastVisitDate: string | null
+  lastVisitDoctor: string | null
+}
+
+function parseList (text: string | null): string[] {
+  if (!text) return []
+  return text.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
+function topN<T extends string> (items: T[], n = 5): { value: T; count: number }[] {
+  const map = new Map<T, number>()
+  for (const item of items) map.set(item, (map.get(item) ?? 0) + 1)
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([value, count]) => ({ value, count }))
+}
+
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [pendingCount, setPendingCount] = useState(0)
-  const [open, setOpen] = useState<Record<string, boolean>>({ doctors: false })
+  const [drawerOpen, setDrawerOpen] = useState<Record<string, boolean>>({ doctors: false })
+  const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const [summary, setSummary] = useState<string | null>(null)
-  const [summaryError, setSummaryError] = useState<string | null>(null)
+  // Simple 30-day counters shown immediately (no button press needed)
+  const [quickStats, setQuickStats] = useState<{ pain: number; symptoms: number; questions: number } | null>(null)
 
-  function toggle (section: string) {
-    setOpen((prev) => ({ ...prev, [section]: !prev[section] }))
+  function toggleDrawer (section: string) {
+    setDrawerOpen((prev) => ({ ...prev, [section]: !prev[section] }))
   }
 
   useEffect(() => {
@@ -30,27 +68,48 @@ export function DashboardPage () {
     async function load () {
       const today = new Date().toISOString().slice(0, 10)
 
-      const { data, error } = await supabase
+      // Upcoming appointments
+      const { data: apptData, error: apptErr } = await supabase
         .from('appointments')
         .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
         .eq('user_id', user!.id)
         .gte('appointment_date', today)
         .order('appointment_date', { ascending: true })
         .limit(8)
-      if (error) {
-        console.warn('appointments load:', error.message)
-        setUpcoming([])
-      } else {
-        const rows = (data ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
+      if (apptErr) console.warn('appointments:', apptErr.message)
+      else {
+        const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
         setUpcoming(rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[])
       }
 
-      const { count } = await supabase
-        .from('doctor_visits')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user!.id)
-        .eq('status', 'pending')
-      setPendingCount(count ?? 0)
+      // Pending visits
+      try {
+        const { count } = await supabase
+          .from('doctor_visits')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user!.id)
+          .eq('status', 'pending')
+        setPendingCount(count ?? 0)
+      } catch { setPendingCount(0) }
+
+      // Quick 30-day counts
+      const since30 = new Date()
+      since30.setDate(since30.getDate() - 30)
+      const since30Str = since30.toISOString().slice(0, 10)
+
+      const [painC, sympC, qC] = await Promise.all([
+        supabase.from('pain_entries').select('id', { count: 'exact', head: true })
+          .eq('user_id', user!.id).gte('entry_date', since30Str),
+        supabase.from('mcas_episodes').select('id', { count: 'exact', head: true })
+          .eq('user_id', user!.id).gte('episode_date', since30Str),
+        supabase.from('doctor_questions').select('id', { count: 'exact', head: true })
+          .eq('user_id', user!.id).eq('status', 'Unanswered'),
+      ])
+      setQuickStats({
+        pain: painC.count ?? 0,
+        symptoms: sympC.count ?? 0,
+        questions: qC.count ?? 0,
+      })
     }
     load()
   }, [user])
@@ -58,69 +117,103 @@ export function DashboardPage () {
   async function generateSummary () {
     if (!user) return
     setSummaryLoading(true)
-    setSummaryError(null)
     setSummary(null)
 
-    try {
-      const since = new Date()
-      since.setDate(since.getDate() - 30)
-      const sinceStr = since.toISOString().slice(0, 10)
+    const since30 = new Date()
+    since30.setDate(since30.getDate() - 30)
+    const since30Str = since30.toISOString().slice(0, 10)
 
-      const [p, m] = await Promise.all([
-        supabase.from('pain_entries')
-          .select('entry_date, entry_time, location, intensity, pain_type, notes')
-          .eq('user_id', user.id)
-          .gte('entry_date', sinceStr)
-          .order('entry_date', { ascending: false })
-          .limit(60),
-        supabase.from('mcas_episodes')
-          .select('episode_date, episode_time, activity, symptoms, severity, notes')
-          .eq('user_id', user.id)
-          .gte('episode_date', sinceStr)
-          .order('episode_date', { ascending: false })
-          .limit(60),
-      ])
+    const since90 = new Date()
+    since90.setDate(since90.getDate() - 90)
+    const since90Str = since90.toISOString().slice(0, 10)
 
-      if (p.error) throw new Error(p.error.message)
-      if (m.error) throw new Error(m.error.message)
+    const [painRes, sympRes, medRes, testRes, qRes, visitRes] = await Promise.all([
+      supabase.from('pain_entries')
+        .select('entry_date, intensity, location, pain_type')
+        .eq('user_id', user.id)
+        .gte('entry_date', since30Str)
+        .order('entry_date', { ascending: false })
+        .limit(200),
+      supabase.from('mcas_episodes')
+        .select('episode_date, symptoms, severity')
+        .eq('user_id', user.id)
+        .gte('episode_date', since30Str)
+        .order('episode_date', { ascending: false })
+        .limit(200),
+      supabase.from('current_medications')
+        .select('medication, dose, frequency')
+        .eq('user_id', user.id),
+      supabase.from('tests_ordered')
+        .select('test_name, status')
+        .eq('user_id', user.id)
+        .eq('status', 'Pending'),
+      supabase.from('doctor_questions')
+        .select('question, priority')
+        .eq('user_id', user.id)
+        .eq('status', 'Unanswered'),
+      supabase.from('doctor_visits')
+        .select('visit_date, doctor')
+        .eq('user_id', user.id)
+        .gte('visit_date', since90Str)
+        .order('visit_date', { ascending: false })
+        .limit(50),
+    ])
 
-      const painData = (p.data ?? []) as any[]
-      const sympData = (m.data ?? []) as any[]
+    const painRows = (painRes.data ?? []) as any[]
+    const sympRows = (sympRes.data ?? []) as any[]
 
-      const prompt = `You are a medical summary assistant helping a patient communicate their health history to their doctors. Based on the following health log data from the past 30 days, write a clear, organized summary in 3-5 short paragraphs that the patient could hand to or read to their doctor. Focus on patterns over time, frequency, average severity, most affected areas, and any notable trends. Be factual, concise, and clinical but readable.
+    // Pain stats
+    const intensities = painRows.map((r) => r.intensity).filter((x): x is number => typeof x === 'number')
+    const painAvg = intensities.length > 0
+      ? Math.round((intensities.reduce((a, b) => a + b, 0) / intensities.length) * 10) / 10
+      : null
 
-PAIN LOG (${painData.length} entries):
-${painData.length === 0 ? 'No pain entries recorded.' : painData.map((r: any) =>
-  `- ${r.entry_date}${r.entry_time ? ` at ${r.entry_time}` : ''}: ${r.location ?? 'unknown area'}, intensity ${r.intensity ?? '?'}/10${r.pain_type ? `, type: ${r.pain_type}` : ''}${r.notes ? `, notes: ${r.notes}` : ''}`
-).join('\n')}
+    const allAreas = painRows.flatMap((r) => parseList(r.location))
+    const areaTop = topN(allAreas).map(({ value, count }) => ({ area: value, n: count }))
 
-SYMPTOM LOG (${sympData.length} episodes):
-${sympData.length === 0 ? 'No symptom episodes recorded.' : sympData.map((r: any) =>
-  `- ${r.episode_date}${r.episode_time ? ` at ${r.episode_time}` : ''}: symptoms: ${r.symptoms ?? 'unknown'}, severity: ${r.severity ?? 'unknown'}${r.activity ? `, activity beforehand: ${r.activity}` : ''}${r.notes ? `, notes: ${r.notes}` : ''}`
-).join('\n')}
+    const allTypes = painRows.flatMap((r) => parseList(r.pain_type))
+    const typeTop = topN(allTypes).map(({ value, count }) => ({ type: value, n: count }))
 
-Write the summary now. Do not include any preamble or sign-off.`
+    // Symptom stats
+    const allSymptoms = sympRows.flatMap((r) => parseList(r.symptoms))
+    const symptomTop = topN(allSymptoms).map(({ value, count }) => ({ symptom: value, n: count }))
 
-      const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-summary', {
-        body: { prompt },
-      })
-
-      if (fnError) throw new Error(fnError.message)
-      const text = fnData?.summary
-      if (!text) throw new Error('No summary returned.')
-      setSummary(text)
-    } catch (e: any) {
-      setSummaryError(e?.message ?? 'Failed to generate summary.')
-    } finally {
-      setSummaryLoading(false)
+    const severityCounts: Record<string, number> = {}
+    for (const r of sympRows) {
+      const s = r.severity ?? 'Unknown'
+      severityCounts[s] = (severityCounts[s] ?? 0) + 1
     }
+
+    // Visits
+    const visitRows = (visitRes.data ?? []) as any[]
+
+    setSummary({
+      generatedAt: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      painCount: painRows.length,
+      painAvgIntensity: painAvg,
+      painTopAreas: areaTop,
+      painTopTypes: typeTop,
+      symptomCount: sympRows.length,
+      topSymptoms: symptomTop,
+      severityCounts,
+      medCount: (medRes.data ?? []).length,
+      pendingTests: (testRes.data ?? []).length,
+      openQuestions: (qRes.data ?? []).length,
+      recentVisitCount: visitRows.length,
+      lastVisitDate: visitRows[0]?.visit_date ?? null,
+      lastVisitDoctor: visitRows[0]?.doctor ?? null,
+    })
+    setSummaryLoading(false)
   }
 
   if (!user) return <div>Loading...</div>
 
+  const severityOrder = ['Severe', 'Moderate', 'Mild', 'Unknown']
+
   return (
     <div style={{ display: 'grid', gap: 12, padding: '8px 0 40px' }}>
 
+      {/* UPCOMING APPOINTMENTS */}
       {upcoming.length > 0 && (
         <div className="banner info">
           <strong>📅 Upcoming appointments</strong>
@@ -137,6 +230,7 @@ Write the summary now. Do not include any preamble or sign-off.`
         </div>
       )}
 
+      {/* PENDING VISITS NUDGE */}
       {pendingCount > 0 && (
         <button
           type="button"
@@ -154,7 +248,7 @@ Write the summary now. Do not include any preamble or sign-off.`
         </button>
       )}
 
-      {/* QUICK LOG — MCAS replaced with Symptoms */}
+      {/* QUICK LOG */}
       <div className="card" style={{ padding: '12px 14px' }}>
         <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.04em' }}>QUICK LOG</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
@@ -177,43 +271,179 @@ Write the summary now. Do not include any preamble or sign-off.`
         </div>
       </div>
 
-      {/* GENERATE SUMMARY */}
+      {/* QUICK STATS — always visible */}
+      {quickStats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <Link to="/app/records?tab=pain" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#fef3c7', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#92400e' }}>{quickStats.pain}</div>
+              <div style={{ fontSize: '0.7rem', color: '#78350f', marginTop: 2 }}>Pain (30d)</div>
+            </div>
+          </Link>
+          <Link to="/app/records?tab=symptoms" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#ede9fe', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#5b21b6' }}>{quickStats.symptoms}</div>
+              <div style={{ fontSize: '0.7rem', color: '#4c1d95', marginTop: 2 }}>Symptoms (30d)</div>
+            </div>
+          </Link>
+          <Link to="/app/questions" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#dbeafe', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#1e40af' }}>{quickStats.questions}</div>
+              <div style={{ fontSize: '0.7rem', color: '#1e3a8a', marginTop: 2 }}>Open Q's</div>
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* HEALTH SUMMARY CARD */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: summary ? 16 : 0 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '1rem' }}>📊 Health Summary</div>
-            <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>AI summary of your last 30 days — pain & symptoms</div>
+            <div style={{ fontWeight: 700, fontSize: '1rem' }}>📋 Health Summary</div>
+            <div className="muted" style={{ fontSize: '0.78rem', marginTop: 2 }}>Pain · symptoms · visits · meds · tests</div>
           </div>
           <button
             type="button"
             className="btn btn-primary"
-            onClick={generateSummary}
+            onClick={summary ? () => setSummary(null) : generateSummary}
             disabled={summaryLoading}
-            style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+            style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            {summaryLoading ? 'Generating…' : 'Generate Summary'}
+            {summaryLoading ? 'Loading…' : summary ? 'Close' : 'Generate'}
           </button>
         </div>
-        {summaryError && <div className="banner error" style={{ marginTop: 12 }}>{summaryError}</div>}
+
         {summary && (
-          <div style={{
-            marginTop: 14, background: '#f8f9ff', border: '1px solid var(--border)',
-            borderRadius: 10, padding: '14px 16px', fontSize: '0.9rem',
-            lineHeight: 1.65, whiteSpace: 'pre-wrap', color: '#2a2540',
-          }}>
-            {summary}
+          <div style={{ display: 'grid', gap: 14 }}>
+            <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+              Generated {summary.generatedAt} · last 30 days unless noted
+            </div>
+
+            {/* PAIN */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>🩹 Pain</div>
+              {summary.painCount === 0 ? (
+                <div className="muted" style={{ fontSize: '0.85rem' }}>No pain entries in the last 30 days.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 4, fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{summary.painCount}</span> entries logged
+                    {summary.painAvgIntensity !== null && (
+                      <> · avg intensity <span style={{ fontWeight: 600 }}>{summary.painAvgIntensity}/10</span></>
+                    )}
+                  </div>
+                  {summary.painTopAreas.length > 0 && (
+                    <div className="muted">
+                      Areas: {summary.painTopAreas.map((a) => `${a.area} (${a.n}×)`).join(', ')}
+                    </div>
+                  )}
+                  {summary.painTopTypes.length > 0 && (
+                    <div className="muted">
+                      Types: {summary.painTopTypes.map((t) => t.type).join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* SYMPTOMS */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>🩺 Symptoms</div>
+              {summary.symptomCount === 0 ? (
+                <div className="muted" style={{ fontSize: '0.85rem' }}>No symptom episodes in the last 30 days.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 4, fontSize: '0.85rem' }}>
+                  <div><span style={{ fontWeight: 600 }}>{summary.symptomCount}</span> episodes logged</div>
+                  {summary.topSymptoms.length > 0 && (
+                    <div className="muted">
+                      Most frequent: {summary.topSymptoms.map((s) => `${s.symptom} (${s.n}×)`).join(', ')}
+                    </div>
+                  )}
+                  {Object.keys(summary.severityCounts).length > 0 && (
+                    <div className="muted">
+                      Severity: {severityOrder
+                        .filter((s) => summary.severityCounts[s])
+                        .map((s) => `${s} ×${summary.severityCounts[s]}`)
+                        .join(' · ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* VISITS */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>🏥 Doctor visits <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>(90 days)</span></div>
+              {summary.recentVisitCount === 0 ? (
+                <div className="muted" style={{ fontSize: '0.85rem' }}>No visits logged in the last 90 days.</div>
+              ) : (
+                <div style={{ fontSize: '0.85rem', display: 'grid', gap: 2 }}>
+                  <div><span style={{ fontWeight: 600 }}>{summary.recentVisitCount}</span> visit{summary.recentVisitCount !== 1 ? 's' : ''} logged</div>
+                  {summary.lastVisitDate && (
+                    <div className="muted">
+                      Most recent: {summary.lastVisitDate}{summary.lastVisitDoctor ? ` · ${summary.lastVisitDoctor}` : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* MEDICATIONS */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>💊 Medications</div>
+              <div style={{ fontSize: '0.85rem' }}>
+                {summary.medCount === 0
+                  ? <span className="muted">No medications on file.</span>
+                  : <><span style={{ fontWeight: 600 }}>{summary.medCount}</span> medication{summary.medCount !== 1 ? 's' : ''} on file</>
+                }
+                <Link to="/app/meds" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
+              </div>
+            </div>
+
+            {/* TESTS */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>🧪 Pending tests</div>
+              <div style={{ fontSize: '0.85rem' }}>
+                {summary.pendingTests === 0
+                  ? <span className="muted">No pending tests.</span>
+                  : <><span style={{ fontWeight: 600 }}>{summary.pendingTests}</span> test{summary.pendingTests !== 1 ? 's' : ''} awaiting results</>
+                }
+                {summary.pendingTests > 0 && (
+                  <Link to="/app/tests" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
+                )}
+              </div>
+            </div>
+
+            {/* QUESTIONS */}
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>❓ Open questions</div>
+              <div style={{ fontSize: '0.85rem' }}>
+                {summary.openQuestions === 0
+                  ? <span className="muted">No unanswered questions.</span>
+                  : <><span style={{ fontWeight: 600 }}>{summary.openQuestions}</span> question{summary.openQuestions !== 1 ? 's' : ''} waiting for a doctor's answer</>
+                }
+                {summary.openQuestions > 0 && (
+                  <Link to="/app/questions" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
+                )}
+              </div>
+            </div>
+
+            <Link to="/app/analytics" className="btn btn-secondary btn-block"
+              style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.85rem', marginTop: 4 }}>
+              📈 Full charts & trends →
+            </Link>
           </div>
         )}
       </div>
 
       {/* DOCTORS & DIAGNOSES */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <button type="button" onClick={() => toggle('doctors')}
+        <button type="button" onClick={() => toggleDrawer('doctors')}
           style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
           <span>👩‍⚕️ Doctors & diagnoses</span>
-          <span>{open.doctors ? '▲' : '▼'}</span>
+          <span>{drawerOpen.doctors ? '▲' : '▼'}</span>
         </button>
-        {open.doctors && (
+        {drawerOpen.doctors && (
           <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
             <Link to="/app/doctors" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>👩‍⚕️ My doctors — profiles & history</Link>
             <Link to="/app/visits" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🏥 Doctor visits</Link>
