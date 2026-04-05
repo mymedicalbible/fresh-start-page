@@ -30,7 +30,7 @@ serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: 'claude-3-haiku-20240307',
-        max_tokens: 800,
+        max_tokens: 4096,
         messages: [{ role: 'user', content: prompt }],
       }),
     })

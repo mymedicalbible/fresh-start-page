@@ -242,7 +242,11 @@ export function VisitLogWizard ({
     }
 
     setBusy(false)
-    onDone?.() ?? navigate('/app/visits')
+    if (onDone) {
+      onDone()
+      return
+    }
+    navigate('/app')
   }
 
   const chipRow = useMemo(() => (

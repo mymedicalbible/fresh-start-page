@@ -213,7 +213,7 @@ export function VisitsPage () {
           resumeVisitId={resumeId}
           initialDoctorName={prefillDoctor}
           onCancel={() => navigate('/app/visits')}
-          onDone={() => navigate('/app/visits')}
+          onDone={() => navigate('/app')}
         />
       </div>
     )
