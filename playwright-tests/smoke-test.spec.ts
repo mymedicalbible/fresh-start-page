@@ -1,48 +1,63 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
 test.describe('Medical Bible Core Smoke Test', () => {
+  test('should redirect to login when not authenticated', async ({ page }) => {
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login\/?$/)
+    await expect(page).toHaveTitle(/Medical Tracker/i)
+    await expect(page.getByRole('heading', { name: 'Medical Tracker' })).toBeVisible()
+    await expect(page.getByLabel(/^email$/i)).toBeVisible()
+    await expect(page.getByLabel(/^password$/i)).toBeVisible()
+  })
 
+  test('should show the sign-in form on /login', async ({ page }) => {
+    await page.goto('/login')
+    const form = page.locator('form')
+    await expect(form).toBeVisible()
+    await expect(form.getByRole('button', { name: /^sign in$/i })).toBeVisible()
+  })
+})
+
+test.describe('Medical Bible — authenticated smoke (optional)', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the base URL before each test
-    await page.goto('/');
-  });
+    const email = process.env.PLAYWRIGHT_SMOKE_EMAIL?.trim()
+    const password = process.env.PLAYWRIGHT_SMOKE_PASSWORD?.trim()
+    test.skip(
+      !email || !password,
+      'Set PLAYWRIGHT_SMOKE_EMAIL and PLAYWRIGHT_SMOKE_PASSWORD to run authenticated checks.',
+    )
 
-  test('should load the dashboard and show navigation', async ({ page }) => {
-    // Check for a main heading or a specific dashboard element
-    await expect(page).toHaveTitle(/Medical Bible/i);
-    
-    // Verify the main navigation menu or tabs are visible
-    // Adjust the selectors below to match your actual "cute card" or nav labels
-    await expect(page.getByText(/Log/i)).toBeVisible();
-    await expect(page.getByText(/Doctors/i)).toBeVisible();
-    await expect(page.getByText(/Meds/i)).toBeVisible();
-  });
+    await page.goto('/login')
+    await page.getByLabel(/^email$/i).fill(email!)
+    await page.getByLabel(/^password$/i).fill(password!)
+    await page.locator('form').getByRole('button', { name: /^sign in$/i }).click()
+    await expect(page).toHaveURL(/\/app\/?$/, { timeout: 20_000 })
+    await expect(page.getByRole('heading', { name: 'Medical Tracker' })).toBeVisible()
+  })
 
-  test('should navigate to the Log tab and see the form', async ({ page }) => {
-    await page.click('text=Log');
-    
-    // Check if the health diary form appears
-    // If you have a specific input, you can target it specifically
-    const form = page.locator('form');
-    await expect(form).toBeVisible();
-  });
+  test('should load the dashboard and show main sections', async ({ page }) => {
+    await expect(page.getByText(/log today/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /doctors/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /medications/i })).toBeVisible()
+  })
 
-  test('should load the Doctors section', async ({ page }) => {
-    await page.click('text=Doctors');
-    
-    // Verify that at least one profile card or the list container renders
-    await expect(page.locator('main')).toContainText(/Doctor/i);
-  });
+  test('should open quick log (pain flow)', async ({ page }) => {
+    await page.goto('/app/log?tab=pain')
+    await expect(page.getByText(/^intensity$/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /next/i })).toBeVisible()
+  })
 
-  test('should render the Meds and Charts sections without errors', async ({ page }) => {
-    // Quick check on Meds
-    await page.click('text=Meds');
-    await expect(page).not.toHaveTitle(/Error/i);
+  test('should load doctors and meds routes', async ({ page }) => {
+    await page.goto('/app/doctors')
+    await expect(page.getByRole('heading', { name: /my doctors/i })).toBeVisible()
 
-    // Quick check on Charts
-    await page.click('text=Charts');
-    const chartContainer = page.locator('canvas, svg'); // Most chart libs use one of these
-    await expect(chartContainer.first()).toBeVisible();
-  });
+    await page.goto('/app/meds')
+    await expect(page.getByRole('heading', { name: /^medications$/i })).toBeVisible()
+  })
 
-});
+  test('should load analytics (charts) without error title', async ({ page }) => {
+    await page.goto('/app/analytics')
+    await expect(page).not.toHaveTitle(/error/i)
+    await expect(page.getByRole('heading', { name: /charts.? &.? trends/i })).toBeVisible()
+  })
+})
