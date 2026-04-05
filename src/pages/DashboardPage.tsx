@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
+import { buildHandoffNarrative } from '../lib/handoffNarrative'
+import type { MedChangeEvent } from '../lib/medSymptomCorrelation'
 import { useAuth } from '../contexts/AuthContext'
 
 type UpcomingAppt = {
@@ -39,137 +41,6 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
     .map(([value, count]) => ({ value, count }))
-}
-
-type FallbackInput = {
-  painRows: Record<string, unknown>[]
-  sympRows: Record<string, unknown>[]
-  medList: Record<string, unknown>[]
-  testRows: Record<string, unknown>[]
-  diagRows: Record<string, unknown>[]
-  visitRows: Record<string, unknown>[]
-  qList: Record<string, unknown>[]
-  painAvg: number | null
-  painTopAreas: { area: string; n: number }[]
-  painTopTypes: { type: string; n: number }[]
-  topSymptoms: { symptom: string; n: number }[]
-}
-
-function buildNarrativeFallback (d: FallbackInput): string {
-  const s: string[] = []
-  const hasPain = d.painRows.length > 0
-  const hasSymp = d.sympRows.length > 0
-  const hasMeds = d.medList.length > 0
-  const hasDiag = d.diagRows.length > 0
-  const hasVisits = d.visitRows.length > 0
-  const pendingTests = d.testRows.filter((t) => t.status === 'Pending')
-  const flares = d.painRows.filter((r) => typeof r.intensity === 'number' && (r.intensity as number) >= 7)
-
-  // --- EXECUTIVE SUMMARY (one tight paragraph) ---
-  let exec = 'EXECUTIVE SUMMARY\n'
-  if (!hasPain && !hasSymp && !hasDiag) {
-    exec += 'The patient has begun tracking their health but limited data is recorded so far. More entries will produce a fuller summary.'
-  } else {
-    const parts: string[] = []
-    if (hasPain) {
-      let p = `The patient logged ${d.painRows.length} pain entr${d.painRows.length !== 1 ? 'ies' : 'y'}`
-      if (d.painAvg != null) p += `, avg intensity ${d.painAvg}/10`
-      if (d.painTopAreas.length) p += `, mainly in ${d.painTopAreas.slice(0, 3).map((a) => a.area).join(', ')}`
-      if (flares.length) p += `, with ${flares.length} flare${flares.length !== 1 ? 's' : ''} at 7+/10`
-      parts.push(p + '.')
-    }
-    if (hasSymp) {
-      let p = `${d.sympRows.length} symptom episode${d.sympRows.length !== 1 ? 's' : ''} recorded`
-      if (d.topSymptoms.length) p += ` — most common: ${d.topSymptoms.slice(0, 3).map((x) => x.symptom).join(', ')}`
-      parts.push(p + '.')
-    }
-    if (hasMeds) parts.push(`Currently on ${d.medList.length} medication${d.medList.length !== 1 ? 's' : ''}.`)
-    if (pendingTests.length) parts.push(`${pendingTests.length} test${pendingTests.length !== 1 ? 's' : ''} pending.`)
-    if (d.qList.length) parts.push(`${d.qList.length} open question${d.qList.length !== 1 ? 's' : ''} for provider.`)
-    exec += parts.join(' ')
-  }
-  s.push(exec)
-
-  // --- KEY ACTIVE ISSUES (compressed lines, not paragraphs) ---
-  const issues: string[] = []
-  if (hasPain) {
-    let line = `Pain: ${d.painRows.length} entries, avg ${d.painAvg ?? '—'}/10`
-    if (d.painTopAreas.length) line += ` | areas: ${d.painTopAreas.map((a) => a.area).join(', ')}`
-    if (d.painTopTypes.length) line += ` | type: ${d.painTopTypes.map((t) => t.type).join(', ')}`
-    if (flares.length) line += ` | ${flares.length} flare${flares.length !== 1 ? 's' : ''} ≥7/10`
-    issues.push(line)
-  }
-  if (hasSymp) {
-    let line = `Symptoms: ${d.sympRows.length} episode${d.sympRows.length !== 1 ? 's' : ''}`
-    if (d.topSymptoms.length) line += ` | recurring: ${d.topSymptoms.slice(0, 4).map((x) => x.symptom).join(', ')}`
-    issues.push(line)
-  }
-  if (issues.length) s.push('KEY ACTIVE ISSUES\n' + issues.join('\n'))
-
-  // --- CURRENT TREATMENT AND DIAGNOSES (compact block) ---
-  const txLines: string[] = []
-  if (hasMeds) {
-    const medStr = d.medList.map((m) => {
-      let t = m.medication as string
-      if (m.dose) t += ` ${m.dose}`
-      if (m.frequency) t += ` ${m.frequency}`
-      return t
-    })
-    txLines.push('Meds: ' + medStr.join('; '))
-  } else {
-    txLines.push('Meds: none listed')
-  }
-  if (hasDiag) {
-    const diagStr = d.diagRows.map((dd) => {
-      let t = dd.diagnosis as string
-      if (dd.status && dd.status !== 'Active') t += ` (${dd.status})`
-      return t
-    })
-    txLines.push('Dx: ' + diagStr.join('; '))
-  } else {
-    txLines.push('Dx: none recorded')
-  }
-  s.push('CURRENT TREATMENT AND DIAGNOSES\n' + txLines.join('\n'))
-
-  // --- RECENT MEDICAL EVENTS (max 2 visits, one-liners) ---
-  let events = 'RECENT MEDICAL EVENTS\n'
-  if (hasVisits) {
-    events += d.visitRows.slice(0, 2).map((v) => {
-      let line = `${v.visit_date} — ${v.doctor || 'provider'}`
-      if (v.specialty) line += ` (${v.specialty})`
-      if (v.reason) line += `: ${v.reason}`
-      if (v.instructions) line += ` → ${v.instructions}`
-      if (v.follow_up) line += ` | f/u: ${v.follow_up}`
-      return line
-    }).join('\n')
-    if (d.visitRows.length > 2) events += `\n(${d.visitRows.length - 2} more visit${d.visitRows.length - 2 !== 1 ? 's' : ''} in app)`
-  } else {
-    events += 'No visits logged.'
-  }
-  if (pendingTests.length) {
-    events += '\nPending tests: ' + pendingTests.map((t) => t.test_name as string).join(', ')
-  }
-  const completedTests = d.testRows.filter((t) => t.status !== 'Pending').slice(0, 3)
-  if (completedTests.length) {
-    events += '\nRecent results: ' + completedTests.map((t) => {
-      let line = `${t.test_name} (${t.test_date})`
-      if (t.results) line += ` — ${t.results}`
-      return line
-    }).join('; ')
-  }
-  s.push(events)
-
-  // --- QUESTIONS FOR NEXT VISIT (max 3) ---
-  let qs = 'QUESTIONS FOR NEXT VISIT\n'
-  if (d.qList.length > 0) {
-    qs += d.qList.slice(0, 3).map((q) => `• ${q.question}`).join('\n')
-    if (d.qList.length > 3) qs += `\n(${d.qList.length - 3} more in app)`
-  } else {
-    qs += 'None flagged.'
-  }
-  s.push(qs)
-
-  return s.join('\n\n')
 }
 
 export function DashboardPage () {
@@ -255,10 +126,13 @@ export function DashboardPage () {
     const since90 = new Date()
     since90.setDate(since90.getDate() - 90)
     const since90Str = since90.toISOString().slice(0, 10)
+    const since120 = new Date()
+    since120.setDate(since120.getDate() - 120)
+    const since120Str = since120.toISOString().slice(0, 10)
 
     const [
       painRes, sympRes, medRes, testsRes, pendingTestsRes,
-      diagRes, visitRes, qRes, symptomLogRes,
+      diagRes, visitRes, qRes, symptomLogRes, medEventsRes,
     ] = await Promise.all([
       supabase.from('pain_entries')
         .select('entry_date, entry_time, intensity, location, pain_type, triggers, relief_methods, notes')
@@ -273,7 +147,7 @@ export function DashboardPage () {
         .order('episode_date', { ascending: false })
         .limit(120),
       supabase.from('current_medications')
-        .select('medication, dose, frequency, purpose, notes')
+        .select('medication, dose, frequency, start_date, purpose, effectiveness, notes')
         .eq('user_id', user.id)
         .order('medication', { ascending: true }),
       supabase.from('tests_ordered')
@@ -307,6 +181,12 @@ export function DashboardPage () {
         .eq('user_id', user.id)
         .order('logged_at', { ascending: false })
         .limit(18),
+      supabase.from('medication_change_events')
+        .select('event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new')
+        .eq('user_id', user.id)
+        .gte('event_date', since120Str)
+        .order('event_date', { ascending: false })
+        .limit(50),
     ])
 
     const painRows = (painRes.data ?? []) as Record<string, unknown>[]
@@ -317,6 +197,10 @@ export function DashboardPage () {
     const visitRows = (visitRes.data ?? []) as Record<string, unknown>[]
     const qList = (qRes.data ?? []) as Record<string, unknown>[]
     const slogRows = (symptomLogRes.error ? [] : (symptomLogRes.data ?? [])) as { logged_at: string; activity_last_4h: string | null; symptoms: string[] | null }[]
+
+    let medChangeEvents: MedChangeEvent[] = []
+    if (medEventsRes.error) console.warn('medication_change_events:', medEventsRes.error.message)
+    else medChangeEvents = (medEventsRes.data ?? []) as MedChangeEvent[]
 
     const pendingTests = pendingTestsRes.count ?? 0
 
@@ -346,9 +230,11 @@ export function DashboardPage () {
       visitRows,
       qList,
       slogRows,
+      medChangeEvents,
     })
 
-    const narrativeFallback = buildNarrativeFallback({
+    const narrativeFallback = buildHandoffNarrative({
+      todayIso,
       painRows,
       sympRows,
       medList,
@@ -356,6 +242,7 @@ export function DashboardPage () {
       diagRows,
       visitRows,
       qList,
+      medChangeEvents,
       painAvg,
       painTopAreas: areaTop,
       painTopTypes: typeTop,

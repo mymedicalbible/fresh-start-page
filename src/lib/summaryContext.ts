@@ -2,6 +2,12 @@
  * Compact, trend-aware context for clinical handoff AI (reduces token dump / list-paraphrase).
  */
 
+import {
+  type MedChangeEvent,
+  buildMedSymptomCorrelationLines,
+  formatCorrelationBlock,
+} from './medSymptomCorrelation'
+
 export type SymptomLogRow = {
   logged_at: string
   activity_last_4h: string | null
@@ -19,6 +25,8 @@ export type SummaryInput = {
   visitRows: Record<string, unknown>[]
   qList: Record<string, unknown>[]
   slogRows: SymptomLogRow[]
+  /** From medication_change_events (optional if table not migrated yet) */
+  medChangeEvents?: MedChangeEvent[]
 }
 
 function parseList (text: string | null | undefined): string[] {
@@ -130,7 +138,7 @@ function addDays (iso: string, delta: number): string {
  * Single string passed to the Edge Function as patient-facing facts (compact + trends + exemplars).
  */
 export function buildCompactPatientData (input: SummaryInput): string {
-  const { todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows } = input
+  const { todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows, medChangeEvents = [] } = input
   const start14 = addDays(todayIso, -14)
   const start90 = addDays(todayIso, -90)
 
@@ -208,6 +216,9 @@ export function buildCompactPatientData (input: SummaryInput): string {
     }).join('\n')
     : '(No structured symptom snapshots.)'
 
+  const medCorrLines = buildMedSymptomCorrelationLines(medChangeEvents, painRows, sympRows, 21)
+  const medCorrText = formatCorrelationBlock(medCorrLines)
+
   return [
     '=== APP-GENERATED SUMMARY STATS (use with raw excerpts; do not recite as a bullet list in output) ===',
     trendLine,
@@ -221,6 +232,9 @@ export function buildCompactPatientData (input: SummaryInput): string {
     '',
     '=== MEDICATIONS (complete list from app) ===',
     medText,
+    '',
+    '=== MEDICATION CHANGES vs SYMPTOM/PAIN (~21d before vs after each event; interpret cautiously) ===',
+    medCorrText,
     '',
     '=== DIAGNOSES DIRECTORY ===',
     diagText,

@@ -18,56 +18,56 @@ function modelForMode (mode: string): string {
   return mode === 'fast' ? MODEL_FAST : MODEL_THOROUGH
 }
 
-const SYSTEM_PROMPT = `You prepare a clinical handoff document the patient will give to a physician (e.g. new specialist, PCP, or urgent care).
+const SYSTEM_PROMPT = `You prepare a clinical handoff the patient will give a physician. It must read like a nurse's verbal handoff: a short story first (so what), then what needs attention today, then supporting detail.
 
 Rules:
-- Write integrated narrative prose. Do NOT reorganize the patient's data as a long bullet list or row-by-row recap.
-- Do NOT begin every sentence with a date. Weave timeline naturally.
-- Ground statements in the PATIENT DATA provided in the user message. If important information is missing, say briefly it was not recorded in the app.
+- Write integrated narrative prose. Do NOT reorganize data as a long bullet list or row-by-row recap.
+- Ground statements in PATIENT DATA; if something is missing, say briefly it was not recorded.
 - Do NOT add new diagnoses, change treatment, or give prescriptive medical instructions.
-- Start with an EXECUTIVE SUMMARY of 3–5 sentences (no label needed before it, or use the exact line EXECUTIVE SUMMARY on its own line first — either is fine).
-- Then use exactly these section headings as plain lines (ALL CAPS), each on its own line, followed by one or more paragraphs:
+- If PATIENT DATA includes MEDICATION CHANGES vs SYMPTOM/PAIN: treat it as approximate app-derived correlation (before/after windows), not proof of causation; weave into section 5 when useful.
 
-CHIEF CONCERN AND FUNCTIONAL IMPACT
-RECENT PAIN AND SYMPTOM COURSE
-CURRENT MEDICATIONS
-KNOWN DIAGNOSES AND BACKGROUND
-RECENT ENCOUNTERS AND PLANS
-PENDING TESTS, RESULTS, AND FOLLOW-UP
-QUESTIONS AND GAPS FOR THE NEXT CLINICIAN
+Use exactly these numbered section headings (same wording), each on its own line, then content:
 
-- Under CURRENT MEDICATIONS: list each medication with dose and frequency as given; note if details are missing.
-- Under RECENT ENCOUNTERS: summarize recent visits narratively from the compressed visit lines (reason, findings/plan if present).
-- Under PENDING TESTS: separate pending orders from completed tests with results when provided.
-- Under QUESTIONS AND GAPS: quote the patient's open questions where helpful.
-- Cite at most a few specific log examples when they illustrate a pattern; never reproduce every line from REFERENCE EXCERPT.
-- Length: about 650–1100 words unless data are very sparse.
+1. PATIENT SNAPSHOT
+   3–5 sentences max: who they are in clinical terms (key diagnoses), current regimen in plain language, pain/symptom burden in one breath, and what is pending (tests/questions). Like a single tight verbal handoff paragraph.
 
-FEW-SHOT STYLE (fictional — match tone and structure only):
+2. ACTIVE CONCERNS (ADDRESS TODAY)
+   Interpret, don't just list numbers: what is worsening, uncontrolled, high-impact flares, or must not be missed this visit (include pending workup and urgent patient questions). Short bullets or 1–2 short paragraphs.
 
-EXECUTIVE SUMMARY
-Ms. Doe follows multiple inflammatory and autonomic symptoms tracked in a personal health app. Over the past two weeks she reports more frequent flares in hands and knees with fatigue limiting desk work on several days, compared with the prior month. She has documented medication changes from rheumatology and is waiting on CBC/CMP and anti-CCP drawn last week. She wishes to discuss sleep disruption and whether current therapy is sufficient for morning stiffness.
+3. CURRENT TREATMENT
+   Clean list: medications with dose and frequency; flag PRN/as-needed when stated. Then diagnoses from directory. Note patient-reported effectiveness if present.
 
-CHIEF CONCERN AND FUNCTIONAL IMPACT
-She describes herself as previously active and now pacing schedules around pain and crashes. Standing tolerances vary; she did not quantify hours in the app, so specific functional metrics are limited.
+4. RECENT VISITS AND FOLLOW-UP
+   What happened, what was ordered, outstanding follow-up — compact.
 
-RECENT PAIN AND SYMPTOM COURSE
-Episodes cluster in the mornings per logged entries, with intensity spikes up to 8/10 on the worst days in the last 14 days versus a slightly lower average in the 15–90 day window. Representative entries mention peripheral joints and burning quality; she also logged MCAS-type episodes after exertion.
+5. MEDICATION CHANGES AND SYMPTOM CORRELATION
+   Summarize any dose/start/stop events and the app's before/after symptom & pain counts (if provided). State clearly this is associative only.
 
-CURRENT MEDICATIONS
-(Example only — you must use real data from PATIENT DATA) MTX 15 mg weekly, folic acid, NSAID PRN.
+6. MY QUESTIONS FOR YOU
+   Patient's open questions last so they stay top-of-mind — quote where helpful.
 
-KNOWN DIAGNOSES AND BACKGROUND
-Per her directory: inflammatory arthritis (confirmed), POTS (suspected) — verify against clinical records.
+- Length: about 450–900 words unless data are very sparse.
+- Cite at most a few log examples; never dump REFERENCE EXCERPT line-by-line.
 
-RECENT ENCOUNTERS AND PLANS
-Last rheumatology note in the app documents dose adjustment and plan for repeat labs; primary care follow-up date recorded.
+FEW-SHOT STYLE (fictional — match tone only):
 
-PENDING TESTS, RESULTS, AND FOLLOW-UP
-CBC/CMP pending; MRI of hand mentioned as ordered.
+1. PATIENT SNAPSHOT
+Ms. Doe is tracking suspected POTS and hEDS with rheumatology and cardiology involvement. She is on propranolol 20 mg TID and MTX 15 mg weekly with PRN NSAID. Pain has been moderate overall with several high-intensity days; MCAS-type episodes cluster after exertion. She has one pending orthostatic workup and wants to know if morning symptoms warrant therapy changes.
 
-QUESTIONS AND GAPS FOR THE NEXT CLINICIAN
-She asks whether morning stiffness duration warrants switching biologics and how to coordinate cardiology for orthostasis.
+2. ACTIVE CONCERNS (ADDRESS TODAY)
+Recent flare frequency is up compared with the prior month; orthostatic symptoms remain limiting. CBC/CMP pending from last week must be reviewed.
+
+3. CURRENT TREATMENT
+(Use real data.) Propranolol 20 mg TID; MTX 15 mg weekly; folic acid. Diagnoses per app: inflammatory arthritis (confirmed); POTS (suspected).
+
+4. RECENT VISITS AND FOLLOW-UP
+Rheumatology adjusted MTX; plan for repeat labs. Cardiology follow-up noted.
+
+5. MEDICATION CHANGES AND SYMPTOM CORRELATION
+After propranolol titration (per app log), episode frequency appeared lower in the following window — correlation only.
+
+6. MY QUESTIONS FOR YOU
+Whether morning stiffness duration warrants biologic escalation; how to coordinate cardiology for orthostasis.
 `
 
 serve(async (req: Request) => {
