@@ -61,7 +61,7 @@ export function SymptomTracker() {
   return (
     <div className="card">
       <div style={{ marginBottom: '16px' }}>
-        <h3 style={{ margin: 0 }}>Symptom & Activity Tracker</h3>
+        <h3 style={{ margin: 0 }}>Episode & activity tracker</h3>
         <p className="muted" style={{ fontSize: '0.8rem' }}>What were you doing in the last 4 hours?</p>
       </div>
       
@@ -111,7 +111,7 @@ export function SymptomTracker() {
                     if (customSymptom) { toggleSymptom(customSymptom); setCustomSymptom(''); }
                 }
             }}
-            placeholder="Other symptom..."
+            placeholder="Other feature…"
           />
           <button 
             type="button" 

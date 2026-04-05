@@ -1,61 +1,122 @@
-# Medical Bible Project
+# Medical Bible Project (Medical Tracker)
 
-A personal health tracker web app: multi-user, with Supabase for **authentication**, **Postgres**, and **private file storage**. Built with **Vite**, **React 18**, and **TypeScript**. The UI covers quick logging, archives, doctor relationships, tests and orders, medications, diagnoses, questions, visit notes, charts, and an optional **clinical handoff summary** (app-generated and/or AI via an Edge Function) with **PDF download**.
+A **private, personal health tracker** web application. It helps you log pain, symptoms, visits, medications, tests, diagnoses, and doctor questions in one place—then assemble a **doctor-ready clinical handoff narrative** (with optional AI polish and **PDF export**). Authentication, database, and file storage run on **Supabase**; the client is **Vite + React 18 + TypeScript**.
 
-> This repository stores **sensitive medical information**. Treat keys, backups, and deployment settings accordingly.
+> **Sensitive data:** This app is built to hold medical information. Protect your Supabase project, never commit real `.env` files, use HTTPS in production, and treat **Row Level Security (RLS)** as mandatory—not optional.
 
 ---
 
 ## Table of contents
 
-1. [Features](#features)
-2. [Tech stack](#tech-stack)
-3. [Prerequisites](#prerequisites)
-4. [Local development](#local-development)
-5. [Environment variables](#environment-variables)
-6. [Database (Supabase)](#database-supabase)
-7. [Storage (visit documents)](#storage-visit-documents)
-8. [Dashboard health summary](#dashboard-health-summary)
-9. [Deploying the frontend](#deploying-the-frontend)
-10. [Security and compliance notes](#security-and-compliance-notes)
-11. [Project structure](#project-structure)
-12. [Scripts](#scripts)
+1. [What this app does](#what-this-app-does)
+2. [Feature map](#feature-map)
+3. [Routes](#routes)
+4. [Tech stack](#tech-stack)
+5. [Architecture at a glance](#architecture-at-a-glance)
+6. [Prerequisites](#prerequisites)
+7. [Local development](#local-development)
+8. [Environment variables](#environment-variables)
+9. [Database and migrations](#database-and-migrations)
+10. [Medication change events and correlation](#medication-change-events-and-correlation)
+11. [Clinical handoff summary](#clinical-handoff-summary)
+12. [Storage (visit documents)](#storage-visit-documents)
+13. [Deploying the frontend](#deploying-the-frontend)
+14. [Deploying the AI Edge Function](#deploying-the-ai-edge-function)
+15. [Troubleshooting](#troubleshooting)
+16. [Security and compliance](#security-and-compliance)
+17. [Project structure](#project-structure)
+18. [Scripts](#scripts)
+19. [License / contributing](#license--contributing)
 
 ---
 
-## Features
+## What this app does
 
-| Area | Description |
-|------|-------------|
-| **Dashboard** | Upcoming appointments, quick 30-day stats, clinical handoff summary (see below), PDF export, navigation into archives |
-| **Quick log** | Fast entry flows for pain, symptoms (MCAS episodes), and related tracking |
-| **Records** | Hub for pain/symptom archives and related entry points |
-| **Analytics** | Charts and trends for logged pain, MCAS/symptom episodes, and reactions (client-side only; chart data is not sent to AI) |
-| **Visits** | Doctor visit log / wizard; after save, navigation returns to the home dashboard by default |
-| **Doctors** | Scannable list of providers; **Doctor profile** (`/app/doctors/:id`) holds visits, questions, diagnoses, medications, and tests for one doctor |
-| **Tests & orders** | Pending vs archived views; completing orders moves them out of “current” |
-| **Medications** | Medication list and tracking |
-| **Questions** | Question archive with filters (e.g. open/unanswered) |
-| **Diagnoses** | Diagnosis directory tied to your records |
-| **Auth** | Email sign-in via Supabase Auth; routes under `/app` are protected |
+- **Capture** structured health data (pain, MCAS-style symptom episodes, quick symptom snapshots, visits, meds, tests, questions, diagnoses, appointments).
+- **Organize** it by time, doctor, and record type so you can find things before an appointment.
+- **Summarize** in first-person “handoff” prose suitable to share with a clinician, with a **~90-day data window** for aggregation and **30-day-highlight** copy for recent pain/symptom intensity where applicable.
+- **Optionally enhance** that summary with an LLM via a **Supabase Edge Function** (keys stay on the server).
+- **Export** the final text as a **PDF** on the device (jsPDF).
+
+The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in global CSS—no emoji in the primary dashboard layout.
+
+---
+
+## Feature map
+
+| Area | Path / entry | What you get |
+|------|----------------|--------------|
+| **Dashboard** | `/app` | Upcoming appointments, pending-visit nudge, **Log today** grid (pain, symptoms, questions, visit), **Clinical handoff** (opens a slide-up panel—not a full-page form), **Your care & records** bento links |
+| **Quick log** | `/app/log` | Fast flows for pain and symptoms; navigation to archives after save |
+| **Records** | `/app/records` | Hub for pain / symptom archives and related tabs |
+| **Analytics** | `/app/analytics` | Charts (Recharts); data stays in the browser unless you screenshot/share |
+| **Visits** | `/app/visits` | Visit wizard; **after save, returns to dashboard** by default |
+| **Doctors** | `/app/doctors` | Scannable list; each card links to a **Doctor profile** |
+| **Doctor profile** | `/app/doctors/:id` | Full-width sections: visits, questions, diagnoses, medications, tests for one provider |
+| **Tests & orders** | `/app/tests` | Pending vs archived; completing can move items out of “current” |
+| **Medications** | `/app/meds` | List with **PRN vs scheduled** toggle on add/edit, **Log dose change** modal (events + optional med field updates), archive on remove |
+| **Questions** | `/app/questions` | Archive with add-first layout and filters (e.g. open / unanswered) |
+| **Diagnoses** | `/app/diagnoses` | Diagnosis directory |
+| **Auth** | `/login` | Supabase email auth; `/app/*` is protected |
+
+---
+
+## Routes
+
+| Path | Page |
+|------|------|
+| `/`, `*` | Redirect to `/app` |
+| `/login` | Login |
+| `/app` | Dashboard (home) |
+| `/app/log` | Quick log |
+| `/app/records` | Records hub |
+| `/app/analytics` | Charts |
+| `/app/meds` | Medications |
+| `/app/doctors` | Doctor list |
+| `/app/doctors/:id` | Doctor profile |
+| `/app/tests` | Tests & orders |
+| `/app/questions` | Questions |
+| `/app/diagnoses` | Diagnoses |
+| `/app/visits` | Visits / visit wizard |
 
 ---
 
 ## Tech stack
 
-- **Frontend:** React 18, React Router 6, Vite 6, TypeScript 5  
-- **Backend:** Supabase (PostgREST, GoTrue auth, Storage)  
-- **Charts:** Recharts  
-- **PDF:** jsPDF (handoff summary download)  
-- **Optional AI:** Supabase Edge Function `generate-summary` (Claude primary, optional OpenAI fallback) — see [Dashboard health summary](#dashboard-health-summary)
+| Layer | Technology |
+|-------|------------|
+| UI | React 18, React Router 6 |
+| Build | Vite 6, TypeScript 5 |
+| Backend | Supabase (Postgres, Auth, Storage, Edge Functions) |
+| Charts | Recharts |
+| PDF | jsPDF |
+| Optional AI | Edge Function `generate-summary` — Anthropic Claude first, optional OpenAI fallback |
+
+---
+
+## Architecture at a glance
+
+```
+Browser (React)
+  ├── Supabase JS client (anon key) → PostgREST + Auth + Storage
+  └── Edge Functions.invoke('generate-summary') → server-side LLM (optional)
+
+Postgres
+  ├── Tables for logs, visits, meds, tests, etc. (see migrations)
+  ├── RLS: row access scoped to auth.uid()
+  └── Triggers: e.g. medication_change_events on current_medications
+```
+
+- **All patient rows** should be protected by RLS policies defined in migrations.
+- **Never** put service-role keys or LLM API keys in `VITE_*` variables—they are bundled into the client.
 
 ---
 
 ## Prerequisites
 
-- **Node.js** 20 or newer (recommended)  
-- A **Supabase** project: [supabase.com](https://supabase.com)  
-- **Optional:** [Supabase CLI](https://supabase.com/docs/guides/cli) for linking the project, pushing migrations, and deploying Edge Functions  
+- **Node.js** 20+ (recommended)
+- A **Supabase** project: [supabase.com](https://supabase.com)
+- **Optional:** [Supabase CLI](https://supabase.com/docs/guides/cli) for `db push`, `secrets`, and `functions deploy`
 
 ---
 
@@ -68,127 +129,179 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from **Project Settings → API** in the Supabase dashboard.
+1. Open **Supabase → Project Settings → API**.
+2. Set in `.env`:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
 
-Apply all database migrations (see [Database](#database-supabase)) before relying on the app.
+3. Apply **all** SQL migrations to your project (see [Database and migrations](#database-and-migrations)).
 
 ```bash
 npm run dev
 ```
 
-The dev server is provided by Vite (default URL is printed in the terminal, usually `http://localhost:5173`).
+Vite prints the local URL (typically `http://localhost:5173`).
+
+**Lockfile note:** CI hosts (e.g. Cloudflare Pages) often run `npm ci`. If CI reports lockfile drift, regenerate with `npm install` and commit the updated `package-lock.json`.
 
 ---
 
 ## Environment variables
 
-| Variable | Required | Where |
-|----------|----------|--------|
-| `VITE_SUPABASE_URL` | Yes | `.env` (browser) |
-| `VITE_SUPABASE_ANON_KEY` | Yes | `.env` (browser) |
+### Frontend (`.env` — safe to expose in build)
 
-Secrets for AI (**never** put these in `.env` for Vite — they would ship to the browser):
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Anonymous public key |
+
+### Edge Function secrets (Supabase dashboard or CLI — **not** in Vite)
 
 | Secret | Purpose |
 |--------|---------|
-| `ANTHROPIC_API_KEY` | Claude API for `generate-summary` (primary) |
-| `OPENAI_API_KEY` | Optional fallback if Anthropic is missing or rate-limited |
-| `OPENAI_MODEL` | Optional; default `gpt-4o-mini` |
-| `ANTHROPIC_MODEL_FAST` / `ANTHROPIC_MODEL_THOROUGH` | Optional overrides for Haiku / Sonnet-style models |
+| `ANTHROPIC_API_KEY` | Primary LLM (Claude) for `generate-summary` |
+| `OPENAI_API_KEY` | Optional fallback (e.g. rate limits) |
+| `OPENAI_MODEL` | Optional; defaults to `gpt-4o-mini` in the Edge Function |
+| `ANTHROPIC_MODEL_FAST` / `ANTHROPIC_MODEL_THOROUGH` | Optional model overrides |
 
-Set Edge Function secrets with the Supabase CLI, e.g. `supabase secrets set ANTHROPIC_API_KEY=...`.
+Example:
+
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-api03-...
+# optional
+supabase secrets set OPENAI_API_KEY=sk-...
+```
 
 ---
 
-## Database (Supabase)
+## Database and migrations
 
-Schema and Row Level Security (RLS) are defined in `supabase/migrations/`. Apply them **in chronological order** (by filename) using either:
+Schema and **Row Level Security** live under `supabase/migrations/`. Apply files **in filename order** using the SQL Editor or:
 
-- **SQL Editor:** paste and run each file’s contents in order, or  
-- **CLI:** `supabase db push` (or your team’s equivalent workflow)
+```bash
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push
+```
 
-### Migration files (current set)
+### Migration inventory
 
-| File | Role |
-|------|------|
-| `20250325000000_initial.sql` | Core tables: profiles, doctor visits, pain entries, MCAS episodes, medications, reactions, doctors, questions, diagnoses, tests, RLS policies, auth hooks, etc. |
-| `20250326000000_visit_docs_storage.sql` | Private Storage bucket and policies for visit-related documents |
-| `20250403120000_doctor_visits_status.sql` | Adds `doctor_visits.status` (`complete` / `pending`) for the visit workflow |
-| `20250404100000_appointments_visit_logged.sql` | `appointments` table and `visit_logged` flag for dashboard |
-| `20250404230000_symptom_logs.sql` | `symptom_logs` table for quick symptom snapshots |
-| `20250405000000_missing_columns.sql` | Idempotent fixes: `doctor_visits` status / `is_finalized`, `mcas_episodes.activity`, `doctors` and `tests_ordered` if missing |
-| `20250406100000_medication_change_events.sql` | `medication_change_events` + triggers on `current_medications` (start / dose-frequency adjustment / stop) for handoff correlation |
+| File | Purpose |
+|------|---------|
+| `20250325000000_initial.sql` | Core schema: profiles, visits, pain, MCAS episodes, medications, reactions, doctors, questions, diagnoses, tests, RLS, auth-related triggers, etc. |
+| `20250326000000_visit_docs_storage.sql` | Private Storage bucket + policies for visit documents |
+| `20250403120000_doctor_visits_status.sql` | `doctor_visits.status`: `complete` \| `pending` (pending visits finish later) |
+| `20250404100000_appointments_visit_logged.sql` | Appointments + `visit_logged` for dashboard |
+| `20250404230000_symptom_logs.sql` | `symptom_logs` quick snapshots |
+| `20250405000000_missing_columns.sql` | Idempotent fixes: missing columns/tables on older DBs (`doctor_visits.status`, `mcas_episodes.activity`, `doctors`, `tests_ordered`, etc.) |
+| `20250406100000_medication_change_events.sql` | `medication_change_events` table + trigger on `current_medications` (insert/update/delete) for audit + handoff correlation |
 
-Runs are safe if steps overlap (e.g. `status` uses `add column if not exists`).
-
-If the dashboard or visits page errors on a **missing column**, re-check that the latest migrations have been applied on your Supabase project.
+If the app errors with **“column not found”** or **“schema cache”** issues, the remote database is usually missing the latest migration—re-apply and refresh the Supabase API schema if needed.
 
 ### Authentication
 
-In the Supabase dashboard:
+- Enable **Email** provider under **Authentication → Providers** as needed.
+- Configure **email confirmation** according to your security preference.
+- New users typically get a `profiles` row via patterns in the initial migration—verify triggers match your project.
 
-- Enable **Authentication → Providers → Email** as needed  
-- Configure whether **email confirmation** is required before first login  
+---
 
-New users get a `profiles` row via the migration’s auth trigger pattern (see initial migration).
+## Medication change events and correlation
+
+Two mechanisms work together:
+
+1. **Database trigger** (`20250406100000_medication_change_events.sql`): Any insert/update/delete on `current_medications` writes a row to `medication_change_events` (`start` / `adjustment` / `stop` with previous/new dose and frequency when applicable).
+
+2. **App “Log dose change”** (Medications page): Inserts an explicit `medication_change_events` row and can update **dose, frequency, effectiveness, side effects** on the current medication row when you save from that popup—so your handoff and lists stay coherent.
+
+**Handoff narrative** (`src/lib/handoffNarrative.ts` + `src/lib/medSymptomCorrelation.ts`) compares **loose** before/after windows (~3 weeks) of pain and symptom episode counts around each event. This is **not** clinical inference of causation—it's a **timeline hint** for you and your doctor.
+
+---
+
+## Clinical handoff summary
+
+### Where it lives
+
+- **UI:** Dashboard → **Clinical handoff summary** → opens a **bottom sheet / panel** (generate, optional depth, patient focus, PDF, links).
+- **App narrative:** `src/lib/handoffNarrative.ts` — first-person template, including:
+  - Title line with date
+  - Opening context (diagnoses + current meds)
+  - **Past 30 days** pain/symptom highlights (counts, average, flares ≥7, areas, character; top symptoms)
+  - **What I need to address today**
+  - **Recent visits** / **Recent results**
+  - **Medication changes & what happened** (correlation bullets)
+  - **My questions for you**
+
+### Optional AI
+
+- Client sends **compact context** from `src/lib/summaryContext.ts` to `generate-summary`.
+- If the function fails or keys are missing, the UI still shows the **app-generated** narrative and may show a short diagnostic message.
+- **Patient focus** text is optional; it is persisted in `localStorage` (`mb-handoff-focus`) for convenience when generating again.
+
+### PDF
+
+- Implemented in `src/lib/summaryPdf.ts` using **jsPDF** (browser-only download).
 
 ---
 
 ## Storage (visit documents)
 
-Visit documents are stored in a **private** Supabase Storage bucket (configured in `20250326000000_visit_docs_storage.sql`, typically named `visit-docs`). Policies restrict access to the owning authenticated user.
-
-After migrations and bucket creation, uploads are available from visit-related flows in the app.
-
----
-
-## Dashboard health summary
-
-The dashboard can build a **clinical handoff-style** summary for you (and **Download PDF**).
-
-1. **App-generated narrative (default)**  
-   Built entirely in the browser from your archives (pain, symptoms, meds, diagnoses, visits, tests, open questions). It is **concise and skimmable** by design — no API key required.
-
-2. **Optional AI narrative**  
-   The client calls `supabase.functions.invoke('generate-summary', …)` with compact patient context. The Edge Function lives at:
-
-   `supabase/functions/generate-summary/index.ts`
-
-   Deploy (example):
-
-   ```bash
-   supabase login
-   supabase link --project-ref YOUR_PROJECT_REF
-   supabase secrets set ANTHROPIC_API_KEY=sk-ant-api03-...
-   # optional: supabase secrets set OPENAI_API_KEY=sk-...
-   supabase functions deploy generate-summary
-   ```
-
-   If the function fails or is not configured, the UI still shows the app-generated summary and may display a short error hint for debugging.
-
-**Patient focus field:** Optional free text (“most important for my next appointment”) is sent to the Edge Function when AI is used; it is also stored in `localStorage` for convenience.
+- Private bucket (see `20250326000000_visit_docs_storage.sql`, commonly `visit-docs`).
+- Policies restrict object access to the owning authenticated user.
+- Used by visit-related flows after migrations and bucket creation.
 
 ---
 
 ## Deploying the frontend
 
-Typical static hosting (e.g. **Cloudflare Pages**, Netlify, Vercel):
+Typical static hosts: **Cloudflare Pages**, Netlify, Vercel, etc.
 
-- **Build command:** `npm ci && npm run build` (or `npm install && npm run build`)  
-- **Output directory:** `dist`  
-- **Environment variables:** set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the host’s project settings  
+| Setting | Value |
+|---------|--------|
+| Install | `npm ci` (ensure `package-lock.json` is committed) or `npm install` |
+| Build | `npm run build` |
+| Output | `dist` |
+| Env | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
 
-The **anon** key is safe to expose to the browser; RLS enforces data access. Never expose the **service role** key or AI provider keys in frontend env vars.
+Do **not** expose the **service role** key or LLM keys in frontend environment variables.
 
 ---
 
-## Security and compliance notes
+## Deploying the AI Edge Function
 
-- You are responsible for how you use and store health data (HIPAA, regional privacy laws, etc.). This README is not legal advice.  
-- Use **HTTPS** in production, strong passwords, and keep Supabase RLS policies enabled and tested.  
-- Restrict Storage bucket policies to authenticated users and object ownership as defined in migrations.  
-- Prefer **Edge Functions** (or another server) for any third-party LLM API keys.  
-- If the repo lives in cloud sync folders (e.g. OneDrive), occasional `node_modules` or lockfile quirks can occur; a clean `npm ci` in CI usually avoids drift.
+1. Install and log in to Supabase CLI.
+2. Link your project: `supabase link --project-ref YOUR_PROJECT_REF`
+3. Set secrets (see [Environment variables](#environment-variables)).
+4. Deploy:
+
+```bash
+supabase functions deploy generate-summary
+```
+
+Code: `supabase/functions/generate-summary/index.ts`.
+
+If you do not deploy the function, the app **still works** with the built-in narrative.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | What to try |
+|---------|----------------|-------------|
+| `npm ci` fails / lockfile missing packages | Lockfile out of sync | Run `npm install`, commit `package-lock.json` |
+| Type errors about missing `@types/*` | Corrupted or empty `node_modules` (e.g. cloud sync) | Delete broken folders under `node_modules/@types`, run `npm install` |
+| “Column not found” / schema cache | Migration not applied | Run latest SQL migrations on Supabase |
+| Edge Function invoke error | Not deployed, CORS, or missing secrets | Deploy function; set `ANTHROPIC_API_KEY`; check function logs |
+| Pain/symptom data “missing” in summary | Date range | Summary aggregates ~90 days; opening paragraph emphasizes last 30 days where data exists |
+| Medication correlation empty | No change events | Add/adjust meds or use **Log dose change**; ensure migration `20250406100000_*` is applied |
+
+---
+
+## Security and compliance
+
+- This README is **not legal advice**. HIPAA, GDPR, and regional health-privacy rules may apply depending on how you host and who uses the app.
+- Use **HTTPS**, strong passwords, and **RLS** on all user tables.
+- Prefer **Edge Functions** (or another server) for third-party AI keys.
+- If the repo lives in **OneDrive/iCloud**, occasional file-sync conflicts in `node_modules` can break installs; clean reinstall or exclude `node_modules` from sync.
 
 ---
 
@@ -196,31 +309,43 @@ The **anon** key is safe to expose to the browser; RLS enforces data access. Nev
 
 ```
 src/
-  App.tsx                 # Routes: /login, /app/* (protected)
-  components/             # Shared UI (e.g. layout, visit wizard)
-  contexts/               # Auth context
+  App.tsx                    # Routes and auth guard
+  main.tsx                   # React root + BrowserRouter
+  index.css                  # Global pastel theme, buttons, cards, modals
+  components/
+    AppLayout.tsx            # Shell: header, outlet
+    VisitLogWizard.tsx       # Visit logging flow
+    ...                      # Other shared components
+  contexts/
+    AuthContext.tsx          # Supabase session
   pages/
-    DashboardPage.tsx     # Home, summary, PDF, drawers
+    DashboardPage.tsx        # Home, handoff modal, bento links
     QuickLogPage.tsx
     RecordsPage.tsx
-    VisitsPage.tsx
+    AnalyticsPage.tsx
+    MedicationsPage.tsx      # PRN toggle, dose-change popup, archive
     DoctorsPage.tsx
-    DoctorProfilePage.tsx # /app/doctors/:id
+    DoctorProfilePage.tsx
     TestsOrderedPage.tsx
-    MedicationsPage.tsx
     QuestionsArchivePage.tsx
     DiagnosesDirectoryPage.tsx
-    AnalyticsPage.tsx
+    VisitsPage.tsx
     LoginPage.tsx
   lib/
-    supabase.ts           # Browser Supabase client
-    summaryContext.ts     # Compact blob for optional AI
-    summaryPdf.ts         # PDF download helper
-    parse.ts              # Deterministic text parsing helpers (e.g. areas/triggers)
+    supabase.ts              # Browser client
+    handoffNarrative.ts      # First-person handoff template
+    medSymptomCorrelation.ts # Loose med change vs pain/symptom windows
+    summaryContext.ts        # Compact blob for optional AI
+    summaryPdf.ts            # PDF download
+    parse.ts                 # Text helpers (areas, triggers, etc.)
 supabase/
-  migrations/             # Ordered SQL migrations
+  migrations/                # Ordered SQL
   functions/
-    generate-summary/     # Optional AI handoff (Claude + optional OpenAI)
+    generate-summary/        # Optional Claude / OpenAI handoff
+public/                      # Icons, manifest (if used)
+index.html                   # Entry HTML (e.g. theme-color)
+.env.example                 # Template for VITE_* only
+package.json
 ```
 
 ---
@@ -229,14 +354,20 @@ supabase/
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Typecheck (`tsc -b`) + production build to `dist/` |
-| `npm run preview` | Preview the production build locally |
+| `npm run dev` | Vite dev server |
+| `npm run build` | `tsc -b` + production bundle to `dist/` |
+| `npm run preview` | Serve `dist/` locally |
+
+**Playwright** is listed in `devDependencies`; add or document test commands if you introduce a standard `npm test` workflow.
 
 ---
 
 ## License / contributing
 
-Add your preferred **LICENSE** and contribution guidelines if this repository is public or shared.
+Add a **LICENSE** and contribution guidelines if you open-source or share the repository. When adding features:
 
-If you add features, keep migrations **forward-only** and document new env vars or Edge secrets in this file.
+- Prefer **new forward-only migrations** with clear timestamps.
+- Document new **VITE_** vars here and new **Edge secrets** in the same section.
+- Keep the ** anon** key in the client only; never commit `.env` with real secrets.
+
+If you maintain a fork for a clinical study or caregiver use, document data retention and access controls separately.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -114,7 +115,7 @@ export function DoctorsPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <BackButton label="Back" />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
 
       <div className="card">

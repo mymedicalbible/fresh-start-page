@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -387,7 +388,7 @@ export function DoctorProfilePage () {
   return (
     <div style={{ paddingBottom: 60 }}>
       {/* NAV */}
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app/doctors')}>← My Doctors</button>
+      <BackButton label="My Doctors" fallbackTo="/app/doctors" />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 

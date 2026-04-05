@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { BackButton } from '../components/BackButton'
+import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 
 
 type DiagnosisRow = {
@@ -57,7 +58,6 @@ function todayISO () { return new Date().toISOString().slice(0, 10) }
 
 export function DiagnosesDirectoryPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [rows, setRows] = useState<DiagnosisRow[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -197,7 +197,7 @@ export function DiagnosesDirectoryPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <BackButton />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 
@@ -294,19 +294,16 @@ export function DiagnosesDirectoryPage () {
           </div>
 
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Doctor (optional)</label>
-              <select value={form.doctor} onChange={(e) => setForm({ ...form, doctor: e.target.value })}>
-                <option value="">— Select doctor —</option>
-                {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Date diagnosed (optional)</label>
-              <input type="date" value={form.date_diagnosed}
-                onChange={(e) => setForm({ ...form, date_diagnosed: e.target.value })} />
-            </div>
+          <DoctorPickOrNew
+            doctors={doctors}
+            value={form.doctor}
+            onChange={(v) => setForm({ ...form, doctor: v })}
+            label="Doctor (optional)"
+          />
+          <div className="form-group">
+            <label>Date diagnosed (optional)</label>
+            <input type="date" value={form.date_diagnosed}
+              onChange={(e) => setForm({ ...form, date_diagnosed: e.target.value })} />
           </div>
 
 

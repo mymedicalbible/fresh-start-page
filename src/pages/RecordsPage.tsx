@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -20,7 +21,6 @@ type SymptomRow = {
 
 export function RecordsPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
@@ -67,12 +67,12 @@ export function RecordsPage () {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
-          <h2 style={{ margin: 0 }}>Pain & symptoms</h2>
+          <BackButton />
+          <h2 style={{ margin: 0 }}>Pain & episodes</h2>
         </div>
 
         <div className="tabs">
-          {([['pain', 'Pain'], ['symptoms', 'Symptoms']] as [Tab, string][]).map(([id, label]) => (
+          {([['pain', 'Pain'], ['symptoms', 'Episodes']] as [Tab, string][]).map(([id, label]) => (
             <button key={id} type="button"
               className={`tab ${tab === id ? 'active' : ''}`}
               onClick={() => setTab(id)}>
@@ -112,8 +112,8 @@ export function RecordsPage () {
       {/* SYMPTOMS */}
       {tab === 'symptoms' && (
         <div className="card">
-          <h3>Symptom log</h3>
-          {filtered.symptoms.length === 0 ? <p className="muted">No symptom entries yet.</p> : null}
+          <h3>Episode log</h3>
+          {filtered.symptoms.length === 0 ? <p className="muted">No episode entries yet.</p> : null}
           {filtered.symptoms.map((r) => (
             <div key={r.id} className="list-item">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -122,7 +122,7 @@ export function RecordsPage () {
               </div>
               {r.symptoms && (
                 <div style={{ marginTop: 6 }}>
-                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Symptoms</div>
+                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Features</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym, i) => (
                       <span key={i} style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46' }}>

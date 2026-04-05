@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { BackButton } from '../components/BackButton'
+import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import {
   PAIN_AREA_LIST,
   MIDLINE_AREA_LIST,
@@ -10,13 +12,6 @@ import {
 } from '../lib/parse'
 
 const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
-
-const TAB_LABEL: Record<string, string> = {
-  visit: 'Visit',
-  pain: 'Pain',
-  symptoms: 'Symptoms',
-  questions: "Q's",
-}
 
 function nowTime () {
   const n = new Date()
@@ -34,6 +29,7 @@ export function QuickLogPage () {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
+  const [postSave, setPostSave] = useState<{ archive: string; title: string } | null>(null)
 
   const [screen, setScreen] = useState<'visit' | 'pain' | 'symptoms' | 'questions'>(() => {
     const t = searchParams.get('tab')
@@ -148,13 +144,12 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
-    // Navigate to records so user can see the entry was saved
-    navigate('/app/records?tab=pain')
+    setPostSave({ archive: '/app/records?tab=pain', title: 'Pain log archive' })
   }
 
   async function handleSaveSymptoms () {
     if (!user) return
-    if (selectedSymptoms.length === 0) { setError('Please select or add at least one symptom.'); return }
+    if (selectedSymptoms.length === 0) { setError('Please add at least one feature for this episode.'); return }
     setBusy(true)
     setError(null)
     const { error: e } = await supabase.from('mcas_episodes').insert({
@@ -169,7 +164,7 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
-    navigate('/app/records?tab=symptoms')
+    setPostSave({ archive: '/app/records?tab=symptoms', title: 'Episode archive' })
   }
 
   async function handleSaveQuestion () {
@@ -186,30 +181,47 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
-    navigate('/app')
+    setPostSave({ archive: '/app/questions', title: 'Questions archive' })
   }
 
   return (
     <div style={{ padding: '16px', maxWidth: '450px', margin: '0 auto' }}>
-      <button className="btn btn-ghost" onClick={() => navigate('/app')} style={{ marginBottom: 15 }}>← Back</button>
+      <BackButton />
+
+      {postSave && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 400,
+          background: 'rgba(30,77,52,0.2)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div className="card" style={{ maxWidth: 360, width: '100%', borderRadius: 20 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--mint-ink)' }}>Saved</div>
+            <p className="muted" style={{ fontSize: '0.88rem', marginTop: 0 }}>
+              Go to the archive for this entry, or back to the home screen?
+            </p>
+            <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+              <button type="button" className="btn btn-mint btn-block"
+                onClick={() => { navigate(postSave.archive); setPostSave(null) }}>
+                Open {postSave.title}
+              </button>
+              <button type="button" className="btn btn-primary btn-block"
+                onClick={() => { navigate('/app'); setPostSave(null) }}>
+                Home
+              </button>
+              <button type="button" className="btn btn-ghost btn-block"
+                onClick={() => setPostSave(null)}>
+                Stay here
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="banner error" style={{ marginBottom: 16 }} onClick={() => setError(null)}>
           {error} ✕
         </div>
       )}
-
-      {/* TAB SWITCHER */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-        {(['visit', 'pain', 'symptoms', 'questions'] as const).map(t => (
-          <button key={t}
-            onClick={() => { setScreen(t); setPainStep(1); setSelectedSymptoms([]); setNewSymptomText('') }}
-            className={`btn ${screen === t ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ flex: 1, fontSize: '0.72rem', padding: '8px 4px' }}>
-            {TAB_LABEL[t]}
-          </button>
-        ))}
-      </div>
 
       {/* VISIT */}
       {screen === 'visit' && (
@@ -301,7 +313,7 @@ export function QuickLogPage () {
       {/* SYMPTOMS — replaces MCAS */}
       {screen === 'symptoms' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <h3 style={{ marginTop: 0 }}>🩺 Symptoms</h3>
+          <h3 style={{ marginTop: 0 }}>Log an episode</h3>
 
           {/* Date + time */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -321,7 +333,7 @@ export function QuickLogPage () {
 
           {/* Symptom picker */}
           <div className="form-group">
-            <label>Symptoms</label>
+            <label>Episode features</label>
             {pastSymptoms.length > 0 && (
               <div className="pill-grid" style={{ marginBottom: 10 }}>
                 {pastSymptoms.map(sym => (
@@ -342,7 +354,7 @@ export function QuickLogPage () {
                 value={newSymptomText}
                 onChange={e => setNewSymptomText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addCustomSymptom()}
-                placeholder="Type a symptom and tap Add…"
+                placeholder="Type a feature and tap Add…"
                 style={{ flex: 1 }}
               />
               <button type="button" className="btn btn-secondary"
@@ -377,7 +389,7 @@ export function QuickLogPage () {
           </div>
 
           <button className="btn btn-primary btn-block" onClick={handleSaveSymptoms} disabled={busy}>
-            {busy ? 'Saving…' : 'Save Symptoms'}
+            {busy ? 'Saving…' : 'Save episode'}
           </button>
         </div>
       )}
@@ -385,14 +397,13 @@ export function QuickLogPage () {
       {/* QUESTIONS */}
       {screen === 'questions' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <h3 style={{ marginTop: 0 }}>❓ Question</h3>
-          <div className="form-group">
-            <label>Doctor (optional)</label>
-            <select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>
-              <option value="">— Any / not set —</option>
-              {doctors.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
+          <h3 style={{ marginTop: 0 }}>Question</h3>
+          <DoctorPickOrNew
+            doctors={doctors}
+            value={form.doctor}
+            onChange={(v) => setForm({ ...form, doctor: v })}
+            label="Doctor (optional)"
+          />
           <div className="form-group">
             <label>Priority</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -401,7 +412,7 @@ export function QuickLogPage () {
                   className={`btn ${form.priority === p ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, fontSize: '0.82rem' }}
                   onClick={() => setForm({...form, priority: p})}>
-                  {p === 'High' ? '🔴' : p === 'Medium' ? '🟡' : '🟢'} {p}
+                  {p}
                 </button>
               ))}
             </div>

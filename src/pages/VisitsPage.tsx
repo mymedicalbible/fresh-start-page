@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { VisitLogWizard } from '../components/VisitLogWizard'
@@ -208,7 +209,7 @@ export function VisitsPage () {
   if (wizardNew || resumeId) {
     return (
       <div style={{ paddingBottom: 40 }}>
-        <button type="button" className="btn btn-ghost" onClick={() => navigate('/app/visits')}>← Visits</button>
+        <BackButton label="Visits" fallbackTo="/app/visits" />
         <VisitLogWizard
           resumeVisitId={resumeId}
           initialDoctorName={prefillDoctor}
@@ -222,7 +223,7 @@ export function VisitsPage () {
   if (showNewDoctorPrompt) {
     return (
       <div style={{ padding: '8px 0 40px' }}>
-        <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+        <BackButton label="Back" />
         <div className="card" style={{ marginTop: 12 }}>
           <h3 style={{ marginTop: 0 }}>Add to doctors list?</h3>
           <p className="muted"><strong>{pendingDoctorName}</strong> isn't in your doctors list yet. Add them?</p>
@@ -250,7 +251,7 @@ export function VisitsPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <BackButton label="Back" />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 

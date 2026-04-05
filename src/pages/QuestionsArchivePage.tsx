@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -24,7 +24,6 @@ function todayISO () { return new Date().toISOString().slice(0, 10) }
 
 export function QuestionsArchivePage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [questions, setQuestions] = useState<QuestionRow[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [viewMode, setViewMode] = useState<'all' | 'unanswered' | 'answered'>('all')
@@ -129,7 +128,7 @@ export function QuestionsArchivePage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <BackButton label="Back" />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 

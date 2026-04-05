@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { BackButton } from '../components/BackButton'
+import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 
 
 type TestRow = {
@@ -24,7 +25,6 @@ function todayISO () { return new Date().toISOString().slice(0, 10) }
 
 export function TestsOrderedPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [tests, setTests] = useState<TestRow[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [view, setView] = useState<'current' | 'archived'>('current')
@@ -72,30 +72,35 @@ export function TestsOrderedPage () {
 
     const insertedIds: string[] = []
     for (const t of valid) {
-      const { data, error: e } = await supabase.from('tests_ordered').insert({
+      const { data: rows, error: e } = await supabase.from('tests_ordered').insert({
         user_id: user!.id,
         test_date: formDate,
-        doctor: formDoctor || null,
+        doctor: formDoctor.trim() || null,
         test_name: t.test_name.trim(),
         reason: t.reason || null,
         status: 'Pending',
-      }).select('id').single()
+      }).select('id')
       if (e) { setError(e.message); setBusy(false); return }
-      if (data?.id) insertedIds.push(data.id)
+      const id = rows?.[0]?.id as string | undefined
+      if (id) insertedIds.push(id)
     }
 
     if (pendingFiles.length > 0 && insertedIds.length > 0) {
-      const testId = insertedIds[0]
-      for (const file of pendingFiles) {
-        const folder = `${user!.id}/tests/${testId}`
-        const safeName = `${Date.now()}-${file.name}`.replace(/\s+/g, '-')
-        const { error: upErr } = await supabase.storage.from('visit-docs')
-          .upload(`${folder}/${safeName}`, file, {
-            contentType: file.type || 'application/octet-stream',
-            upsert: false,
-          })
-        if (upErr) console.error('Upload error:', upErr.message)
+      const uploadErrors: string[] = []
+      let seq = 0
+      for (const testId of insertedIds) {
+        for (const file of pendingFiles) {
+          const folder = `${user!.id}/tests/${testId}`
+          const safeName = `${Date.now()}-${seq++}-${file.name.replace(/[^\w.\-]+/g, '_')}`.replace(/\s+/g, '-')
+          const { error: upErr } = await supabase.storage.from('visit-docs')
+            .upload(`${folder}/${safeName}`, file, {
+              contentType: file.type || 'application/octet-stream',
+              upsert: false,
+            })
+          if (upErr) uploadErrors.push(`${file.name}: ${upErr.message}`)
+        }
       }
+      if (uploadErrors.length) setError(`Tests saved, but some file uploads failed. ${uploadErrors[0]}`)
     }
 
     setBusy(false)
@@ -175,7 +180,7 @@ export function TestsOrderedPage () {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+      <BackButton />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 
@@ -205,17 +210,12 @@ export function TestsOrderedPage () {
               <label>Date ordered</label>
               <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
             </div>
-            <div className="form-group">
-              <label>Ordered by</label>
-              <select value={formDoctor} onChange={(e) => setFormDoctor(e.target.value)}>
-                <option value="">— Select doctor —</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.name}>
-                    {d.name}{d.specialty ? ` · ${d.specialty}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <DoctorPickOrNew
+              doctors={doctors.map((d) => ({ id: d.id, name: d.name }))}
+              value={formDoctor}
+              onChange={setFormDoctor}
+              label="Ordered by (optional)"
+            />
           </div>
 
           <label style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>Tests / orders</label>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, subDays } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -62,7 +62,6 @@ function parseSymptomTokens (text: string | null): string[] {
 
 export function AnalyticsPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptomEpisodes, setSymptomEpisodes] = useState<SymptomRow[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -189,7 +188,7 @@ export function AnalyticsPage () {
     setPopup({
       type: 'symptoms', hour,
       items: entries.map((e) => ({
-        label: e.symptoms ?? 'No symptoms listed',
+        label: e.symptoms ?? 'No episode features listed',
         sub: `${e.episode_date}${e.severity ? ` · ${e.severity}` : ''}${e.activity ? ` · ${e.activity}` : ''}`,
       })),
     })
@@ -215,7 +214,7 @@ export function AnalyticsPage () {
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>
-                {popup.type === 'pain' ? '🩹 Pain' : '🩺 Symptoms'} at {formatHour(popup.hour)}
+                {popup.type === 'pain' ? '🩹 Pain' : '🩺 Episodes'} at {formatHour(popup.hour)}
               </h3>
               <button type="button" className="btn btn-ghost" onClick={() => setPopup(null)}>✕</button>
             </div>
@@ -238,8 +237,8 @@ export function AnalyticsPage () {
 
       {/* HEADER + DATE RANGE */}
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>← Home</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <BackButton label="Back" style={{ marginBottom: 0 }} className="btn btn-ghost" />
           <h2 style={{ margin: 0 }}>Charts & trends</h2>
         </div>
         <div className="form-group" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -299,12 +298,12 @@ export function AnalyticsPage () {
             <button type="button" onClick={() => setExpandSymptoms(v => !v)}
               style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
               <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <span>Most common symptoms</span>
+                <span>Most common episode features</span>
                 <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandSymptoms ? '▲' : '▼'}</span>
               </h2>
             </button>
             {topSymptoms.length === 0
-              ? <p className="muted">No symptom episodes logged yet.</p>
+              ? <p className="muted">No episodes logged yet.</p>
               : (
                 <div style={{ display: 'grid', gap: 10 }}>
                   {visibleSymptoms.map((s) => (
@@ -358,10 +357,10 @@ export function AnalyticsPage () {
 
           {/* SYMPTOMS TIME HEATMAP — replaces MCAS by time */}
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Symptoms by time of day</h2>
-            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what symptoms were logged at that time.</p>
+            <h2 style={{ marginTop: 0 }}>Episodes by time of day</h2>
+            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged in episode entries at that time.</p>
             {!hasSympHourData
-              ? <p className="muted">No timed symptom entries yet.</p>
+              ? <p className="muted">No timed episode entries yet.</p>
               : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
                   {symptomsByHour.map(({ hour, count, entries }) => (

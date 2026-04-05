@@ -6,6 +6,9 @@ import { buildCompactPatientData } from '../lib/summaryContext'
 import { buildHandoffNarrative } from '../lib/handoffNarrative'
 import type { MedChangeEvent } from '../lib/medSymptomCorrelation'
 import { useAuth } from '../contexts/AuthContext'
+import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
+import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
+import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
 
 type UpcomingAppt = {
   id: string
@@ -25,6 +28,8 @@ type HealthSummary = {
   medCount: number
   pendingTests: number
   openQuestions: number
+  painChart: PainChartPoint[]
+  episodeChart: EpisodeChartPoint[]
 }
 
 function parseList (text: string | null): string[] {
@@ -54,6 +59,7 @@ function SummaryModal ({
   onGenerate,
   onClose,
   onDownload,
+  onLoadArchived,
 }: {
   summary: HealthSummary | null
   loading: boolean
@@ -64,7 +70,12 @@ function SummaryModal ({
   onGenerate: () => void
   onClose: () => void
   onDownload: () => void
+  onLoadArchived: (entry: ArchivedHandoffSummary) => void
 }) {
+  const [archive, setArchive] = useState<ArchivedHandoffSummary[]>([])
+  useEffect(() => {
+    setArchive(loadSummaryArchive())
+  }, [summary?.generatedAt, loading])
   return (
     <div
       style={{
@@ -164,6 +175,31 @@ function SummaryModal ({
             )}
           </div>
 
+          {/* Past summaries (this device) */}
+          {archive.length > 0 && (
+            <div style={{ marginBottom: 16, padding: '12px', background: 'var(--bg)', borderRadius: 12, border: '1.5px solid var(--border)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', marginBottom: 8, color: 'var(--mint-ink)' }}>Saved summaries (this device)</div>
+              <div style={{ display: 'grid', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                {archive.map((a) => (
+                  <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className="muted" style={{ fontSize: '0.75rem', flex: 1, minWidth: 120 }}>
+                      {new Date(a.savedAtIso).toLocaleString()} · {a.generatedLabel}
+                      {a.sourceAi ? ' · AI' : ''}
+                    </span>
+                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                      onClick={() => onLoadArchived(a)}>
+                      Load
+                    </button>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
+                      onClick={() => { deleteSummaryArchiveItem(a.id); setArchive(loadSummaryArchive()) }}>
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Results */}
           {summary && (
             <div style={{ display: 'grid', gap: 12 }}>
@@ -182,12 +218,23 @@ function SummaryModal ({
                 </div>
               )}
 
+              {summary.painChart.length > 0 && (
+                <div className="card" style={{ padding: 12 }}>
+                  <PainSummaryChart data={summary.painChart} />
+                </div>
+              )}
+              {summary.episodeChart.length > 0 && (
+                <div className="card" style={{ padding: 12 }}>
+                  <EpisodeSummaryChart data={summary.episodeChart} />
+                </div>
+              )}
+
               <div className="summary-output" style={{ fontSize: '0.9rem', lineHeight: 1.7 }}>
                 {summary.aiText || summary.narrativeFallback}
               </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; symptoms</Link>
+                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; episodes</Link>
                 <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Meds</Link>
                 <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Tests</Link>
                 <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Diagnoses</Link>
@@ -391,12 +438,39 @@ export function DashboardPage () {
 
     const generatedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
+    const handoffText = (aiText?.trim() || narrativeFallback).trim()
+    if (handoffText) {
+      pushSummaryArchive({
+        generatedLabel: generatedAt,
+        text: handoffText,
+        sourceAi: !!aiText?.trim(),
+      })
+    }
+
     setSummary({
       generatedAt, aiText, aiError, narrativeFallback,
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
+      painChart: buildPainChartSeries(painRows, 60),
+      episodeChart: buildEpisodeChartSeries(sympRows, 60),
     })
     setSummaryLoading(false)
+  }
+
+  function applyArchivedSummary (entry: ArchivedHandoffSummary) {
+    setSummary({
+      generatedAt: entry.generatedLabel,
+      aiText: entry.sourceAi ? entry.text : null,
+      aiError: null,
+      narrativeFallback: entry.sourceAi ? '' : entry.text,
+      painCount: 0,
+      symptomCount: 0,
+      medCount: 0,
+      pendingTests: 0,
+      openQuestions: 0,
+      painChart: [],
+      episodeChart: [],
+    })
   }
 
   function handoffTextForPdf (s: HealthSummary) {
@@ -424,6 +498,7 @@ export function DashboardPage () {
           onGenerate={generateSummary}
           onClose={() => setSummaryOpen(false)}
           onDownload={downloadPdf}
+          onLoadArchived={applyArchivedSummary}
         />
       )}
 
@@ -468,8 +543,8 @@ export function DashboardPage () {
               <span className="tile-hint">Log a pain entry</span>
             </Link>
             <Link to="/app/log?tab=symptoms" className="log-tile mint">
-              <span className="tile-label">Symptoms</span>
-              <span className="tile-hint">Log a symptom episode</span>
+              <span className="tile-label">Episodes</span>
+              <span className="tile-hint">Log an episode</span>
             </Link>
             <Link to="/app/questions" className="log-tile sky">
               <span className="tile-label">Questions</span>
@@ -525,7 +600,7 @@ export function DashboardPage () {
               <span className="bento-hint">Current &amp; archived meds</span>
             </Link>
             <Link to="/app/records" className="bento-cell">
-              <span>Pain &amp; symptoms</span>
+              <span>Pain &amp; episodes</span>
               <span className="bento-hint">Browse your log archive</span>
             </Link>
             <Link to="/app/analytics" className="bento-cell">

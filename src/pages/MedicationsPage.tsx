@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { BackButton } from '../components/BackButton'
+import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 
 type MedRow = {
   id: string
@@ -144,19 +145,16 @@ function MedFormPopup ({
           </div>
         )}
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>Start date</label>
-            <input type="date" value={form.start_date} onChange={(e) => onChange({ ...form, start_date: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label>Prescribed by</label>
-            <select value={form.prescribed_by} onChange={(e) => onChange({ ...form, prescribed_by: e.target.value })}>
-              <option value="">— Select —</option>
-              {doctors.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
+        <div className="form-group">
+          <label>Start date</label>
+          <input type="date" value={form.start_date} onChange={(e) => onChange({ ...form, start_date: e.target.value })} />
         </div>
+        <DoctorPickOrNew
+          doctors={doctors}
+          value={form.prescribed_by}
+          onChange={(v) => onChange({ ...form, prescribed_by: v })}
+          label="Prescribed by"
+        />
 
         <div className="form-group">
           <label>Purpose / indication</label>
@@ -419,7 +417,6 @@ function RemovePopup ({
 // ─────────────────────────────────────────────
 export function MedicationsPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [rows, setRows] = useState<MedRow[]>([])
   const [archived, setArchived] = useState<ArchivedMed[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
@@ -667,7 +664,7 @@ export function MedicationsPage () {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button type="button" className="btn btn-ghost" onClick={() => navigate('/app')}>Back</button>
+            <BackButton />
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Medications</h2>
           </div>
           <button
