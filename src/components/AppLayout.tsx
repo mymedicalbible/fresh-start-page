@@ -10,9 +10,9 @@ export function AppLayout () {
         <header className="top-bar">
           <div>
             <h1>Medical Tracker</h1>
-            <div className="muted">{user?.email}</div>
+            {user?.email && <div className="subtitle">{user.email}</div>}
           </div>
-          <button type="button" className="btn btn-ghost" onClick={() => signOut()}>
+          <button type="button" className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }} onClick={() => signOut()}>
             Sign out
           </button>
         </header>

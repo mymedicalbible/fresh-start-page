@@ -19,9 +19,7 @@ type HealthSummary = {
   generatedAt: string
   aiText: string | null
   aiError: string | null
-  /** Narrative fallback built client-side (for PDF & fallback display) */
   narrativeFallback: string
-  // Raw stats kept for the quick-stats row
   painCount: number
   symptomCount: number
   medCount: number
@@ -48,24 +46,16 @@ export function DashboardPage () {
   const navigate = useNavigate()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [pendingCount, setPendingCount] = useState(0)
-  const [drawerOpen, setDrawerOpen] = useState<Record<string, boolean>>({ doctors: false })
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
   const [patientFocus, setPatientFocus] = useState('')
-  // Simple 30-day counters shown immediately (no button press needed)
-  const [quickStats, setQuickStats] = useState<{ pain: number; symptoms: number; questions: number } | null>(null)
-
-  function toggleDrawer (section: string) {
-    setDrawerOpen((prev) => ({ ...prev, [section]: !prev[section] }))
-  }
 
   useEffect(() => {
     if (!user) return
     async function load () {
       const today = new Date().toISOString().slice(0, 10)
 
-      // Upcoming appointments
       const { data: apptData, error: apptErr } = await supabase
         .from('appointments')
         .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
@@ -79,7 +69,6 @@ export function DashboardPage () {
         setUpcoming(rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[])
       }
 
-      // Pending visits
       try {
         const { count } = await supabase
           .from('doctor_visits')
@@ -88,25 +77,6 @@ export function DashboardPage () {
           .eq('status', 'pending')
         setPendingCount(count ?? 0)
       } catch { setPendingCount(0) }
-
-      // Quick 30-day counts
-      const since30 = new Date()
-      since30.setDate(since30.getDate() - 30)
-      const since30Str = since30.toISOString().slice(0, 10)
-
-      const [painC, sympC, qC] = await Promise.all([
-        supabase.from('pain_entries').select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id).gte('entry_date', since30Str),
-        supabase.from('mcas_episodes').select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id).gte('episode_date', since30Str),
-        supabase.from('doctor_questions').select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id).eq('status', 'Unanswered'),
-      ])
-      setQuickStats({
-        pain: painC.count ?? 0,
-        symptoms: sympC.count ?? 0,
-        questions: qC.count ?? 0,
-      })
     }
     load()
   }, [user])
@@ -216,48 +186,22 @@ export function DashboardPage () {
     const allSymptoms = sympRows.flatMap((r) => parseList(r.symptoms as string | null))
     const symptomTop = topN(allSymptoms).map(({ value, count }) => ({ symptom: value, n: count }))
     const todayIso = new Date().toISOString().slice(0, 10)
-    try {
-      localStorage.setItem('mb-handoff-focus', patientFocus)
-    } catch { /* ignore */ }
+    try { localStorage.setItem('mb-handoff-focus', patientFocus) } catch { /* ignore */ }
 
     const patientData = buildCompactPatientData({
-      todayIso,
-      painRows,
-      sympRows,
-      medList,
-      testRows,
-      diagRows,
-      visitRows,
-      qList,
-      slogRows,
-      medChangeEvents,
+      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows, medChangeEvents,
     })
 
     const narrativeFallback = buildHandoffNarrative({
-      todayIso,
-      painRows,
-      sympRows,
-      medList,
-      testRows,
-      diagRows,
-      visitRows,
-      qList,
-      medChangeEvents,
-      painAvg,
-      painTopAreas: areaTop,
-      painTopTypes: typeTop,
-      topSymptoms: symptomTop,
+      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents,
+      painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
     })
 
     let aiText: string | null = null
     let aiError: string | null = null
     try {
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('generate-summary', {
-        body: {
-          patientData,
-          patientFocus: patientFocus.trim() || undefined,
-          mode: summaryMode,
-        },
+        body: { patientData, patientFocus: patientFocus.trim() || undefined, mode: summaryMode },
       })
       if (fnErr) throw fnErr
       const resp = fnData as { summary?: string; error?: string }
@@ -273,15 +217,9 @@ export function DashboardPage () {
     const generatedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
     setSummary({
-      generatedAt,
-      aiText,
-      aiError,
-      narrativeFallback,
-      painCount: painRows.length,
-      symptomCount: sympRows.length,
-      medCount: medList.length,
-      pendingTests,
-      openQuestions: qList.length,
+      generatedAt, aiText, aiError, narrativeFallback,
+      painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
+      pendingTests, openQuestions: qList.length,
     })
     setSummaryLoading(false)
   }
@@ -298,12 +236,12 @@ export function DashboardPage () {
   if (!user) return <div>Loading...</div>
 
   return (
-    <div style={{ display: 'grid', gap: 12, padding: '8px 0 40px' }}>
+    <div style={{ display: 'grid', gap: 14, padding: '8px 0 40px' }}>
 
       {/* UPCOMING APPOINTMENTS */}
       {upcoming.length > 0 && (
-        <div className="banner info">
-          <strong>📅 Upcoming appointments</strong>
+        <div className="banner info" style={{ marginBottom: 0 }}>
+          <strong>Upcoming appointments</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
             {upcoming.map((u) => (
               <li key={u.id} className="muted">
@@ -321,84 +259,50 @@ export function DashboardPage () {
       {pendingCount > 0 && (
         <button
           type="button"
+          className="btn btn-butter btn-block"
           onClick={() => navigate('/app/visits?tab=pending')}
-          style={{
-            background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 12,
-            padding: '10px 16px', cursor: 'pointer', textAlign: 'left',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
-          }}
+          style={{ justifyContent: 'space-between', textAlign: 'left' }}
         >
-          <span style={{ fontWeight: 600, color: '#92400e' }}>
-            📋 {pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them
-          </span>
-          <span style={{ fontSize: '0.85rem', color: '#b45309' }}>Tap to open →</span>
+          <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
+          <span style={{ fontWeight: 400 }}>Open →</span>
         </button>
       )}
 
-      {/* QUICK LOG */}
-      <div className="card" style={{ padding: '12px 14px' }}>
-        <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.04em' }}>QUICK LOG</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-          <Link to="/app/log?tab=pain" className="btn btn-secondary"
-            style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.78rem', padding: '8px 6px' }}>
-            🩹 Pain
+      {/* LOG TODAY */}
+      <div className="card">
+        <span className="card-section-label">Log today</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 6 }}>
+          <Link to="/app/log?tab=pain" className="log-tile blush">
+            <span className="tile-label">Pain</span>
+            <span className="tile-hint">Log a pain entry</span>
           </Link>
-          <Link to="/app/log?tab=symptoms" className="btn btn-secondary"
-            style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.78rem', padding: '8px 6px' }}>
-            🩺 Symptoms
+          <Link to="/app/log?tab=symptoms" className="log-tile mint">
+            <span className="tile-label">Symptoms</span>
+            <span className="tile-hint">Log a symptom episode</span>
           </Link>
-          <Link to="/app/visits?new=1" className="btn btn-primary"
-            style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.78rem', padding: '8px 6px' }}>
-            🏥 Visit
+          <Link to="/app/questions" className="log-tile sky">
+            <span className="tile-label">Questions</span>
+            <span className="tile-hint">Add a question for your doctor</span>
           </Link>
-          <Link to="/app/questions" className="btn btn-secondary"
-            style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.78rem', padding: '8px 6px' }}>
-            ❓ Q's
+          <Link to="/app/visits?new=1" className="log-tile butter">
+            <span className="tile-label">Visit log</span>
+            <span className="tile-hint">Record a doctor visit</span>
           </Link>
         </div>
       </div>
 
-      {/* QUICK STATS — always visible */}
-      {quickStats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-          <Link to="/app/records?tab=pain" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#fef3c7', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#92400e' }}>{quickStats.pain}</div>
-              <div style={{ fontSize: '0.7rem', color: '#78350f', marginTop: 2 }}>Pain (30d)</div>
-            </div>
-          </Link>
-          <Link to="/app/records?tab=symptoms" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#ede9fe', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#5b21b6' }}>{quickStats.symptoms}</div>
-              <div style={{ fontSize: '0.7rem', color: '#4c1d95', marginTop: 2 }}>Symptoms (30d)</div>
-            </div>
-          </Link>
-          <Link to="/app/questions" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#dbeafe', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#1e40af' }}>{quickStats.questions}</div>
-              <div style={{ fontSize: '0.7rem', color: '#1e3a8a', marginTop: 2 }}>Open Q's</div>
-            </div>
-          </Link>
-        </div>
-      )}
-
-      {/* HEALTH SUMMARY CARD */}
+      {/* CLINICAL HANDOFF SUMMARY */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: summary ? 16 : 0, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 200px' }}>
-            <div style={{ fontWeight: 700, fontSize: '1rem' }}>📋 Clinical handoff summary</div>
-            <div className="muted" style={{ fontSize: '0.78rem', marginTop: 2 }}>
-              Narrative overview you can give to a doctor (not just counts). Uses your logs, meds, diagnoses, visits, tests, and open questions.
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 180px' }}>
+            <span className="card-section-label">Clinical handoff summary</span>
+            <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.78rem', lineHeight: 1.5 }}>
+              Narrative for your next appointment — pulls from logs, meds, diagnoses, visits, tests, and questions.
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             {summary && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={downloadPdf}
-                style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-              >
+              <button type="button" className="btn btn-secondary" onClick={downloadPdf} style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                 Download PDF
               </button>
             )}
@@ -409,114 +313,106 @@ export function DashboardPage () {
               disabled={summaryLoading}
               style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}
             >
-              {summaryLoading ? 'Loading…' : summary ? 'Close' : 'Generate'}
+              {summaryLoading ? 'Loading...' : summary ? 'Close' : 'Generate'}
             </button>
           </div>
         </div>
 
-        <div style={{ marginTop: 10, paddingTop: 12, borderTop: summary ? '1px solid var(--border)' : 'none' }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1.5px solid var(--border)' }}>
           <div className="form-group" style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Most important for my next appointment (optional)</label>
+            <label>Most important for my next appointment (optional)</label>
             <textarea
               value={patientFocus}
               onChange={(e) => setPatientFocus(e.target.value)}
-              placeholder="e.g. Discuss whether new numbness could be medication-related; request referral timing; explain why I can’t work full-time right now."
+              placeholder="e.g. Discuss whether new numbness could be medication-related; request referral timing; explain why I can't work full-time right now."
               rows={3}
-              style={{ width: '100%', fontSize: '0.88rem' }}
               disabled={summaryLoading}
             />
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <span className="muted" style={{ fontSize: '0.78rem' }}>Depth:</span>
-            <button
-              type="button"
+            <button type="button"
               className={`btn ${summaryMode === 'thorough' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
               disabled={summaryLoading}
               onClick={() => setSummaryMode('thorough')}>
-              Thorough (recommended)
+              Thorough
             </button>
-            <button
-              type="button"
+            <button type="button"
               className={`btn ${summaryMode === 'fast' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
               disabled={summaryLoading}
               onClick={() => setSummaryMode('fast')}>
               Fast
             </button>
-            <span className="muted" style={{ fontSize: '0.72rem' }}>Thorough uses a heavier model for richer narrative.</span>
+            <span className="muted" style={{ fontSize: '0.72rem' }}>Thorough uses a heavier model.</span>
           </div>
         </div>
 
         {summary && (
           <div style={{ display: 'grid', gap: 14, marginTop: 16 }}>
-            <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-              Generated {summary.generatedAt} · data window: ~90 days
-              {summary.aiText && <span style={{ marginLeft: 8, color: '#6366f1' }}>· AI-enhanced narrative</span>}
-              {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8, color: '#b45309' }}>· app-generated narrative</span>}
+            <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1.5px solid var(--border)', paddingBottom: 8 }}>
+              Generated {summary.generatedAt} · ~90-day window
+              {summary.aiText && <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI-enhanced</span>}
+              {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
             </div>
 
-            {/* AI ERROR BANNER */}
             {summary.aiError && (
-              <div style={{
-                background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8,
-                padding: '10px 14px', fontSize: '0.82rem', color: '#92400e',
-              }}>
-                <strong>AI generation did not complete.</strong> Showing app-generated narrative instead (still a real summary, just not AI-enhanced).
+              <div className="banner ai-warn" style={{ marginBottom: 0 }}>
+                <strong>AI generation did not complete.</strong> Showing app-generated narrative instead.
                 <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  Reason: {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '…' : summary.aiError}
+                  {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '...' : summary.aiError}
                 </div>
                 <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  To enable AI: deploy the Edge Function (<code>supabase functions deploy generate-summary</code>) and set <code>supabase secrets set ANTHROPIC_API_KEY=sk-ant-...</code>
+                  To enable AI: deploy the Edge Function and set <code>ANTHROPIC_API_KEY</code> as a Supabase secret.
                 </div>
               </div>
             )}
 
-            {/* THE NARRATIVE — AI text if available, otherwise a real narrative fallback */}
-            <div style={{ fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1f2937' }}>
+            <div className="summary-output">
               {summary.aiText || summary.narrativeFallback}
             </div>
 
-            {/* QUICK LINKS */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-              <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }}>→ Pain & symptoms</Link>
-              <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }}>→ Meds</Link>
-              <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }}>→ Tests</Link>
-              <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }}>→ Diagnoses</Link>
-              <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }}>→ Charts</Link>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+              <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }}>Pain &amp; symptoms</Link>
+              <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }}>Meds</Link>
+              <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }}>Tests</Link>
+              <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }}>Diagnoses</Link>
+              <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }}>Charts</Link>
             </div>
           </div>
         )}
       </div>
 
-      {/* DOCTORS & DIAGNOSES */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <button type="button" onClick={() => toggleDrawer('doctors')}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 700, fontSize: '1rem' }}>
-          <span>👩‍⚕️ Doctors & diagnoses</span>
-          <span>{drawerOpen.doctors ? '▲' : '▼'}</span>
-        </button>
-        {drawerOpen.doctors && (
-          <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'grid', gap: 8 }}>
-            <Link to="/app/doctors" className="btn btn-primary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>👩‍⚕️ My doctors — profiles & history</Link>
-            <Link to="/app/diagnoses" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>📋 Diagnoses directory</Link>
-            <Link to="/app/tests" className="btn btn-secondary btn-block" style={{ textDecoration: 'none', textAlign: 'left' }}>🧪 Tests & orders</Link>
-          </div>
-        )}
-      </div>
-
-      {/* MEDICATIONS */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <Link to="/app/meds" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: '1rem' }}>
-          <span>💊 Medications</span><span>→</span>
-        </Link>
-      </div>
-
-      {/* CHARTS */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <Link to="/app/analytics" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: '1rem' }}>
-          <span>📈 Charts & trends</span><span>→</span>
-        </Link>
+      {/* YOUR CARE & RECORDS */}
+      <div className="card">
+        <span className="card-section-label">Your care &amp; records</span>
+        <div className="bento-grid" style={{ marginTop: 8 }}>
+          <Link to="/app/doctors" className="bento-cell">
+            <span>Doctors</span>
+            <span className="bento-hint">Profiles &amp; visit history</span>
+          </Link>
+          <Link to="/app/diagnoses" className="bento-cell">
+            <span>Diagnoses</span>
+            <span className="bento-hint">Your diagnosis directory</span>
+          </Link>
+          <Link to="/app/tests" className="bento-cell">
+            <span>Tests &amp; orders</span>
+            <span className="bento-hint">Pending &amp; completed</span>
+          </Link>
+          <Link to="/app/meds" className="bento-cell">
+            <span>Medications</span>
+            <span className="bento-hint">Current &amp; archived meds</span>
+          </Link>
+          <Link to="/app/records" className="bento-cell">
+            <span>Pain &amp; symptoms</span>
+            <span className="bento-hint">Browse your log archive</span>
+          </Link>
+          <Link to="/app/analytics" className="bento-cell">
+            <span>Charts &amp; trends</span>
+            <span className="bento-hint">Visualize your data</span>
+          </Link>
+        </div>
       </div>
 
     </div>
