@@ -41,6 +41,180 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
     .map(([value, count]) => ({ value, count }))
 }
 
+// ────────────────────────────────────────────────────────────
+// SUMMARY MODAL
+// ────────────────────────────────────────────────────────────
+function SummaryModal ({
+  summary,
+  loading,
+  mode,
+  focus,
+  onFocusChange,
+  onModeChange,
+  onGenerate,
+  onClose,
+  onDownload,
+}: {
+  summary: HealthSummary | null
+  loading: boolean
+  mode: 'fast' | 'thorough'
+  focus: string
+  onFocusChange: (v: string) => void
+  onModeChange: (v: 'fast' | 'thorough') => void
+  onGenerate: () => void
+  onClose: () => void
+  onDownload: () => void
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(30,77,52,0.18)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        padding: '0 0 0 0',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: '20px 20px 0 0',
+        border: '1.5px solid var(--border)',
+        borderBottom: 'none',
+        width: '100%',
+        maxWidth: 720,
+        maxHeight: '92dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 -8px 40px rgba(30,77,52,0.14)',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '18px 20px 14px',
+          borderBottom: '1.5px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--mint-ink)' }}>
+              Clinical handoff summary
+            </div>
+            <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
+              Narrative for your next appointment
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'var(--bg)', border: '1.5px solid var(--border)',
+              borderRadius: 999, width: 32, height: 32,
+              cursor: 'pointer', fontWeight: 700, fontSize: '1rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--muted)',
+            }}
+          >
+            x
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px' }}>
+
+          {/* Focus field */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label>Most important for my next appointment (optional)</label>
+            <textarea
+              value={focus}
+              onChange={(e) => onFocusChange(e.target.value)}
+              placeholder="e.g. Discuss new numbness, request referral timing, explain fatigue impact..."
+              rows={2}
+              disabled={loading}
+            />
+          </div>
+
+          {/* Mode + generate */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+            <button type="button"
+              className={`btn ${mode === 'thorough' ? 'btn-mint' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+              disabled={loading} onClick={() => onModeChange('thorough')}>
+              Thorough
+            </button>
+            <button type="button"
+              className={`btn ${mode === 'fast' ? 'btn-mint' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+              disabled={loading} onClick={() => onModeChange('fast')}>
+              Fast
+            </button>
+            <button type="button"
+              className="btn btn-primary"
+              style={{ fontSize: '0.82rem' }}
+              disabled={loading}
+              onClick={onGenerate}>
+              {loading ? 'Generating...' : summary ? 'Regenerate' : 'Generate'}
+            </button>
+            {summary && (
+              <button type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.82rem' }}
+                onClick={onDownload}>
+                Download PDF
+              </button>
+            )}
+          </div>
+
+          {/* Results */}
+          {summary && (
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div className="muted" style={{ fontSize: '0.73rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+                Generated {summary.generatedAt} · ~90-day data window
+                {summary.aiText && <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI-enhanced</span>}
+                {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
+              </div>
+
+              {summary.aiError && (
+                <div className="banner ai-warn" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
+                  <strong>AI generation did not complete.</strong> Showing app-generated narrative instead.
+                  <div className="muted" style={{ fontSize: '0.73rem', marginTop: 4 }}>
+                    {summary.aiError.length > 180 ? summary.aiError.slice(0, 180) + '...' : summary.aiError}
+                  </div>
+                </div>
+              )}
+
+              <div className="summary-output" style={{ fontSize: '0.9rem', lineHeight: 1.7 }}>
+                {summary.aiText || summary.narrativeFallback}
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; symptoms</Link>
+                <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Meds</Link>
+                <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Tests</Link>
+                <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Diagnoses</Link>
+                <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Charts</Link>
+              </div>
+            </div>
+          )}
+
+          {!summary && !loading && (
+            <div className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '24px 0' }}>
+              Tap Generate to build your clinical handoff narrative from all your logs.
+            </div>
+          )}
+          {loading && (
+            <div className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '24px 0' }}>
+              Pulling your data and building the narrative...
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
+// DASHBOARD PAGE
+// ────────────────────────────────────────────────────────────
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -50,6 +224,7 @@ export function DashboardPage () {
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
   const [patientFocus, setPatientFocus] = useState('')
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -236,185 +411,131 @@ export function DashboardPage () {
   if (!user) return <div>Loading...</div>
 
   return (
-    <div style={{ display: 'grid', gap: 14, padding: '8px 0 40px' }}>
-
-      {/* UPCOMING APPOINTMENTS */}
-      {upcoming.length > 0 && (
-        <div className="banner info" style={{ marginBottom: 0 }}>
-          <strong>Upcoming appointments</strong>
-          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-            {upcoming.map((u) => (
-              <li key={u.id} className="muted">
-                {u.appointment_date}
-                {u.appointment_time ? ` · ${u.appointment_time}` : ''}
-                {` · ${u.doctor}`}
-                {u.specialty ? ` (${u.specialty})` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
+    <>
+      {/* SUMMARY MODAL */}
+      {summaryOpen && (
+        <SummaryModal
+          summary={summary}
+          loading={summaryLoading}
+          mode={summaryMode}
+          focus={patientFocus}
+          onFocusChange={setPatientFocus}
+          onModeChange={setSummaryMode}
+          onGenerate={generateSummary}
+          onClose={() => setSummaryOpen(false)}
+          onDownload={downloadPdf}
+        />
       )}
 
-      {/* PENDING VISITS NUDGE */}
-      {pendingCount > 0 && (
-        <button
-          type="button"
-          className="btn btn-butter btn-block"
-          onClick={() => navigate('/app/visits?tab=pending')}
-          style={{ justifyContent: 'space-between', textAlign: 'left' }}
-        >
-          <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
-          <span style={{ fontWeight: 400 }}>Open →</span>
-        </button>
-      )}
+      <div style={{ display: 'grid', gap: 14, padding: '8px 0 40px' }}>
 
-      {/* LOG TODAY */}
-      <div className="card">
-        <span className="card-section-label">Log today</span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 6 }}>
-          <Link to="/app/log?tab=pain" className="log-tile blush">
-            <span className="tile-label">Pain</span>
-            <span className="tile-hint">Log a pain entry</span>
-          </Link>
-          <Link to="/app/log?tab=symptoms" className="log-tile mint">
-            <span className="tile-label">Symptoms</span>
-            <span className="tile-hint">Log a symptom episode</span>
-          </Link>
-          <Link to="/app/questions" className="log-tile sky">
-            <span className="tile-label">Questions</span>
-            <span className="tile-hint">Add a question for your doctor</span>
-          </Link>
-          <Link to="/app/visits?new=1" className="log-tile butter">
-            <span className="tile-label">Visit log</span>
-            <span className="tile-hint">Record a doctor visit</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* CLINICAL HANDOFF SUMMARY */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 180px' }}>
-            <span className="card-section-label">Clinical handoff summary</span>
-            <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.78rem', lineHeight: 1.5 }}>
-              Narrative for your next appointment — pulls from logs, meds, diagnoses, visits, tests, and questions.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            {summary && (
-              <button type="button" className="btn btn-secondary" onClick={downloadPdf} style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                Download PDF
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={summary ? () => setSummary(null) : generateSummary}
-              disabled={summaryLoading}
-              style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-            >
-              {summaryLoading ? 'Loading...' : summary ? 'Close' : 'Generate'}
-            </button>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1.5px solid var(--border)' }}>
-          <div className="form-group" style={{ marginBottom: 10 }}>
-            <label>Most important for my next appointment (optional)</label>
-            <textarea
-              value={patientFocus}
-              onChange={(e) => setPatientFocus(e.target.value)}
-              placeholder="e.g. Discuss whether new numbness could be medication-related; request referral timing; explain why I can't work full-time right now."
-              rows={3}
-              disabled={summaryLoading}
-            />
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: '0.78rem' }}>Depth:</span>
-            <button type="button"
-              className={`btn ${summaryMode === 'thorough' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-              disabled={summaryLoading}
-              onClick={() => setSummaryMode('thorough')}>
-              Thorough
-            </button>
-            <button type="button"
-              className={`btn ${summaryMode === 'fast' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-              disabled={summaryLoading}
-              onClick={() => setSummaryMode('fast')}>
-              Fast
-            </button>
-            <span className="muted" style={{ fontSize: '0.72rem' }}>Thorough uses a heavier model.</span>
-          </div>
-        </div>
-
-        {summary && (
-          <div style={{ display: 'grid', gap: 14, marginTop: 16 }}>
-            <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1.5px solid var(--border)', paddingBottom: 8 }}>
-              Generated {summary.generatedAt} · ~90-day window
-              {summary.aiText && <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI-enhanced</span>}
-              {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
-            </div>
-
-            {summary.aiError && (
-              <div className="banner ai-warn" style={{ marginBottom: 0 }}>
-                <strong>AI generation did not complete.</strong> Showing app-generated narrative instead.
-                <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '...' : summary.aiError}
-                </div>
-                <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
-                  To enable AI: deploy the Edge Function and set <code>ANTHROPIC_API_KEY</code> as a Supabase secret.
-                </div>
-              </div>
-            )}
-
-            <div className="summary-output">
-              {summary.aiText || summary.narrativeFallback}
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-              <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }}>Pain &amp; symptoms</Link>
-              <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }}>Meds</Link>
-              <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }}>Tests</Link>
-              <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }}>Diagnoses</Link>
-              <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }}>Charts</Link>
-            </div>
+        {/* UPCOMING APPOINTMENTS */}
+        {upcoming.length > 0 && (
+          <div className="banner info" style={{ marginBottom: 0 }}>
+            <strong>Upcoming appointments</strong>
+            <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+              {upcoming.map((u) => (
+                <li key={u.id} className="muted">
+                  {u.appointment_date}
+                  {u.appointment_time ? ` · ${u.appointment_time}` : ''}
+                  {` · ${u.doctor}`}
+                  {u.specialty ? ` (${u.specialty})` : ''}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-      </div>
 
-      {/* YOUR CARE & RECORDS */}
-      <div className="card">
-        <span className="card-section-label">Your care &amp; records</span>
-        <div className="bento-grid" style={{ marginTop: 8 }}>
-          <Link to="/app/doctors" className="bento-cell">
-            <span>Doctors</span>
-            <span className="bento-hint">Profiles &amp; visit history</span>
-          </Link>
-          <Link to="/app/diagnoses" className="bento-cell">
-            <span>Diagnoses</span>
-            <span className="bento-hint">Your diagnosis directory</span>
-          </Link>
-          <Link to="/app/tests" className="bento-cell">
-            <span>Tests &amp; orders</span>
-            <span className="bento-hint">Pending &amp; completed</span>
-          </Link>
-          <Link to="/app/meds" className="bento-cell">
-            <span>Medications</span>
-            <span className="bento-hint">Current &amp; archived meds</span>
-          </Link>
-          <Link to="/app/records" className="bento-cell">
-            <span>Pain &amp; symptoms</span>
-            <span className="bento-hint">Browse your log archive</span>
-          </Link>
-          <Link to="/app/analytics" className="bento-cell">
-            <span>Charts &amp; trends</span>
-            <span className="bento-hint">Visualize your data</span>
-          </Link>
+        {/* PENDING VISITS NUDGE */}
+        {pendingCount > 0 && (
+          <button
+            type="button"
+            className="btn btn-butter btn-block"
+            onClick={() => navigate('/app/visits?tab=pending')}
+            style={{ justifyContent: 'space-between', textAlign: 'left' }}
+          >
+            <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
+            <span style={{ fontWeight: 400 }}>Open →</span>
+          </button>
+        )}
+
+        {/* LOG TODAY */}
+        <div className="card">
+          <span className="card-section-label">Log today</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 6 }}>
+            <Link to="/app/log?tab=pain" className="log-tile blush">
+              <span className="tile-label">Pain</span>
+              <span className="tile-hint">Log a pain entry</span>
+            </Link>
+            <Link to="/app/log?tab=symptoms" className="log-tile mint">
+              <span className="tile-label">Symptoms</span>
+              <span className="tile-hint">Log a symptom episode</span>
+            </Link>
+            <Link to="/app/questions" className="log-tile sky">
+              <span className="tile-label">Questions</span>
+              <span className="tile-hint">Add a question for your doctor</span>
+            </Link>
+            <Link to="/app/visits?new=1" className="log-tile butter">
+              <span className="tile-label">Visit log</span>
+              <span className="tile-hint">Record a doctor visit</span>
+            </Link>
+          </div>
         </div>
-      </div>
 
-    </div>
+        {/* HANDOFF SUMMARY — compact trigger card */}
+        <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--mint-ink)' }}>
+              Clinical handoff summary
+            </div>
+            <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
+              {summary
+                ? `Generated ${summary.generatedAt}${summary.aiText ? ' · AI' : ' · app-generated'}`
+                : 'Doctor-ready narrative from all your logs'}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-mint"
+            style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+            onClick={() => setSummaryOpen(true)}
+          >
+            {summary ? 'View / update' : 'Open'}
+          </button>
+        </div>
+
+        {/* YOUR CARE & RECORDS */}
+        <div className="card">
+          <span className="card-section-label">Your care &amp; records</span>
+          <div className="bento-grid" style={{ marginTop: 8 }}>
+            <Link to="/app/doctors" className="bento-cell">
+              <span>Doctors</span>
+              <span className="bento-hint">Profiles &amp; visit history</span>
+            </Link>
+            <Link to="/app/diagnoses" className="bento-cell">
+              <span>Diagnoses</span>
+              <span className="bento-hint">Your diagnosis directory</span>
+            </Link>
+            <Link to="/app/tests" className="bento-cell">
+              <span>Tests &amp; orders</span>
+              <span className="bento-hint">Pending &amp; completed</span>
+            </Link>
+            <Link to="/app/meds" className="bento-cell">
+              <span>Medications</span>
+              <span className="bento-hint">Current &amp; archived meds</span>
+            </Link>
+            <Link to="/app/records" className="bento-cell">
+              <span>Pain &amp; symptoms</span>
+              <span className="bento-hint">Browse your log archive</span>
+            </Link>
+            <Link to="/app/analytics" className="bento-cell">
+              <span>Charts &amp; trends</span>
+              <span className="bento-hint">Visualize your data</span>
+            </Link>
+          </div>
+        </div>
+
+      </div>
+    </>
   )
 }

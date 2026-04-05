@@ -1,20 +1,15 @@
 /**
- * App-generated clinical handoff: interpretive snapshot + active concerns + reference sections.
- * Designed for a quick provider skim (verbal handoff shape).
+ * App-generated clinical handoff: first-person narrative in the patient's voice.
+ * Matches the template: header → opening paragraph → 30-day pain/symptom summary →
+ * What I need to address today → Recent visits → Recent results → Medication changes →
+ * My questions for you.
  */
 
 import {
   type MedChangeEvent,
   buildMedSymptomCorrelationLines,
-  formatCorrelationBlock,
   isPrnFrequency,
 } from './medSymptomCorrelation'
-
-function addDaysIso (iso: string, delta: number): string {
-  const d = new Date(iso + 'T12:00:00')
-  d.setDate(d.getDate() + delta)
-  return d.toISOString().slice(0, 10)
-}
 
 export type HandoffNarrativeInput = {
   todayIso: string
@@ -32,216 +27,212 @@ export type HandoffNarrativeInput = {
   topSymptoms: { symptom: string; n: number }[]
 }
 
-function painSeverityLabel (avg: number | null): string {
-  if (avg == null) return 'not numerically summarized'
-  if (avg >= 7) return 'high'
-  if (avg >= 4) return 'moderate'
-  return 'mild'
+function addDaysIso (iso: string, delta: number): string {
+  const d = new Date(iso + 'T12:00:00')
+  d.setDate(d.getDate() + delta)
+  return d.toISOString().slice(0, 10)
 }
 
-function splitWindowTrend (
-  painRows: Record<string, unknown>[],
-  sympRows: Record<string, unknown>[],
-  pivotIso: string,
-): {
-  earlyPainAvg: number | null
-  latePainAvg: number | null
-  earlyEp: number
-  lateEp: number
-} {
-  const painNumsEarly = painRows
-    .filter((r) => String(r.entry_date) < pivotIso)
-    .map((r) => r.intensity)
-    .filter((x): x is number => typeof x === 'number')
-  const painNumsLate = painRows
-    .filter((r) => String(r.entry_date) >= pivotIso)
-    .map((r) => r.intensity)
-    .filter((x): x is number => typeof x === 'number')
-  const earlyPainAvg = painNumsEarly.length
-    ? Math.round((painNumsEarly.reduce((a, b) => a + b, 0) / painNumsEarly.length) * 10) / 10
-    : null
-  const latePainAvg = painNumsLate.length
-    ? Math.round((painNumsLate.reduce((a, b) => a + b, 0) / painNumsLate.length) * 10) / 10
-    : null
-  const earlyEp = sympRows.filter((r) => String(r.episode_date) < pivotIso).length
-  const lateEp = sympRows.filter((r) => String(r.episode_date) >= pivotIso).length
-  return { earlyPainAvg, latePainAvg, earlyEp, lateEp }
+function formatDate (iso: string): string {
+  try {
+    return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    })
+  } catch {
+    return iso
+  }
+}
+
+function listSentence (items: string[]): string {
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
 }
 
 export function buildHandoffNarrative (d: HandoffNarrativeInput): string {
-  const sections: string[] = []
-  const hasPain = d.painRows.length > 0
-  const hasSymp = d.sympRows.length > 0
-  const hasMeds = d.medList.length > 0
-  const hasDiag = d.diagRows.length > 0
-  const hasVisits = d.visitRows.length > 0
-  const pendingTests = d.testRows.filter((t) => t.status === 'Pending')
-  const flares = d.painRows.filter((r) => typeof r.intensity === 'number' && (r.intensity as number) >= 7)
+  const since30 = addDaysIso(d.todayIso, -30)
 
-  const pivot = addDaysIso(d.todayIso, -45)
-  const trend = splitWindowTrend(d.painRows, d.sympRows, pivot)
-  const painWorse = trend.earlyPainAvg != null && trend.latePainAvg != null && trend.latePainAvg > trend.earlyPainAvg + 0.9
-  const painBetter = trend.earlyPainAvg != null && trend.latePainAvg != null && trend.latePainAvg < trend.earlyPainAvg - 0.9
-  const sympWorse = trend.lateEp >= 4 && trend.lateEp > trend.earlyEp * 1.4 + 1
-  const sympBetter = trend.earlyEp >= 4 && trend.lateEp < trend.earlyEp * 0.6
+  // Filter to 30-day window for opening stats
+  const pain30 = d.painRows.filter((r) => String(r.entry_date ?? '') >= since30)
+  const symp30 = d.sympRows.filter((r) => String(r.episode_date ?? '') >= since30)
 
-  // --- 1. PATIENT SNAPSHOT (3–5 sentences, "so what") ---
-  const snap: string[] = []
-  if (!hasPain && !hasSymp && !hasDiag && !hasMeds) {
-    snap.push('Limited tracking data is in the app so far; add visits, meds, and logs to make this handoff meaningful.')
-  } else {
-    if (hasDiag) {
-      const dx = d.diagRows
-        .filter((row) => {
-          const st = String(row.status ?? '').toLowerCase()
-          return !st || st === 'active' || st === 'confirmed' || st === 'suspected'
-        })
-        .slice(0, 5)
-        .map((row) => String(row.diagnosis))
-      if (dx.length) snap.push(`Patient tracking ${dx.join(', ')}${dx.length < d.diagRows.length ? ' (and other dx in app)' : ''}.`)
-      else snap.push(`Patient lists ${d.diagRows.length} diagnosis${d.diagRows.length !== 1 ? 'es' : ''} in the app directory.`)
-    }
-    if (hasMeds) {
-      const medBits = d.medList.slice(0, 8).map((m) => {
-        let s = String(m.medication ?? '')
-        if (m.dose) s += ` ${m.dose}`
+  const intensities30 = pain30
+    .map((r) => r.intensity)
+    .filter((x): x is number => typeof x === 'number')
+  const avg30 = intensities30.length
+    ? Math.round((intensities30.reduce((a, b) => a + b, 0) / intensities30.length) * 10) / 10
+    : null
+  const flares30 = pain30.filter(
+    (r) => typeof r.intensity === 'number' && (r.intensity as number) >= 7,
+  )
+
+  // Top areas / types from 30-day window (fall back to full window if empty)
+  function topFromField (rows: Record<string, unknown>[], field: string, n = 3): string[] {
+    const items = rows.flatMap((r) => {
+      const v = r[field]
+      return typeof v === 'string' ? v.split(',').map((s) => s.trim()).filter(Boolean) : []
+    })
+    const map = new Map<string, number>()
+    for (const it of items) map.set(it, (map.get(it) ?? 0) + 1)
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k)
+  }
+
+  const areas30 = topFromField(pain30, 'location') || d.painTopAreas.slice(0, 3).map((a) => a.area)
+  const types30 = topFromField(pain30, 'pain_type', 2) || d.painTopTypes.slice(0, 2).map((t) => t.type)
+  const symp30Top = topFromField(symp30, 'symptoms', 4) || d.topSymptoms.slice(0, 4).map((s) => s.symptom)
+
+  // --- HEADER ---
+  const displayDate = formatDate(d.todayIso)
+
+  // --- OPENING PARAGRAPH ---
+  const activeDx = d.diagRows
+    .filter((r) => {
+      const st = String(r.status ?? '').toLowerCase()
+      return !st || st === 'active' || st === 'confirmed' || st === 'suspected'
+    })
+    .slice(0, 4)
+    .map((r) => String(r.diagnosis))
+
+  const dxPhrase = activeDx.length
+    ? `managing ${listSentence(activeDx)}`
+    : 'managing ongoing health conditions'
+
+  const medPhrase = d.medList.length
+    ? d.medList.slice(0, 6).map((m) => {
+        const parts: string[] = [String(m.medication ?? '')]
+        if (m.dose) parts.push(String(m.dose))
         if (m.frequency) {
-          s += ` ${m.frequency}`
-          if (isPrnFrequency(String(m.frequency))) s += ' (PRN)'
+          const freq = String(m.frequency)
+          parts.push(isPrnFrequency(freq) ? `${freq} (as needed)` : freq)
         }
-        return s
-      })
-      snap.push(`Current meds include ${medBits.join(', ')}${d.medList.length > 8 ? ', …' : ''}.`)
-    }
-    if (hasPain) {
-      const sev = painSeverityLabel(d.painAvg)
-      let s = `${d.painRows.length} pain logs in ~90d, avg ${d.painAvg ?? '—'}/10 (${sev})`
-      if (d.painTopAreas.length) s += `, mainly ${d.painTopAreas.slice(0, 3).map((a) => a.area).join(', ')}`
-      if (flares.length) s += `, with ${flares.length} high-intensity flare${flares.length !== 1 ? 's' : ''} (7–10/10)`
-      if (d.painTopTypes.length) s += `; common quality: ${d.painTopTypes.slice(0, 2).map((t) => t.type).join(', ')}`
-      s += '.'
-      snap.push(s)
-    }
-    if (hasSymp) {
-      const top = d.topSymptoms.slice(0, 4).map((x) => x.symptom).join(', ')
-      snap.push(`${d.sympRows.length} symptom episode${d.sympRows.length !== 1 ? 's' : ''} in the window${top ? ` — commonly ${top}` : ''}.`)
-    }
-    const pend = [] as string[]
-    if (pendingTests.length) pend.push(`${pendingTests.length} pending test${pendingTests.length !== 1 ? 's' : ''}`)
-    if (d.qList.length) pend.push(`${d.qList.length} open question${d.qList.length !== 1 ? 's' : ''}`)
-    if (pend.length) snap.push(`${pend.join('; ')}.`)
-  }
-  while (snap.length > 5) snap.pop()
-  sections.push('1. PATIENT SNAPSHOT\n' + snap.join(' '))
+        return parts.join(' ')
+      }).join(', ')
+    : null
 
-  // --- 2. ACTIVE CONCERNS (what needs attention today) ---
+  const openingLines: string[] = []
+  openingLines.push(`I've been ${dxPhrase}.`)
+  if (medPhrase) {
+    openingLines.push(`I'm currently taking ${medPhrase}${d.medList.length > 6 ? ', and others' : ''}.`)
+  }
+
+  // --- 30-DAY PAIN & SYMPTOM PARAGRAPH ---
+  const bodyLines: string[] = []
+  if (pain30.length > 0) {
+    let painLine = `Over the past 30 days, pain has been my primary concern — I logged ${pain30.length} ${pain30.length === 1 ? 'entry' : 'entries'}`
+    if (avg30 != null) painLine += ` averaging ${avg30}/10`
+    if (flares30.length > 0) painLine += `, with ${flares30.length} flare${flares30.length !== 1 ? 's' : ''} that hit 7 or above`
+    painLine += '.'
+    if (areas30.length) painLine += ` The worst areas have been ${listSentence(areas30)}.`
+    if (types30.length) painLine += ` Pain has been mostly ${listSentence(types30)} in character.`
+    bodyLines.push(painLine)
+  } else if (d.painRows.length > 0) {
+    bodyLines.push('No pain logged in the past 30 days (earlier data exists in the app).')
+  }
+
+  if (symp30.length > 0) {
+    let sympLine = `I also had ${symp30.length} symptom episode${symp30.length !== 1 ? 's' : ''}`
+    if (symp30Top.length) sympLine += `, most involving ${listSentence(symp30Top)}`
+    sympLine += '.'
+    bodyLines.push(sympLine)
+  }
+
+  // --- WHAT I NEED TO ADDRESS TODAY ---
   const concerns: string[] = []
-  if (painWorse) {
-    concerns.push(`Pain average worsened in the more recent half of this period (~${trend.earlyPainAvg} → ~${trend.latePainAvg}/10).`)
-  } else if (painBetter && hasPain) {
-    concerns.push(`Pain average improved in the more recent half of this period (~${trend.earlyPainAvg} → ~${trend.latePainAvg}/10) — confirm if sustained.`)
+  if (flares30.length >= 2) {
+    concerns.push(
+      `My flares — ${flares30.length} episode${flares30.length !== 1 ? 's' : ''} at 7+/10 that feel uncontrolled`,
+    )
   }
-  if (sympWorse) concerns.push(`Symptom episodes increased in the more recent half (${trend.earlyEp} → ${trend.lateEp}) — symptoms may be undertreated or evolving.`)
-  if (sympBetter && hasSymp) concerns.push(`Symptom episodes decreased recently (${trend.earlyEp} → ${trend.lateEp}) — worth confirming what helped.`)
-  if (flares.length >= 3) {
-    concerns.push(`${flares.length} logged pain flare${flares.length !== 1 ? 's' : ''} at 7+/10 — review triggers and breakthrough plan.`)
+  if (symp30Top.length) {
+    const recurring = symp30Top.slice(0, 2)
+    if (recurring.length) concerns.push(`The recurring ${listSentence(recurring)}`)
   }
-  if (pendingTests.length) {
-    concerns.push(`Outstanding workup: ${pendingTests.map((t) => String(t.test_name)).join(', ')}.`)
+  const pendingTests = d.testRows.filter((t) => String(t.status ?? '') === 'Pending')
+  for (const t of pendingTests.slice(0, 3)) {
+    concerns.push(`${t.test_name} still pending`)
+  }
+  const recentMedChange = d.medChangeEvents.filter((e) => e.event_date >= addDaysIso(d.todayIso, -14))
+  if (recentMedChange.length) {
+    concerns.push(`Recent medication change${recentMedChange.length > 1 ? 's' : ''} — checking for early response`)
   }
   const highQs = d.qList.filter((q) => String(q.priority ?? '').toLowerCase() === 'high')
   if (highQs.length) {
-    concerns.push(`${highQs.length} high-priority unanswered question${highQs.length !== 1 ? 's' : ''} in the app.`)
-  } else if (d.qList.length >= 5) {
-    concerns.push(`${d.qList.length} open questions — prioritize what to cover this visit.`)
+    concerns.push(`${highQs.length} high-priority question${highQs.length !== 1 ? 's' : ''} to cover`)
   }
-  const recentChange = d.medChangeEvents.filter((e) => e.event_date >= addDaysIso(d.todayIso, -14))
-  if (recentChange.length) {
-    concerns.push(`Recent medication change (${recentChange.length} event${recentChange.length !== 1 ? 's' : ''} in last 14d) — check tolerance, adherence, and early response.`)
-  }
-  if (concerns.length === 0) {
-    concerns.push(hasPain || hasSymp ? 'No strong automated “red flag” pattern from app data in this window — use visit time for routine review and patient priorities.' : 'Add symptom/pain logs to surface trends and active concerns automatically.')
-  }
-  sections.push('2. ACTIVE CONCERNS (address today)\n' + concerns.map((c) => `• ${c}`).join('\n'))
 
-  // --- 3. CURRENT TREATMENT (reference) ---
-  const medLines: string[] = []
-  if (hasMeds) {
-    d.medList.forEach((m) => {
-      let line = `• ${m.medication}`
-      if (m.dose) line += ` — ${m.dose}`
-      if (m.frequency) {
-        line += `, ${m.frequency}`
-        if (isPrnFrequency(String(m.frequency))) line += ' (PRN / as-needed)'
-      }
-      if (m.start_date) line += ` | start ${m.start_date}`
-      if (m.effectiveness) line += ` | effectiveness (patient notes): ${m.effectiveness}`
-      if (m.purpose) line += ` | indication: ${m.purpose}`
-      medLines.push(line)
-    })
-  } else {
-    medLines.push('• No medications listed in the app.')
-  }
-  const diagLines: string[] = []
-  if (hasDiag) {
-    d.diagRows.forEach((row) => {
-      let line = `• ${row.diagnosis} — ${row.status ?? '—'}`
-      if (row.date_diagnosed) line += ` (${row.date_diagnosed})`
-      if (row.doctor) line += ` · ${row.doctor}`
-      diagLines.push(line)
-    })
-  } else {
-    diagLines.push('• None in diagnoses directory.')
-  }
-  sections.push(
-    '3. CURRENT TREATMENT\n'
-    + 'Medications:\n'
-    + medLines.join('\n')
-    + '\nDiagnoses:\n'
-    + diagLines.join('\n'),
-  )
+  // --- RECENT VISITS ---
+  const visitLines = d.visitRows.slice(0, 5).map((v) => {
+    let line = `${v.visit_date} — Dr. ${String(v.doctor || 'Provider')}`
+    if (v.specialty) line += ` (${v.specialty})`
+    if (v.reason) line += `: ${v.reason}`
+    if (v.instructions) line += `. ${v.instructions}`
+    if (v.follow_up) line += `. Follow-up ${v.follow_up}`
+    return line
+  })
 
-  // --- 4. RECENT VISITS & FOLLOW-UP ---
-  let visits = '4. RECENT VISITS & FOLLOW-UP\n'
-  if (hasVisits) {
-    visits += d.visitRows.slice(0, 4).map((v) => {
-      let line = `• ${v.visit_date} · ${v.doctor || 'Provider'}`
-      if (v.specialty) line += ` (${v.specialty})`
-      if (v.reason) line += ` — ${v.reason}`
-      if (v.tests_ordered) line += ` | ordered: ${v.tests_ordered}`
-      if (v.instructions) line += ` | plan: ${v.instructions}`
-      if (v.follow_up) line += ` | follow-up: ${v.follow_up}`
-      return line
-    }).join('\n')
-    if (d.visitRows.length > 4) visits += `\n• (${d.visitRows.length - 4} more in app)`
-  } else {
-    visits += '• No visits logged in this window.'
-  }
-  const nonPend = d.testRows.filter((t) => t.status !== 'Pending').slice(0, 4)
-  if (nonPend.length) {
-    visits += '\nRecent results / completed orders:\n' + nonPend.map((t) =>
-      `• ${t.test_name} (${t.test_date}) — ${t.status}${t.results ? `: ${t.results}` : ''}`).join('\n')
-  }
-  sections.push(visits)
+  // --- RECENT RESULTS ---
+  const completedTests = d.testRows.filter((t) => String(t.status ?? '') !== 'Pending').slice(0, 5)
+  const resultLines = completedTests.map((t) => {
+    let line = `${String(t.test_name || '—')} completed ${t.test_date ? formatDate(String(t.test_date)) : ''}`
+    if (t.results) line += `: ${t.results}`
+    return line
+  })
 
-  // --- 5. MEDICATION CHANGES & SYMPTOM CORRELATION (loose, app-log-based) ---
+  // --- MEDICATION CHANGES & SYMPTOM TREND ---
   const corrLines = buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21)
-  sections.push('5. MEDICATION CHANGES & SYMPTOM TREND (approx. 3 weeks before vs after each event)\n' + formatCorrelationBlock(corrLines))
+  const corrText = corrLines.map((c) => c.line)
 
-  // --- 6. MY QUESTIONS FOR YOU (last) ---
-  let qs = '6. MY QUESTIONS FOR YOU\n'
-  if (d.qList.length) {
-    qs += d.qList.slice(0, 8).map((q) => {
-      let line = `• ${q.question}`
-      if (q.priority) line += ` [${q.priority}]`
-      if (q.doctor) line += ` (re: ${q.doctor})`
-      return line
-    }).join('\n')
-    if (d.qList.length > 8) qs += `\n• (${d.qList.length - 8} more in app)`
-  } else {
-    qs += '• None flagged in the app.'
+  // --- MY QUESTIONS FOR YOU ---
+  const qLines = d.qList.slice(0, 10).map((q) => {
+    let line = String(q.question ?? '')
+    if (q.priority && String(q.priority).toLowerCase() !== 'normal') line += ` [${q.priority}]`
+    if (q.doctor) line += ` (re: ${q.doctor})`
+    return line
+  })
+
+  // --- ASSEMBLE ---
+  const parts: string[] = []
+
+  parts.push(`Health Summary — ${displayDate}`)
+  parts.push('')
+  parts.push(openingLines.join(' '))
+  if (bodyLines.length) parts.push(bodyLines.join(' '))
+
+  if (concerns.length) {
+    parts.push('')
+    parts.push('What I need to address today')
+    for (const c of concerns) parts.push(`  • ${c}`)
   }
-  sections.push(qs)
 
-  return sections.join('\n\n')
+  if (visitLines.length) {
+    parts.push('')
+    parts.push('Recent visits')
+    for (const v of visitLines) parts.push(`  • ${v}`)
+  }
+
+  if (resultLines.length) {
+    parts.push('')
+    parts.push('Recent results')
+    for (const r of resultLines) parts.push(`  • ${r}`)
+  }
+
+  if (corrText.length) {
+    parts.push('')
+    parts.push('Medication changes & what happened')
+    for (const c of corrText) parts.push(`  • ${c}`)
+  }
+
+  if (qLines.length) {
+    parts.push('')
+    parts.push('My questions for you')
+    for (const q of qLines) parts.push(`  • ${q}`)
+    if (d.qList.length > 10) parts.push(`  • (${d.qList.length - 10} more in app)`)
+  } else {
+    parts.push('')
+    parts.push('My questions for you')
+    parts.push('  • None flagged yet.')
+  }
+
+  return parts.join('\n')
 }
