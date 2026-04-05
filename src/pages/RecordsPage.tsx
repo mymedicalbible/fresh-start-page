@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -21,7 +21,11 @@ type SymptomRow = {
 export function RecordsPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('pain')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get('tab')
+    return (t === 'pain' || t === 'symptoms') ? t : 'pain'
+  })
   const [q, setQ] = useState('')
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])

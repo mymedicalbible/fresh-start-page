@@ -13,6 +13,7 @@ type UpcomingAppt = {
 
 type HealthSummary = {
   generatedAt: string
+  aiText: string | null
   // Pain
   painCount: number
   painAvgIntensity: number | null
@@ -187,8 +188,44 @@ export function DashboardPage () {
     // Visits
     const visitRows = (visitRes.data ?? []) as any[]
 
+    // Build prompt for Claude
+    const medList = (medRes.data ?? []) as any[]
+    const testList = (testRes.data ?? []) as any[]
+    const qList = (qRes.data ?? []) as any[]
+
+    const prompt = [
+      'You are a compassionate health assistant helping a patient with complex chronic illness understand their health patterns.',
+      'Write a brief, warm, plain-English health summary (4–6 short paragraphs, no bullet lists, no markdown headers) based on this data from the last 30 days (visits: 90 days):',
+      '',
+      `PAIN (last 30 days): ${painRows.length} entries logged.${painAvg !== null ? ` Average intensity: ${painAvg}/10.` : ''}${areaTop.length ? ` Most affected areas: ${areaTop.map((a) => a.area).join(', ')}.` : ''}${typeTop.length ? ` Pain types: ${typeTop.map((t) => t.type).join(', ')}.` : ''}`,
+      '',
+      `SYMPTOMS (last 30 days): ${sympRows.length} episodes.${symptomTop.length ? ` Most frequent: ${symptomTop.slice(0, 4).map((s) => `${s.symptom} (${s.n}×)`).join(', ')}.` : ''}${Object.keys(severityCounts).length ? ` Severity breakdown: ${Object.entries(severityCounts).map(([k, v]) => `${k}: ${v}`).join(', ')}.` : ''}`,
+      '',
+      `MEDICATIONS: ${medList.length} current medication${medList.length !== 1 ? 's' : ''}${medList.length > 0 ? ': ' + medList.slice(0, 5).map((m: any) => m.medication + (m.dose ? ` ${m.dose}` : '')).join(', ') : ''}.`,
+      '',
+      `DOCTOR VISITS (last 90 days): ${visitRows.length} visit${visitRows.length !== 1 ? 's' : ''} logged.${visitRows[0] ? ` Most recent: ${visitRows[0].visit_date} with ${visitRows[0].doctor}.` : ''}`,
+      '',
+      `PENDING TESTS: ${testList.length}${testList.length > 0 ? ' — ' + testList.slice(0, 4).map((t: any) => t.test_name).join(', ') : ''}.`,
+      '',
+      `OPEN QUESTIONS FOR DOCTORS: ${qList.length}${qList.length > 0 ? ' — e.g. ' + qList.slice(0, 2).map((q: any) => q.question).join('; ') : ''}.`,
+      '',
+      'Focus on patterns, what stands out, and any gentle encouragement. Keep it under 200 words. Do not diagnose or give medical advice.',
+    ].join('\n')
+
+    let aiText: string | null = null
+    try {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('generate-summary', {
+        body: { prompt },
+      })
+      if (fnErr) throw fnErr
+      aiText = (fnData as any)?.summary ?? null
+    } catch (aiErr) {
+      console.warn('Claude summary failed, falling back to stats:', aiErr)
+    }
+
     setSummary({
       generatedAt: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      aiText,
       painCount: painRows.length,
       painAvgIntensity: painAvg,
       painTopAreas: areaTop,
@@ -196,9 +233,9 @@ export function DashboardPage () {
       symptomCount: sympRows.length,
       topSymptoms: symptomTop,
       severityCounts,
-      medCount: (medRes.data ?? []).length,
-      pendingTests: (testRes.data ?? []).length,
-      openQuestions: (qRes.data ?? []).length,
+      medCount: medList.length,
+      pendingTests: testList.length,
+      openQuestions: qList.length,
       recentVisitCount: visitRows.length,
       lastVisitDate: visitRows[0]?.visit_date ?? null,
       lastVisitDoctor: visitRows[0]?.doctor ?? null,
@@ -207,8 +244,6 @@ export function DashboardPage () {
   }
 
   if (!user) return <div>Loading...</div>
-
-  const severityOrder = ['Severe', 'Moderate', 'Mild', 'Unknown']
 
   return (
     <div style={{ display: 'grid', gap: 12, padding: '8px 0 40px' }}>
@@ -316,122 +351,56 @@ export function DashboardPage () {
         {summary && (
           <div style={{ display: 'grid', gap: 14 }}>
             <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-              Generated {summary.generatedAt} · last 30 days unless noted
+              Generated {summary.generatedAt} · last 30 days (visits: 90 days)
+              {summary.aiText && <span style={{ marginLeft: 8, color: '#6366f1' }}>· AI summary</span>}
             </div>
 
-            {/* PAIN */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>🩹 Pain</div>
-              {summary.painCount === 0 ? (
-                <div className="muted" style={{ fontSize: '0.85rem' }}>No pain entries in the last 30 days.</div>
-              ) : (
-                <div style={{ display: 'grid', gap: 4, fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>{summary.painCount}</span> entries logged
-                    {summary.painAvgIntensity !== null && (
-                      <> · avg intensity <span style={{ fontWeight: 600 }}>{summary.painAvgIntensity}/10</span></>
-                    )}
-                  </div>
-                  {summary.painTopAreas.length > 0 && (
-                    <div className="muted">
-                      Areas: {summary.painTopAreas.map((a) => `${a.area} (${a.n}×)`).join(', ')}
-                    </div>
-                  )}
-                  {summary.painTopTypes.length > 0 && (
-                    <div className="muted">
-                      Types: {summary.painTopTypes.map((t) => t.type).join(', ')}
+            {/* AI TEXT — shown when Claude responded */}
+            {summary.aiText ? (
+              <div style={{ fontSize: '0.92rem', lineHeight: 1.65, whiteSpace: 'pre-wrap', color: '#1f2937' }}>
+                {summary.aiText}
+              </div>
+            ) : (
+              /* FALLBACK STATS — shown when Claude is not configured */
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>🩹 Pain</div>
+                  {summary.painCount === 0 ? (
+                    <div className="muted" style={{ fontSize: '0.85rem' }}>No pain entries in the last 30 days.</div>
+                  ) : (
+                    <div style={{ fontSize: '0.85rem', color: '#374151' }}>
+                      {summary.painCount} entries · avg {summary.painAvgIntensity ?? '—'}/10
+                      {summary.painTopAreas.length > 0 && <div className="muted">Areas: {summary.painTopAreas.map((a) => a.area).join(', ')}</div>}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-
-            {/* SYMPTOMS */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>🩺 Symptoms</div>
-              {summary.symptomCount === 0 ? (
-                <div className="muted" style={{ fontSize: '0.85rem' }}>No symptom episodes in the last 30 days.</div>
-              ) : (
-                <div style={{ display: 'grid', gap: 4, fontSize: '0.85rem' }}>
-                  <div><span style={{ fontWeight: 600 }}>{summary.symptomCount}</span> episodes logged</div>
-                  {summary.topSymptoms.length > 0 && (
-                    <div className="muted">
-                      Most frequent: {summary.topSymptoms.map((s) => `${s.symptom} (${s.n}×)`).join(', ')}
-                    </div>
-                  )}
-                  {Object.keys(summary.severityCounts).length > 0 && (
-                    <div className="muted">
-                      Severity: {severityOrder
-                        .filter((s) => summary.severityCounts[s])
-                        .map((s) => `${s} ×${summary.severityCounts[s]}`)
-                        .join(' · ')}
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>🩺 Symptoms</div>
+                  {summary.symptomCount === 0 ? (
+                    <div className="muted" style={{ fontSize: '0.85rem' }}>No episodes in the last 30 days.</div>
+                  ) : (
+                    <div style={{ fontSize: '0.85rem', color: '#374151' }}>
+                      {summary.symptomCount} episodes
+                      {summary.topSymptoms.length > 0 && <div className="muted">Most frequent: {summary.topSymptoms.slice(0, 4).map((s) => s.symptom).join(', ')}</div>}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-
-            {/* VISITS */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>🏥 Doctor visits <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>(90 days)</span></div>
-              {summary.recentVisitCount === 0 ? (
-                <div className="muted" style={{ fontSize: '0.85rem' }}>No visits logged in the last 90 days.</div>
-              ) : (
-                <div style={{ fontSize: '0.85rem', display: 'grid', gap: 2 }}>
-                  <div><span style={{ fontWeight: 600 }}>{summary.recentVisitCount}</span> visit{summary.recentVisitCount !== 1 ? 's' : ''} logged</div>
-                  {summary.lastVisitDate && (
-                    <div className="muted">
-                      Most recent: {summary.lastVisitDate}{summary.lastVisitDoctor ? ` · ${summary.lastVisitDoctor}` : ''}
-                    </div>
-                  )}
+                <div style={{ fontSize: '0.85rem', display: 'grid', gap: 4 }}>
+                  <div>🏥 <strong>{summary.recentVisitCount}</strong> visit{summary.recentVisitCount !== 1 ? 's' : ''} (90d){summary.lastVisitDate ? ` · Last: ${summary.lastVisitDate}` : ''}</div>
+                  <div>💊 <strong>{summary.medCount}</strong> medication{summary.medCount !== 1 ? 's' : ''} on file</div>
+                  <div>🧪 <strong>{summary.pendingTests}</strong> test{summary.pendingTests !== 1 ? 's' : ''} pending · <strong>{summary.openQuestions}</strong> open question{summary.openQuestions !== 1 ? 's' : ''}</div>
                 </div>
-              )}
-            </div>
-
-            {/* MEDICATIONS */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>💊 Medications</div>
-              <div style={{ fontSize: '0.85rem' }}>
-                {summary.medCount === 0
-                  ? <span className="muted">No medications on file.</span>
-                  : <><span style={{ fontWeight: 600 }}>{summary.medCount}</span> medication{summary.medCount !== 1 ? 's' : ''} on file</>
-                }
-                <Link to="/app/meds" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
               </div>
-            </div>
+            )}
 
-            {/* TESTS */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>🧪 Pending tests</div>
-              <div style={{ fontSize: '0.85rem' }}>
-                {summary.pendingTests === 0
-                  ? <span className="muted">No pending tests.</span>
-                  : <><span style={{ fontWeight: 600 }}>{summary.pendingTests}</span> test{summary.pendingTests !== 1 ? 's' : ''} awaiting results</>
-                }
-                {summary.pendingTests > 0 && (
-                  <Link to="/app/tests" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
-                )}
-              </div>
+            {/* QUICK LINKS */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+              <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }}>→ Pain & symptoms</Link>
+              <Link to="/app/visits" className="muted" style={{ fontSize: '0.8rem' }}>→ Visits</Link>
+              <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }}>→ Meds</Link>
+              <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }}>→ Tests</Link>
+              <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }}>→ Charts</Link>
             </div>
-
-            {/* QUESTIONS */}
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>❓ Open questions</div>
-              <div style={{ fontSize: '0.85rem' }}>
-                {summary.openQuestions === 0
-                  ? <span className="muted">No unanswered questions.</span>
-                  : <><span style={{ fontWeight: 600 }}>{summary.openQuestions}</span> question{summary.openQuestions !== 1 ? 's' : ''} waiting for a doctor's answer</>
-                }
-                {summary.openQuestions > 0 && (
-                  <Link to="/app/questions" className="muted" style={{ marginLeft: 8, fontSize: '0.8rem' }}>→ view</Link>
-                )}
-              </div>
-            </div>
-
-            <Link to="/app/analytics" className="btn btn-secondary btn-block"
-              style={{ textDecoration: 'none', textAlign: 'center', fontSize: '0.85rem', marginTop: 4 }}>
-              📈 Full charts & trends →
-            </Link>
           </div>
         )}
       </div>

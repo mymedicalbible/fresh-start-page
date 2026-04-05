@@ -89,7 +89,6 @@ export function QuestionsArchivePage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     setBanner('Question saved.')
-    setShowForm(false)
     setForm({ date_created: todayISO(), appointment_date: '', question: '', priority: 'Medium' })
     setSelectedDoctor('')
     setCustomDoctorName('')
@@ -194,7 +193,7 @@ export function QuestionsArchivePage () {
             <textarea value={form.question}
               onChange={(e) => setForm({ ...form, question: e.target.value })}
               rows={4}
-              placeholder="What do you want to ask?" />
+              placeholder="e.g. Why is my pain worse at night? What did my MRI show? Should we adjust my medication?" />
           </div>
           <button type="button" className="btn btn-primary btn-block" onClick={saveNewQuestions} disabled={busy}>
             Save question

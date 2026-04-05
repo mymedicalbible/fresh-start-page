@@ -9,6 +9,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { MedicationsPage } from './pages/MedicationsPage'
 import { RecordsPage } from './pages/RecordsPage'
 import { DoctorsPage } from './pages/DoctorsPage'
+import { DoctorProfilePage } from './pages/DoctorProfilePage'
 import { TestsOrderedPage } from './pages/TestsOrderedPage'
 import { QuestionsArchivePage } from './pages/QuestionsArchivePage'
 import { DiagnosesDirectoryPage } from './pages/DiagnosesDirectoryPage'
@@ -34,6 +35,7 @@ export default function App () {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="meds" element={<MedicationsPage />} />
         <Route path="doctors" element={<DoctorsPage />} />
+        <Route path="doctors/:id" element={<DoctorProfilePage />} />
         <Route path="tests" element={<TestsOrderedPage />} />
         <Route path="questions" element={<QuestionsArchivePage />} />
         <Route path="diagnoses" element={<DiagnosesDirectoryPage />} />

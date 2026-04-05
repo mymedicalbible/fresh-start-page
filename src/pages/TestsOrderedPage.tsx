@@ -166,7 +166,7 @@ export function TestsOrderedPage () {
 
 
   const filtered = tests.filter((t) =>
-    view === 'current' ? t.status !== 'Archived' : t.status === 'Archived'
+    view === 'current' ? t.status === 'Pending' : t.status === 'Completed' || t.status === 'Archived'
   )
 
 
@@ -312,15 +312,11 @@ export function TestsOrderedPage () {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {t.status === 'Pending' && (
                     <button type="button" className="btn btn-secondary" style={{ fontSize: '0.8rem' }}
-                      onClick={() => updateStatus(t.id, 'Completed')}>✓ Mark complete</button>
+                      onClick={async () => { await updateStatus(t.id, 'Completed'); setView('archived') }}>✓ Mark complete</button>
                   )}
-                  {t.status === 'Completed' && (
+                  {(t.status === 'Completed' || t.status === 'Archived') && (
                     <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }}
-                      onClick={() => updateStatus(t.id, 'Archived')}>Archive</button>
-                  )}
-                  {t.status === 'Archived' && (
-                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }}
-                      onClick={() => updateStatus(t.id, 'Pending')}>Restore</button>
+                      onClick={() => updateStatus(t.id, 'Pending')}>Restore to pending</button>
                   )}
                 </div>
 
