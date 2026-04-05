@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
+import { buildCompactPatientData } from '../lib/summaryContext'
 import { useAuth } from '../contexts/AuthContext'
 
 type UpcomingAppt = {
@@ -15,30 +16,15 @@ type UpcomingAppt = {
 type HealthSummary = {
   generatedAt: string
   aiText: string | null
-  /** Lines for PDF / fallback when AI missing */
-  diagnosisLines: string[]
-  recentTestLines: string[]
-  questionLines: string[]
-  symptomLogLines: string[]
-  // Pain
+  aiError: string | null
+  /** Narrative fallback built client-side (for PDF & fallback display) */
+  narrativeFallback: string
+  // Raw stats kept for the quick-stats row
   painCount: number
-  painAvgIntensity: number | null
-  painTopAreas: { area: string; n: number }[]
-  painTopTypes: { type: string; n: number }[]
-  // Symptoms
   symptomCount: number
-  topSymptoms: { symptom: string; n: number }[]
-  severityCounts: Record<string, number>
-  // Meds
   medCount: number
-  // Tests
   pendingTests: number
-  // Questions
   openQuestions: number
-  // Visits
-  recentVisitCount: number
-  lastVisitDate: string | null
-  lastVisitDoctor: string | null
 }
 
 function parseList (text: string | null): string[] {
@@ -55,89 +41,181 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
     .map(([value, count]) => ({ value, count }))
 }
 
-function formatPainRow (r: Record<string, unknown>) {
-  const parts = [
-    r.entry_date as string,
-    (r as any).entry_time ? String((r as any).entry_time) : null,
-    typeof r.intensity === 'number' ? `intensity ${r.intensity}/10` : null,
-    r.location ? `location: ${r.location}` : null,
-    r.pain_type ? `type: ${r.pain_type}` : null,
-    r.triggers ? `triggers: ${r.triggers}` : null,
-    r.relief_methods ? `relief tried: ${r.relief_methods}` : null,
-    r.notes ? `notes: ${r.notes}` : null,
-  ].filter(Boolean)
-  return `• ${parts.join(' · ')}`
+type FallbackInput = {
+  painRows: Record<string, unknown>[]
+  sympRows: Record<string, unknown>[]
+  medList: Record<string, unknown>[]
+  testRows: Record<string, unknown>[]
+  diagRows: Record<string, unknown>[]
+  visitRows: Record<string, unknown>[]
+  qList: Record<string, unknown>[]
+  painAvg: number | null
+  painTopAreas: { area: string; n: number }[]
+  painTopTypes: { type: string; n: number }[]
+  topSymptoms: { symptom: string; n: number }[]
 }
 
-function formatEpisodeRow (r: Record<string, unknown>) {
-  const parts = [
-    r.episode_date as string,
-    (r as any).episode_time ? String((r as any).episode_time) : null,
-    r.severity ? `severity: ${r.severity}` : null,
-    r.symptoms ? `symptoms: ${r.symptoms}` : null,
-    r.activity ? `activity/context: ${r.activity}` : null,
-    r.relief ? `relief: ${r.relief}` : null,
-    r.notes ? `notes: ${r.notes}` : null,
-  ].filter(Boolean)
-  return `• ${parts.join(' · ')}`
-}
+function buildNarrativeFallback (d: FallbackInput): string {
+  const sections: string[] = []
 
-function formatVisitRow (r: Record<string, unknown>) {
-  const parts = [
-    r.visit_date as string,
-    r.doctor ? `with ${r.doctor}` : null,
-    r.specialty ? `(${r.specialty})` : null,
-    r.reason ? `reason: ${r.reason}` : null,
-    r.findings ? `findings: ${r.findings}` : null,
-    r.tests_ordered ? `tests/orders: ${r.tests_ordered}` : null,
-    r.instructions ? `plan/instructions: ${r.instructions}` : null,
-    r.follow_up ? `follow-up: ${r.follow_up}` : null,
-    r.notes ? `notes: ${r.notes}` : null,
-  ].filter(Boolean)
-  return `• ${parts.join(' · ')}`
-}
+  // EXECUTIVE SUMMARY
+  const hasPain = d.painRows.length > 0
+  const hasSymptoms = d.sympRows.length > 0
+  const hasMeds = d.medList.length > 0
+  const hasDiag = d.diagRows.length > 0
+  const hasVisits = d.visitRows.length > 0
 
-function buildFallbackHandoffText (s: HealthSummary): string {
-  const lines: string[] = [
-    'CLINICAL HANDOFF (structured fallback — configure Claude in Supabase for a fuller narrative)',
-    '',
-    'This section was assembled from the patient app without AI. Add detail in the app and regenerate when AI is available.',
-    '',
-    'CHIEF CONCERN AND RECENT COURSE',
-    `Over approximately the last month the patient logged ${s.painCount} pain entr${s.painCount !== 1 ? 'ies' : 'y'}`
-      + (s.painAvgIntensity != null ? ` with mean intensity about ${s.painAvgIntensity}/10` : '')
-      + ` and ${s.symptomCount} symptom episode${s.symptomCount !== 1 ? 's' : ''}.`
-      + (s.painTopAreas.length ? ` Pain was often reported in: ${s.painTopAreas.map((a) => a.area).join(', ')}.` : '')
-      + (s.topSymptoms.length ? ` Frequent symptoms included: ${s.topSymptoms.slice(0, 6).map((x) => x.symptom).join(', ')}.` : ''),
-    '',
-    'MEDICATIONS ON FILE',
-    s.medCount ? `${s.medCount} medication${s.medCount !== 1 ? 's' : ''} listed in the app (see Medications screen for doses).` : 'No medications listed in the app.',
-    '',
-    'KNOWN DIAGNOSES (FROM APP DIRECTORY)',
-    s.diagnosisLines?.length ? s.diagnosisLines.join('\n') : 'None recorded in the diagnoses directory, or not loaded.',
-    '',
-    'RECENT VISITS (SUMMARY)',
-    s.recentVisitCount
-      ? `${s.recentVisitCount} visit${s.recentVisitCount !== 1 ? 's' : ''} in the lookback window.`
-        + (s.lastVisitDate ? ` Most recent: ${s.lastVisitDate}${s.lastVisitDoctor ? ` with ${s.lastVisitDoctor}` : ''}.` : '')
-      : 'No recent visits logged in the app for this window.',
-    '',
-    'TESTS AND WORKUP',
-    s.pendingTests
-      ? `${s.pendingTests} test order${s.pendingTests !== 1 ? 's' : ''} still marked pending.`
-      : 'No pending tests in the app.',
-    (s.recentTestLines?.length ? s.recentTestLines.join('\n') : ''),
-    '',
-    'QUESTIONS THE PATIENT IS TRACKING',
-    s.openQuestions
-      ? `${s.openQuestions} open question${s.openQuestions !== 1 ? 's' : ''} in the app.`
-      : 'No unanswered questions flagged.',
-    (s.questionLines?.length ? s.questionLines.join('\n') : ''),
-    '',
-    'QUICK SYMPTOM LOG SNAPSHOTS',
-    (s.symptomLogLines?.length ? s.symptomLogLines.join('\n') : 'None in the selected window.'),
-  ]
-  return lines.join('\n')
+  let exec = 'EXECUTIVE SUMMARY\n'
+  if (!hasPain && !hasSymptoms && !hasDiag) {
+    exec += 'This patient has begun tracking their health but has limited data recorded so far. The sections below reflect what is currently available in their app. More data will produce a more complete summary.'
+  } else {
+    const painSent = hasPain
+      ? `Over the observation window the patient logged ${d.painRows.length} pain entr${d.painRows.length !== 1 ? 'ies' : 'y'}${d.painAvg != null ? ` with an average intensity of ${d.painAvg} out of 10` : ''}.`
+      : 'No pain entries were recorded during this period.'
+    const symptSent = hasSymptoms
+      ? ` They also logged ${d.sympRows.length} symptom episode${d.sympRows.length !== 1 ? 's' : ''}${d.topSymptoms.length ? `, most frequently involving ${d.topSymptoms.slice(0, 4).map((s) => s.symptom).join(', ')}` : ''}.`
+      : ''
+    const medSent = hasMeds ? ` The patient is currently on ${d.medList.length} medication${d.medList.length !== 1 ? 's' : ''}.` : ''
+    const testSent = d.testRows.filter((t) => t.status === 'Pending').length > 0
+      ? ` There ${d.testRows.filter((t) => t.status === 'Pending').length === 1 ? 'is' : 'are'} ${d.testRows.filter((t) => t.status === 'Pending').length} pending test order${d.testRows.filter((t) => t.status === 'Pending').length !== 1 ? 's' : ''} awaiting results.`
+      : ''
+    const qSent = d.qList.length > 0 ? ` The patient has ${d.qList.length} unanswered question${d.qList.length !== 1 ? 's' : ''} they would like to discuss.` : ''
+    exec += painSent + symptSent + medSent + testSent + qSent
+  }
+  sections.push(exec)
+
+  // CHIEF CONCERN AND FUNCTIONAL IMPACT
+  let chief = 'CHIEF CONCERN AND FUNCTIONAL IMPACT\n'
+  if (hasPain) {
+    const areas = d.painTopAreas.length ? d.painTopAreas.map((a) => a.area).join(', ') : null
+    const types = d.painTopTypes.length ? d.painTopTypes.map((t) => t.type).join(', ') : null
+    chief += `The patient reports ongoing pain`
+    if (areas) chief += ` primarily affecting the ${areas}`
+    chief += '.'
+    if (types) chief += ` The pain has been described as ${types}.`
+    if (d.painAvg != null && d.painAvg >= 6) chief += ` With an average intensity of ${d.painAvg}/10, this represents a significant burden on daily functioning.`
+    else if (d.painAvg != null) chief += ` Average intensity was ${d.painAvg}/10.`
+    const worst = d.painRows.filter((r) => typeof r.intensity === 'number' && (r.intensity as number) >= 7)
+    if (worst.length > 0) chief += ` There were ${worst.length} entr${worst.length !== 1 ? 'ies' : 'y'} at 7/10 or above, indicating flare episodes.`
+  } else {
+    chief += 'No pain entries were logged during this window. The patient may be tracking other symptoms or has not yet begun logging pain.'
+  }
+  sections.push(chief)
+
+  // RECENT PAIN AND SYMPTOM COURSE
+  let course = 'RECENT PAIN AND SYMPTOM COURSE\n'
+  if (hasPain || hasSymptoms) {
+    if (hasPain) {
+      const recent = d.painRows.slice(0, 3)
+      course += 'Recent pain entries include: '
+      course += recent.map((r) => {
+        const parts = [r.entry_date as string]
+        if (typeof r.intensity === 'number') parts.push(`intensity ${r.intensity}/10`)
+        if (r.location) parts.push(`in ${r.location}`)
+        if (r.pain_type) parts.push(`(${r.pain_type})`)
+        return parts.join(', ')
+      }).join('; ') + '.'
+      if (d.painRows.length > 3) course += ` (${d.painRows.length - 3} additional entries in the app.)`
+    }
+    if (hasSymptoms) {
+      course += '\n\nSymptom episodes recorded include: '
+      const recent = d.sympRows.slice(0, 3)
+      course += recent.map((r) => {
+        const parts = [r.episode_date as string]
+        if (r.severity) parts.push(`severity: ${r.severity}`)
+        if (r.symptoms) parts.push(`symptoms: ${r.symptoms}`)
+        return parts.join(', ')
+      }).join('; ') + '.'
+      if (d.sympRows.length > 3) course += ` (${d.sympRows.length - 3} additional episodes in the app.)`
+    }
+  } else {
+    course += 'No pain or symptom episodes were recorded during this window.'
+  }
+  sections.push(course)
+
+  // CURRENT MEDICATIONS
+  let meds = 'CURRENT MEDICATIONS\n'
+  if (hasMeds) {
+    meds += 'The patient is currently taking:\n'
+    meds += d.medList.map((m) => {
+      const name = m.medication as string
+      const dose = m.dose ? ` ${m.dose}` : ''
+      const freq = m.frequency ? `, ${m.frequency}` : ''
+      const purpose = m.purpose ? ` — for ${m.purpose}` : ''
+      return `  - ${name}${dose}${freq}${purpose}`
+    }).join('\n')
+  } else {
+    meds += 'No medications are currently listed in the app.'
+  }
+  sections.push(meds)
+
+  // KNOWN DIAGNOSES AND BACKGROUND
+  let diag = 'KNOWN DIAGNOSES AND BACKGROUND\n'
+  if (hasDiag) {
+    diag += 'The following diagnoses are tracked in the patient\'s directory:\n'
+    diag += d.diagRows.map((dd) => {
+      const name = dd.diagnosis as string
+      const status = dd.status as string
+      const since = dd.date_diagnosed ? ` (since ${dd.date_diagnosed})` : ''
+      const doc = dd.doctor ? `, per ${dd.doctor}` : ''
+      return `  - ${name} — ${status}${since}${doc}`
+    }).join('\n')
+  } else {
+    diag += 'No diagnoses have been recorded in the app\'s directory yet.'
+  }
+  sections.push(diag)
+
+  // RECENT ENCOUNTERS AND PLANS
+  let visits = 'RECENT ENCOUNTERS AND PLANS\n'
+  if (hasVisits) {
+    const recent = d.visitRows.slice(0, 5)
+    visits += recent.map((v) => {
+      let line = `On ${v.visit_date}, the patient saw ${v.doctor || 'a provider'}`
+      if (v.specialty) line += ` (${v.specialty})`
+      if (v.reason) line += ` regarding ${v.reason}`
+      line += '.'
+      if (v.findings) line += ` Findings: ${v.findings}.`
+      if (v.tests_ordered) line += ` Tests ordered: ${v.tests_ordered}.`
+      if (v.instructions) line += ` Plan: ${v.instructions}.`
+      if (v.follow_up) line += ` Follow-up: ${v.follow_up}.`
+      return line
+    }).join('\n\n')
+  } else {
+    visits += 'No doctor visits have been logged in the app during this period.'
+  }
+  sections.push(visits)
+
+  // PENDING TESTS, RESULTS, AND FOLLOW-UP
+  const pending = d.testRows.filter((t) => t.status === 'Pending')
+  const completed = d.testRows.filter((t) => t.status !== 'Pending').slice(0, 8)
+  let tests = 'PENDING TESTS, RESULTS, AND FOLLOW-UP\n'
+  if (pending.length > 0) {
+    tests += 'The following tests are still pending:\n'
+    tests += pending.map((t) => `  - ${t.test_name}${t.doctor ? ` (ordered by ${t.doctor})` : ''}${t.reason ? ` — reason: ${t.reason}` : ''}, ordered ${t.test_date}`).join('\n')
+  } else {
+    tests += 'No test orders are currently marked as pending.'
+  }
+  if (completed.length > 0) {
+    tests += '\n\nRecent completed tests:\n'
+    tests += completed.map((t) => `  - ${t.test_name} (${t.test_date}) — ${t.status}${t.results ? `: ${t.results}` : ''}`).join('\n')
+  }
+  sections.push(tests)
+
+  // QUESTIONS AND GAPS FOR THE NEXT CLINICIAN
+  let qs = 'QUESTIONS AND GAPS FOR THE NEXT CLINICIAN\n'
+  if (d.qList.length > 0) {
+    qs += 'The patient has flagged the following questions they would like answered:\n'
+    qs += d.qList.slice(0, 12).map((q) => {
+      const pri = q.priority ? ` [${q.priority}]` : ''
+      const doc = q.doctor ? ` (for ${q.doctor})` : ''
+      return `  - "${q.question}"${pri}${doc}`
+    }).join('\n')
+  } else {
+    qs += 'The patient has no flagged unanswered questions at this time.'
+  }
+  sections.push(qs)
+
+  return sections.join('\n\n')
 }
 
 export function DashboardPage () {
@@ -148,6 +226,8 @@ export function DashboardPage () {
   const [drawerOpen, setDrawerOpen] = useState<Record<string, boolean>>({ doctors: false })
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
+  const [patientFocus, setPatientFocus] = useState('')
   // Simple 30-day counters shown immediately (no button press needed)
   const [quickStats, setQuickStats] = useState<{ pain: number; symptoms: number; questions: number } | null>(null)
 
@@ -206,6 +286,13 @@ export function DashboardPage () {
     load()
   }, [user])
 
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('mb-handoff-focus')
+      if (s) setPatientFocus(s)
+    } catch { /* ignore */ }
+  }, [])
+
   async function generateSummary () {
     if (!user) return
     setSummaryLoading(true)
@@ -224,13 +311,13 @@ export function DashboardPage () {
         .eq('user_id', user.id)
         .gte('entry_date', since90Str)
         .order('entry_date', { ascending: false })
-        .limit(35),
+        .limit(120),
       supabase.from('mcas_episodes')
         .select('episode_date, episode_time, activity, symptoms, severity, relief, notes')
         .eq('user_id', user.id)
         .gte('episode_date', since90Str)
         .order('episode_date', { ascending: false })
-        .limit(35),
+        .limit(120),
       supabase.from('current_medications')
         .select('medication, dose, frequency, purpose, notes')
         .eq('user_id', user.id)
@@ -290,129 +377,56 @@ export function DashboardPage () {
     const typeTop = topN(allTypes).map(({ value, count }) => ({ type: value, n: count }))
     const allSymptoms = sympRows.flatMap((r) => parseList(r.symptoms as string | null))
     const symptomTop = topN(allSymptoms).map(({ value, count }) => ({ symptom: value, n: count }))
-    const severityCounts: Record<string, number> = {}
-    for (const r of sympRows) {
-      const s = (r.severity as string) ?? 'Unknown'
-      severityCounts[s] = (severityCounts[s] ?? 0) + 1
-    }
+    const todayIso = new Date().toISOString().slice(0, 10)
+    try {
+      localStorage.setItem('mb-handoff-focus', patientFocus)
+    } catch { /* ignore */ }
 
-    const painLogText = painRows.length
-      ? painRows.slice(0, 30).map((r) => formatPainRow(r)).join('\n')
-      : '(No pain log lines in the last ~90 days.)'
-    const episodeLogText = sympRows.length
-      ? sympRows.slice(0, 30).map((r) => formatEpisodeRow(r)).join('\n')
-      : '(No symptom / MCAS episode lines in the last ~90 days.)'
-    const medText = medList.length
-      ? medList.map((m) => {
-        const p = [m.medication, m.dose, m.frequency, m.purpose].filter(Boolean).join(' · ')
-        const n = m.notes ? ` (${m.notes})` : ''
-        return `• ${p}${n}`
-      }).join('\n')
-      : '(No medications listed in the app.)'
-    const testText = testRows.length
-      ? testRows.slice(0, 35).map((t) => {
-        const bits = [t.test_date as string, t.test_name as string, `status: ${t.status}`]
-        if (t.doctor) bits.push(`ordered by: ${t.doctor}`)
-        if (t.reason) bits.push(`reason: ${t.reason}`)
-        if (t.results) bits.push(`results: ${t.results}`)
-        return `• ${bits.join(' · ')}`
-      }).join('\n')
-      : '(No tests / orders recorded.)'
-    const diagText = diagRows.length
-      ? diagRows.map((d) => `• ${d.diagnosis as string} — ${d.status as string}${d.date_diagnosed ? ` (since ${d.date_diagnosed})` : ''}${d.doctor ? ` · ${d.doctor}` : ''}`).join('\n')
-      : '(No entries in diagnoses directory.)'
-    const visitText = visitRows.length
-      ? visitRows.map((v) => formatVisitRow(v)).join('\n')
-      : '(No doctor visits logged in the app in this window.)'
-    const questionText = qList.length
-      ? qList.map((q) => `• [${q.priority ?? '?'}] ${q.question as string}${q.doctor ? ` (re: ${q.doctor})` : ''} — logged ${q.date_created as string}`).join('\n')
-      : '(No open questions flagged.)'
-    const slogText = slogRows.length
-      ? slogRows.map((r) => {
-        const when = r.logged_at?.slice(0, 16)?.replace('T', ' ') ?? ''
-        const acts = r.activity_last_4h ? `Activity ~4h: ${r.activity_last_4h}` : ''
-        const sy = Array.isArray(r.symptoms) && r.symptoms.length ? `Symptoms: ${r.symptoms.join(', ')}` : ''
-        return `• ${when}${acts ? ` · ${acts}` : ''}${sy ? ` · ${sy}` : ''}`
-      }).join('\n')
-      : '(No structured symptom log snapshots in this window.)'
-
-    const diagnosisLines = diagRows.length
-      ? diagRows.map((d) => `• ${d.diagnosis as string} — ${d.status as string}`)
-      : []
-    const recentTestLines = testRows.slice(0, 15).map((t) => {
-      const bits = [String(t.test_date), String(t.test_name), String(t.status)]
-      return `• ${bits.join(' · ')}`
-    })
-    const questionLines = qList.map((q) => `• ${q.question as string}`)
-    const symptomLogLines = slogRows.map((r) => {
-      const sy = Array.isArray(r.symptoms) ? r.symptoms.join(', ') : ''
-      return `• ${r.logged_at?.slice(0, 10)} — ${sy || r.activity_last_4h || '—'}`
+    const patientData = buildCompactPatientData({
+      todayIso,
+      painRows,
+      sympRows,
+      medList,
+      testRows,
+      diagRows,
+      visitRows,
+      qList,
+      slogRows,
     })
 
-    const dataBlock = [
-      '=== PAIN LOG (most recent first, ~90 days) ===',
-      painLogText,
-      '',
-      '=== SYMPTOM / EPISODE LOG (MCAS-type entries, ~90 days) ===',
-      episodeLogText,
-      '',
-      '=== STRUCTURED SYMPTOM SNAPSHOTS (if used) ===',
-      slogText,
-      '',
-      '=== MEDICATIONS ===',
-      medText,
-      '',
-      '=== DIAGNOSES DIRECTORY ===',
-      diagText,
-      '',
-      '=== RECENT DOCTOR VISITS (narrative fields) ===',
-      visitText,
-      '',
-      '=== TESTS & ORDERS (recent, all statuses) ===',
-      testText,
-      '',
-      '=== OPEN QUESTIONS (patient is waiting on answers) ===',
-      questionText,
-    ].join('\n')
-
-    const prompt = [
-      'You are preparing a clinical handoff document for a physician.',
-      'The patient will print or share this with a clinician (for example a new specialist, primary care, or emergency provider) so they can quickly understand the patient\'s situation.',
-      '',
-      'Instructions:',
-      '- Write in clear, professional prose suitable for a doctor\'s quick read. Avoid fluff, motivational language, and generic reassurance.',
-      '- Ground every claim in the PATIENT DATA below. If something is missing, say briefly that it was not recorded in the app.',
-      '- Do NOT state new diagnoses, change treatment plans, or give medical instructions. You may organize and summarize what was already recorded.',
-      '- Length: about 650–1100 words unless the data are very sparse (then shorter is fine).',
-      '',
-      'Use exactly these section headings as plain lines (all caps), each on its own line, followed by one or more paragraphs of narrative:',
-      '',
-      'CHIEF CONCERN AND FUNCTIONAL IMPACT',
-      'RECENT PAIN AND SYMPTOM COURSE',
-      'CURRENT MEDICATIONS',
-      'KNOWN DIAGNOSES AND BACKGROUND',
-      'RECENT ENCOUNTERS AND PLANS',
-      'PENDING TESTS, RESULTS, AND FOLLOW-UP',
-      'QUESTIONS AND GAPS FOR THE NEXT CLINICIAN',
-      '',
-      'Under CURRENT MEDICATIONS, list each medication with dose and frequency as given in the data; if incomplete in the data, say so.',
-      'Under RECENT ENCOUNTERS, summarize the last few visits from what was logged (reason, findings, tests ordered, instructions) in narrative form.',
-      'Under PENDING TESTS, distinguish pending orders vs completed tests with results if they appear in the data.',
-      'Under QUESTIONS AND GAPS, include the patient\'s open questions verbatim where helpful.',
-      '',
-      'PATIENT DATA:',
-      dataBlock,
-    ].join('\n')
+    const narrativeFallback = buildNarrativeFallback({
+      painRows,
+      sympRows,
+      medList,
+      testRows,
+      diagRows,
+      visitRows,
+      qList,
+      painAvg,
+      painTopAreas: areaTop,
+      painTopTypes: typeTop,
+      topSymptoms: symptomTop,
+    })
 
     let aiText: string | null = null
+    let aiError: string | null = null
     try {
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('generate-summary', {
-        body: { prompt },
+        body: {
+          patientData,
+          patientFocus: patientFocus.trim() || undefined,
+          mode: summaryMode,
+        },
       })
       if (fnErr) throw fnErr
-      aiText = (fnData as { summary?: string })?.summary ?? null
+      const resp = fnData as { summary?: string; error?: string }
+      if (resp?.error) throw new Error(resp.error)
+      aiText = resp?.summary ?? null
+      if (!aiText?.trim()) aiText = null
     } catch (aiErr) {
-      console.warn('Claude summary failed, falling back to structured text:', aiErr)
+      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)
+      console.warn('AI summary failed, using narrative fallback:', msg)
+      aiError = msg
     }
 
     const generatedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -420,31 +434,19 @@ export function DashboardPage () {
     setSummary({
       generatedAt,
       aiText,
-      diagnosisLines,
-      recentTestLines,
-      questionLines,
-      symptomLogLines,
+      aiError,
+      narrativeFallback,
       painCount: painRows.length,
-      painAvgIntensity: painAvg,
-      painTopAreas: areaTop,
-      painTopTypes: typeTop,
       symptomCount: sympRows.length,
-      topSymptoms: symptomTop,
-      severityCounts,
       medCount: medList.length,
       pendingTests,
       openQuestions: qList.length,
-      recentVisitCount: visitRows.length,
-      lastVisitDate: (visitRows[0]?.visit_date as string) ?? null,
-      lastVisitDoctor: (visitRows[0]?.doctor as string) ?? null,
     })
     setSummaryLoading(false)
   }
 
   function handoffTextForPdf (s: HealthSummary) {
-    return s.aiText?.trim()
-      ? s.aiText.trim()
-      : buildFallbackHandoffText(s)
+    return s.aiText?.trim() || s.narrativeFallback
   }
 
   function downloadPdf () {
@@ -571,51 +573,68 @@ export function DashboardPage () {
           </div>
         </div>
 
+        <div style={{ marginTop: 10, paddingTop: 12, borderTop: summary ? '1px solid var(--border)' : 'none' }}>
+          <div className="form-group" style={{ marginBottom: 10 }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Most important for my next appointment (optional)</label>
+            <textarea
+              value={patientFocus}
+              onChange={(e) => setPatientFocus(e.target.value)}
+              placeholder="e.g. Discuss whether new numbness could be medication-related; request referral timing; explain why I can’t work full-time right now."
+              rows={3}
+              style={{ width: '100%', fontSize: '0.88rem' }}
+              disabled={summaryLoading}
+            />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: '0.78rem' }}>Depth:</span>
+            <button
+              type="button"
+              className={`btn ${summaryMode === 'thorough' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              disabled={summaryLoading}
+              onClick={() => setSummaryMode('thorough')}>
+              Thorough (recommended)
+            </button>
+            <button
+              type="button"
+              className={`btn ${summaryMode === 'fast' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+              disabled={summaryLoading}
+              onClick={() => setSummaryMode('fast')}>
+              Fast
+            </button>
+            <span className="muted" style={{ fontSize: '0.72rem' }}>Thorough uses a heavier model for richer narrative.</span>
+          </div>
+        </div>
+
         {summary && (
-          <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'grid', gap: 14, marginTop: 16 }}>
             <div className="muted" style={{ fontSize: '0.75rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-              Generated {summary.generatedAt} · data window about the last 90 days where noted
-              {summary.aiText && <span style={{ marginLeft: 8, color: '#6366f1' }}>· Claude narrative</span>}
-              {!summary.aiText && <span style={{ marginLeft: 8, color: '#b45309' }}>· structured fallback (set up AI for full narrative)</span>}
+              Generated {summary.generatedAt} · data window: ~90 days
+              {summary.aiText && <span style={{ marginLeft: 8, color: '#6366f1' }}>· AI-enhanced narrative</span>}
+              {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8, color: '#b45309' }}>· app-generated narrative</span>}
             </div>
 
-            {/* AI TEXT — shown when Claude responded */}
-            {summary.aiText ? (
-              <div style={{ fontSize: '0.92rem', lineHeight: 1.65, whiteSpace: 'pre-wrap', color: '#1f2937' }}>
-                {summary.aiText}
-              </div>
-            ) : (
-              /* FALLBACK STATS — shown when Claude is not configured */
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>🩹 Pain</div>
-                  {summary.painCount === 0 ? (
-                    <div className="muted" style={{ fontSize: '0.85rem' }}>No pain entries in the last 30 days.</div>
-                  ) : (
-                    <div style={{ fontSize: '0.85rem', color: '#374151' }}>
-                      {summary.painCount} entries · avg {summary.painAvgIntensity ?? '—'}/10
-                      {summary.painTopAreas.length > 0 && <div className="muted">Areas: {summary.painTopAreas.map((a) => a.area).join(', ')}</div>}
-                    </div>
-                  )}
+            {/* AI ERROR BANNER */}
+            {summary.aiError && (
+              <div style={{
+                background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8,
+                padding: '10px 14px', fontSize: '0.82rem', color: '#92400e',
+              }}>
+                <strong>AI generation did not complete.</strong> Showing app-generated narrative instead (still a real summary, just not AI-enhanced).
+                <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  Reason: {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '…' : summary.aiError}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>🩺 Symptoms</div>
-                  {summary.symptomCount === 0 ? (
-                    <div className="muted" style={{ fontSize: '0.85rem' }}>No episodes in the last 30 days.</div>
-                  ) : (
-                    <div style={{ fontSize: '0.85rem', color: '#374151' }}>
-                      {summary.symptomCount} episodes
-                      {summary.topSymptoms.length > 0 && <div className="muted">Most frequent: {summary.topSymptoms.slice(0, 4).map((s) => s.symptom).join(', ')}</div>}
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontSize: '0.85rem', display: 'grid', gap: 4 }}>
-                  <div>🏥 <strong>{summary.recentVisitCount}</strong> visit{summary.recentVisitCount !== 1 ? 's' : ''} (90d){summary.lastVisitDate ? ` · Last: ${summary.lastVisitDate}` : ''}</div>
-                  <div>💊 <strong>{summary.medCount}</strong> medication{summary.medCount !== 1 ? 's' : ''} on file</div>
-                  <div>🧪 <strong>{summary.pendingTests}</strong> test{summary.pendingTests !== 1 ? 's' : ''} pending · <strong>{summary.openQuestions}</strong> open question{summary.openQuestions !== 1 ? 's' : ''}</div>
+                <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                  To enable AI: deploy the Edge Function (<code>supabase functions deploy generate-summary</code>) and set <code>supabase secrets set ANTHROPIC_API_KEY=sk-ant-...</code>
                 </div>
               </div>
             )}
+
+            {/* THE NARRATIVE — AI text if available, otherwise a real narrative fallback */}
+            <div style={{ fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1f2937' }}>
+              {summary.aiText || summary.narrativeFallback}
+            </div>
 
             {/* QUICK LINKS */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
