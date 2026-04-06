@@ -576,17 +576,29 @@ export function MedicationsPage () {
     if (!doseChangeTarget || !doseChangeForm) return
     setBusy(true)
     setDoseChangeError(null)
-    const { error: e } = await supabase.from('medication_change_events').insert({
-      user_id: user!.id,
-      event_date: doseChangeForm.event_date,
-      medication: doseChangeTarget.medication,
-      event_type: doseChangeForm.event_type,
-      dose_previous: doseChangeForm.dose_previous || null,
-      dose_new: doseChangeForm.dose_new || null,
-      frequency_previous: doseChangeForm.frequency_previous || null,
-      frequency_new: doseChangeForm.frequency_new || null,
+    const rpcRes = await supabase.rpc('insert_medication_change_event', {
+      p_event_date: doseChangeForm.event_date,
+      p_medication: doseChangeTarget.medication,
+      p_event_type: doseChangeForm.event_type,
+      p_dose_previous: doseChangeForm.dose_previous || null,
+      p_dose_new: doseChangeForm.dose_new || null,
+      p_frequency_previous: doseChangeForm.frequency_previous || null,
+      p_frequency_new: doseChangeForm.frequency_new || null,
     })
-    if (e) { setDoseChangeError(e.message); setBusy(false); return }
+    if (rpcRes.error) {
+      // RPC not available yet — fall back to direct table insert
+      const { error: e } = await supabase.from('medication_change_events').insert({
+        user_id: user!.id,
+        event_date: doseChangeForm.event_date,
+        medication: doseChangeTarget.medication,
+        event_type: doseChangeForm.event_type,
+        dose_previous: doseChangeForm.dose_previous || null,
+        dose_new: doseChangeForm.dose_new || null,
+        frequency_previous: doseChangeForm.frequency_previous || null,
+        frequency_new: doseChangeForm.frequency_new || null,
+      })
+      if (e) { setDoseChangeError(e.message); setBusy(false); return }
+    }
 
     // If there's effectiveness / side_effects, also update the current med record
     if (doseChangeForm.effectiveness || doseChangeForm.side_effects) {

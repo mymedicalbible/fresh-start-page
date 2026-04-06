@@ -59,24 +59,27 @@ function emptyEditForm (doc: Doctor) {
 }
 
 
-/* ──────────────── Section header component ──────────────── */
+/* ──────────────── Collapsible section header ──────────────── */
 function SectionHeader ({
-  icon, title, count, action, actionLabel,
+  icon, title, count, action, actionLabel, collapsed, onToggle,
 }: {
   icon: string; title: string; count?: number
   action?: () => void; actionLabel?: string
+  collapsed?: boolean; onToggle?: () => void
 }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: collapsed ? 0 : 12, gap: 8 }}>
+      <button type="button" onClick={onToggle}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: 'var(--text)', textAlign: 'left', flex: 1 }}>
         {icon} {title}
         {count !== undefined && (
-          <span className="muted" style={{ fontWeight: 400, fontSize: '0.82rem', marginLeft: 6 }}>({count})</span>
+          <span className="muted" style={{ fontWeight: 400, fontSize: '0.82rem' }}>({count})</span>
         )}
-      </div>
-      {action && actionLabel && (
+        <span className="muted" style={{ fontSize: '0.75rem', marginLeft: 4 }}>{collapsed ? '▼' : '▲'}</span>
+      </button>
+      {action && actionLabel && !collapsed && (
         <button type="button" className="btn btn-secondary"
-          style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+          style={{ fontSize: '0.78rem', padding: '4px 12px', flexShrink: 0 }}
           onClick={action}>{actionLabel}</button>
       )}
     </div>
@@ -129,6 +132,13 @@ export function DoctorProfilePage () {
   // Inline med form
   const [showMedForm, setShowMedForm] = useState(false)
   const [medForm, setMedForm] = useState<Record<string, string>>({})
+
+  // Section collapse
+  const [colVisits, setColVisits] = useState(false)
+  const [colQuestions, setColQuestions] = useState(false)
+  const [colDiag, setColDiag] = useState(false)
+  const [colMeds, setColMeds] = useState(false)
+  const [colTests, setColTests] = useState(false)
 
 
   /* ──────────── Load ──────────── */
@@ -477,11 +487,12 @@ export function DoctorProfilePage () {
       <div className="card">
         <SectionHeader
           icon="🏥" title="Visits" count={visits.length}
+          collapsed={colVisits} onToggle={() => setColVisits((v) => !v)}
           action={() => setShowVisitForm((v) => !v)}
           actionLabel={showVisitForm ? 'Cancel' : '+ Log visit'}
         />
 
-        {showVisitForm && (
+        {!colVisits && showVisitForm && (
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: 14, marginBottom: 14, display: 'grid', gap: 10 }}>
             <div className="form-row">
               <div className="form-group"><label>Date *</label>
@@ -576,37 +587,39 @@ export function DoctorProfilePage () {
           </div>
         )}
 
-        {visits.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No visits logged yet.</p>}
-        <div style={{ display: 'grid', gap: 8 }}>
-          {visits.map((v) => {
-            const testsForVisit = tests.filter((t) => t.test_date === v.visit_date)
-            return (
-              <div key={v.id} className="list-item">
-                <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{v.visit_date}</div>
-                {v.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {v.reason}</div>}
-                {v.findings && <div className="muted" style={{ fontSize: '0.85rem' }}>Findings: {v.findings}</div>}
-                {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
-                {testsForVisit.length > 0 && (
-                  <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
-                    <div style={{ fontWeight: 600 }}>Tests & orders (detail)</div>
-                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                      {testsForVisit.map((t) => (
-                        <li key={t.id}>
-                          {t.test_name}
-                          {t.reason ? ` — ${t.reason}` : ''}
-                          <span className="muted"> ({t.status})</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
-                {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Follow-up: {v.follow_up}</div>}
-                {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
-              </div>
-            )
-          })}
-        </div>
+        {!colVisits && (<>
+          {visits.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No visits logged yet.</p>}
+          <div style={{ display: 'grid', gap: 8 }}>
+            {visits.map((v) => {
+              const testsForVisit = tests.filter((t) => t.test_date === v.visit_date)
+              return (
+                <div key={v.id} className="list-item">
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{v.visit_date}</div>
+                  {v.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {v.reason}</div>}
+                  {v.findings && <div className="muted" style={{ fontSize: '0.85rem' }}>Findings: {v.findings}</div>}
+                  {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
+                  {testsForVisit.length > 0 && (
+                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                      <div style={{ fontWeight: 600 }}>Tests & orders (detail)</div>
+                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                        {testsForVisit.map((t) => (
+                          <li key={t.id}>
+                            {t.test_name}
+                            {t.reason ? ` — ${t.reason}` : ''}
+                            <span className="muted"> ({t.status})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
+                  {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Follow-up: {v.follow_up}</div>}
+                  {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
+                </div>
+              )
+            })}
+          </div>
+        </>)}
       </div>
 
 
@@ -615,6 +628,7 @@ export function DoctorProfilePage () {
         <SectionHeader
           icon="❓" title="Questions"
           count={openCount > 0 ? openCount : questions.length}
+          collapsed={colQuestions} onToggle={() => setColQuestions((v) => !v)}
           action={() => {
             setShowQuestionForm((v) => !v)
             if (!showQuestionForm) setQuestionRows([{ text: '', priority: 'Medium' }])
@@ -622,7 +636,7 @@ export function DoctorProfilePage () {
           actionLabel={showQuestionForm ? 'Cancel' : '+ Add question'}
         />
 
-        {showQuestionForm && (
+        {!colQuestions && showQuestionForm && (
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: 14, marginBottom: 14, display: 'grid', gap: 10 }}>
             {questionRows.map((q, i) => (
               <div key={i} style={{ display: 'grid', gap: 6 }}>
@@ -647,6 +661,7 @@ export function DoctorProfilePage () {
           </div>
         )}
 
+        {!colQuestions && (<>
         {/* Filter tabs */}
         {questions.length > 0 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -715,6 +730,7 @@ export function DoctorProfilePage () {
             )
           })}
         </div>
+        </>)}
       </div>
 
 
@@ -722,11 +738,12 @@ export function DoctorProfilePage () {
       <div className="card">
         <SectionHeader
           icon="📋" title="Diagnoses" count={diagDir.length}
+          collapsed={colDiag} onToggle={() => setColDiag((v) => !v)}
           action={() => setShowDiagForm((v) => !v)}
           actionLabel={showDiagForm ? 'Cancel' : '+ Log note'}
         />
 
-        {showDiagForm && (
+        {!colDiag && showDiagForm && (
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: 14, marginBottom: 14, display: 'grid', gap: 10 }}>
             {diagDir.length > 0 && (
               <div>
@@ -769,6 +786,7 @@ export function DoctorProfilePage () {
           </div>
         )}
 
+        {!colDiag && (<>
         {diagDir.length === 0 && diagnoses.length === 0 && (
           <p className="muted" style={{ fontSize: '0.85rem' }}>No diagnoses logged for this doctor yet.</p>
         )}
@@ -814,6 +832,7 @@ export function DoctorProfilePage () {
             </div>
           </div>
         )}
+        </>)}
       </div>
 
 
@@ -821,11 +840,12 @@ export function DoctorProfilePage () {
       <div className="card">
         <SectionHeader
           icon="💊" title="Medications" count={meds.length}
+          collapsed={colMeds} onToggle={() => setColMeds((v) => !v)}
           action={() => setShowMedForm((v) => !v)}
           actionLabel={showMedForm ? 'Cancel' : '+ Add medication'}
         />
 
-        {showMedForm && (
+        {!colMeds && showMedForm && (
           <div style={{ background: '#f9fafb', borderRadius: 10, padding: 14, marginBottom: 14, display: 'grid', gap: 10 }}>
             <div className="form-group"><label>Medication *</label>
               <input value={medForm.medication ?? ''} placeholder="e.g. Gabapentin"
@@ -849,27 +869,31 @@ export function DoctorProfilePage () {
           </div>
         )}
 
-        {meds.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No medications linked to this doctor yet.</p>}
-        <div style={{ display: 'grid', gap: 8 }}>
-          {meds.map((m) => (
-            <div key={m.id} className="list-item">
-              <strong>{m.medication}</strong>
-              <div className="muted" style={{ fontSize: '0.85rem' }}>
-                {[m.dose, m.frequency].filter(Boolean).join(' · ')}
-                {m.purpose ? ` · ${m.purpose}` : ''}
+        {!colMeds && (<>
+          {meds.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No medications linked to this doctor yet.</p>}
+          <div style={{ display: 'grid', gap: 8 }}>
+            {meds.map((m) => (
+              <div key={m.id} className="list-item">
+                <strong>{m.medication}</strong>
+                <div className="muted" style={{ fontSize: '0.85rem' }}>
+                  {[m.dose, m.frequency].filter(Boolean).join(' · ')}
+                  {m.purpose ? ` · ${m.purpose}` : ''}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-        <Link to="/app/meds" className="muted" style={{ fontSize: '0.82rem', display: 'block', marginTop: 10 }}>
-          → All medications
-        </Link>
+            ))}
+          </div>
+          <Link to="/app/meds" className="muted" style={{ fontSize: '0.82rem', display: 'block', marginTop: 10 }}>
+            → All medications
+          </Link>
+        </>)}
       </div>
 
 
       {/* ── TESTS ── */}
       <div className="card">
-        <SectionHeader icon="🧪" title="Tests & Orders" count={tests.length} />
+        <SectionHeader icon="🧪" title="Tests & Orders" count={tests.length}
+          collapsed={colTests} onToggle={() => setColTests((v) => !v)} />
+        {!colTests && (<>
         {tests.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No tests ordered by this doctor yet.</p>}
         <div style={{ display: 'grid', gap: 8 }}>
           {tests.map((t) => {
@@ -890,6 +914,7 @@ export function DoctorProfilePage () {
         <Link to="/app/tests" className="muted" style={{ fontSize: '0.82rem', display: 'block', marginTop: 10 }}>
           → All tests & orders
         </Link>
+        </>)}
       </div>
     </div>
   )

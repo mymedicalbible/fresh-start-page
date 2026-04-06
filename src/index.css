@@ -496,3 +496,43 @@ textarea { min-height: 88px; resize: vertical; }
 .list-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .list-item:hover { background: var(--mint-surface); }
 .list-item.unread { background: var(--sky-surface); }
+
+/* ============================================================
+   BOTTOM NAV
+   ============================================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: calc(var(--nav-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: var(--surface);
+  border-top: 1.5px solid var(--border);
+  box-shadow: 0 -2px 10px rgba(30, 77, 52, 0.06);
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.15s ease;
+  border-radius: 10px;
+}
+.bottom-nav-item:hover { color: var(--accent); }
+.bottom-nav-item.active {
+  color: var(--accent);
+  background: var(--mint-surface);
+}
+.bottom-nav-icon { font-size: 1.25rem; line-height: 1; }
+.bottom-nav-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; }

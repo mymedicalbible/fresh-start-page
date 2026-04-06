@@ -55,6 +55,60 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
 }
 
 // ────────────────────────────────────────────────────────────
+// NARRATIVE RENDERER — turns plain-text summary into styled sections
+// ────────────────────────────────────────────────────────────
+const SECTION_RE = /^[A-Z][A-Z &/()—\-]+$/
+
+function NarrativeRenderer ({ text }: { text: string }) {
+  const lines = text.split('\n')
+  const blocks: { type: 'title' | 'heading' | 'snapshot' | 'bullet' | 'text'; content: string }[] = []
+
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    if (!trimmed) { i++; continue }
+
+    if (i === 0 && trimmed.startsWith('PATIENT HEALTH SUMMARY')) {
+      blocks.push({ type: 'title', content: trimmed })
+    } else if (SECTION_RE.test(trimmed)) {
+      blocks.push({ type: 'heading', content: trimmed })
+      if (trimmed === 'CLINICAL SNAPSHOT' && i + 1 < lines.length) {
+        i++
+        const snap: string[] = []
+        while (i < lines.length && lines[i].trim() && !SECTION_RE.test(lines[i].trim())) {
+          snap.push(lines[i].trim())
+          i++
+        }
+        if (snap.length) blocks.push({ type: 'snapshot', content: snap.join(' ') })
+        continue
+      }
+    } else if (trimmed.startsWith('•') || trimmed.startsWith('-') || /^\d+\./.test(trimmed)) {
+      blocks.push({ type: 'bullet', content: trimmed })
+    } else {
+      blocks.push({ type: 'text', content: trimmed })
+    }
+    i++
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 4 }}>
+      {blocks.map((b, idx) => {
+        if (b.type === 'title')
+          return <div key={idx} style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--mint-ink)', paddingBottom: 6, borderBottom: '2px solid var(--mint)', marginBottom: 4 }}>{b.content}</div>
+        if (b.type === 'heading')
+          return <div key={idx} style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', letterSpacing: '0.04em', marginTop: 12, paddingBottom: 2, borderBottom: '1px solid var(--border)' }}>{b.content}</div>
+        if (b.type === 'snapshot')
+          return <div key={idx} style={{ fontSize: '0.92rem', lineHeight: 1.7, color: 'var(--text)', padding: '8px 12px', background: 'var(--mint-surface)', borderRadius: 10, borderLeft: '3px solid var(--accent)', marginBottom: 4 }}>{b.content}</div>
+        if (b.type === 'bullet')
+          return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, paddingLeft: 8, whiteSpace: 'pre-wrap' }}>{b.content}</div>
+        return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{b.content}</div>
+      })}
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
 // SUMMARY MODAL
 // ────────────────────────────────────────────────────────────
 function SummaryModal ({
@@ -228,8 +282,11 @@ function SummaryModal ({
 
               {summary.medEventsLoadError && (
                 <div className="banner error" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
-                  <strong>Could not load medication change events.</strong> The handoff may show an empty med-change section until this is fixed.
-                  <div className="muted" style={{ fontSize: '0.73rem', marginTop: 4 }}>{summary.medEventsLoadError}</div>
+                  <strong>Could not load medication change events.</strong>
+                  <div style={{ marginTop: 6, fontSize: '0.78rem' }}>{summary.medEventsLoadError}</div>
+                  <div style={{ marginTop: 8, fontSize: '0.78rem', background: '#fff', padding: '8px 10px', borderRadius: 8, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                    {`Fix: open your Supabase SQL Editor and run the migration file:\n20250406200000_med_change_events_rpc.sql\n\nOr paste this:\nSELECT pg_notify('pgrst', 'reload schema');`}
+                  </div>
                 </div>
               )}
 
@@ -255,9 +312,7 @@ function SummaryModal ({
                 </div>
               )}
 
-              <div className="summary-output" style={{ fontSize: '0.9rem', lineHeight: 1.7 }}>
-                {summary.aiText || summary.narrativeFallback}
-              </div>
+              <NarrativeRenderer text={summary.aiText || summary.narrativeFallback} />
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
                 <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; episodes</Link>
@@ -399,12 +454,10 @@ export function DashboardPage () {
         .eq('user_id', user.id)
         .order('logged_at', { ascending: false })
         .limit(18),
-      supabase.from('medication_change_events')
-        .select('event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new')
-        .eq('user_id', user.id)
-        .gte('event_date', since120Str)
-        .order('event_date', { ascending: false })
-        .limit(50),
+      supabase.rpc('get_medication_change_events', {
+        p_since: since120Str,
+        p_limit: 50,
+      }),
     ])
 
     const painRows = (painRes.data ?? []) as Record<string, unknown>[]
@@ -417,12 +470,29 @@ export function DashboardPage () {
     const slogRows = (symptomLogRes.error ? [] : (symptomLogRes.data ?? [])) as { logged_at: string; activity_last_4h: string | null; symptoms: string[] | null }[]
 
     let medChangeEvents: MedChangeEvent[] = []
-    const medEventsLoadError = medEventsRes.error?.message ?? null
-    if (medEventsRes.error) console.warn('medication_change_events:', medEventsRes.error.message)
-    else medChangeEvents = (medEventsRes.data ?? []) as MedChangeEvent[]
+    let medEventsLoadError: string | null = null
+
+    if (medEventsRes.error) {
+      // RPC failed — try direct table as fallback
+      const fallback = await supabase.from('medication_change_events')
+        .select('event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new')
+        .eq('user_id', user.id)
+        .gte('event_date', since120Str)
+        .order('event_date', { ascending: false })
+        .limit(50)
+
+      if (fallback.error) {
+        medEventsLoadError = fallback.error.message
+        console.warn('medication_change_events: RPC and direct query both failed.', medEventsRes.error.message, fallback.error.message)
+      } else {
+        medChangeEvents = (fallback.data ?? []) as MedChangeEvent[]
+      }
+    } else {
+      medChangeEvents = (medEventsRes.data ?? []) as MedChangeEvent[]
+    }
 
     const medCorrelationBlock = medEventsLoadError
-      ? `Could not load medication change history: ${medEventsLoadError} Check your connection and that the medication_change_events table and migrations are applied on your Supabase project.`
+      ? ''
       : formatCorrelationBlock(buildMedSymptomCorrelationLines(medChangeEvents, painRows, sympRows, 21))
 
     const pendingTests = pendingTestsRes.count ?? 0
