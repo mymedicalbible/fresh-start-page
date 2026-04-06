@@ -8,7 +8,7 @@ function ollamaApiBase (): string {
 }
 
 function defaultModel (): string {
-  return (import.meta.env.VITE_OLLAMA_MODEL?.trim() || 'llama3.2').replace(/^"|"$/g, '')
+  return (import.meta.env.VITE_OLLAMA_MODEL?.trim() || 'gemma3:4b').replace(/^"|"$/g, '')
 }
 
 export type OllamaChatResponse = {
