@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
+import { SpiralBinding } from './SpiralBinding'
 
 type NavItem =
   | { kind: 'path'; path: string; label: string; icon: string }
@@ -37,7 +38,9 @@ export function AppLayout () {
   return (
     <div className="app-shell">
       <div className="app-page">
-        <div className="paper-sheet">
+        <div className="notebook-outer">
+          <SpiralBinding />
+          <div className="paper-sheet paper-sheet--spiral">
           <header className="top-bar">
             <div>
               <h1 className="notebook-title">Medical Bible</h1>
@@ -55,6 +58,7 @@ export function AppLayout () {
             </button>
           </header>
           <Outlet />
+          </div>
         </div>
       </div>
 

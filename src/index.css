@@ -69,7 +69,10 @@ html, body {
   margin: 0;
   min-height: 100%;
   font-family: var(--font-sans);
-  background: #d4cfc6;
+  background:
+    radial-gradient(ellipse 120% 80% at 20% 0%, rgba(255, 218, 230, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 100% 40%, rgba(189, 228, 244, 0.4) 0%, transparent 50%),
+    linear-gradient(165deg, var(--desk-deep) 0%, var(--desk) 45%, #c5c0b6 100%);
   color: var(--text);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -94,20 +97,62 @@ button, input, select, textarea { font: inherit; }
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 8px);
 }
 
-/* --- Single full-width paper column (no side spiral) --- */
+/* --- Notebook column + spiral (outer frame) --- */
 .app-page {
   flex: 1;
   width: 100%;
-  max-width: 28rem;
+  max-width: 29rem;
   margin: 0 auto;
-  padding: 12px 14px 0;
+  padding: 10px 12px 0;
   min-height: 0;
 }
 
+.notebook-outer {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-notebook);
+  border: 2px solid rgba(140, 175, 215, 0.5);
+  background: var(--paper);
+}
+
+/* --- Spiral binding (left rail) --- */
+.spiral-binding {
+  flex-shrink: 0;
+  width: 34px;
+  position: relative;
+  background: linear-gradient(90deg, #6b7280 0%, #9ca3af 22%, #d1d5db 48%, #9ca3af 78%, #71717a 100%);
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.18);
+}
+
+.spiral-strip {
+  position: relative;
+  height: 100%;
+  min-height: calc(100dvh - var(--nav-height) - 36px);
+}
+
+.spiral-coil {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #52525b;
+  background: linear-gradient(180deg, #f4f4f5 0%, #a1a1aa 55%, #71717a 100%);
+  box-shadow:
+    1px 2px 3px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 .paper-sheet {
+  flex: 1;
+  min-width: 0;
   background-color: var(--paper);
   background-image:
-    linear-gradient(90deg, transparent 0, transparent 26px, var(--paper-margin-line) 26px, var(--paper-margin-line) 27px, transparent 27px),
+    linear-gradient(90deg, transparent 0, transparent 22px, var(--paper-margin-line) 22px, var(--paper-margin-line) 23px, transparent 23px),
     repeating-linear-gradient(
       transparent,
       transparent 26px,
@@ -115,15 +160,20 @@ button, input, select, textarea { font: inherit; }
       var(--paper-line) 27px
     );
   background-size: 100% 27px;
-  border: 1px solid rgba(45, 42, 38, 0.1);
-  border-radius: 14px;
-  box-shadow: var(--shadow-notebook);
-  padding: 16px 16px 20px;
-  min-height: calc(100dvh - var(--nav-height) - 48px);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 14px 14px 18px;
+  min-height: calc(100dvh - var(--nav-height) - 36px);
+}
+
+.paper-sheet--spiral {
+  border-radius: 0 14px 14px 0;
 }
 
 @media (min-width: 480px) {
-  .app-page { max-width: 32rem; padding: 14px 18px 0; }
+  .app-page { max-width: 33rem; padding: 12px 14px 0; }
+  .spiral-binding { width: 38px; }
 }
 
 /* ============================================================
@@ -134,9 +184,9 @@ button, input, select, textarea { font: inherit; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(45, 42, 38, 0.1);
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed rgba(45, 42, 38, 0.14);
 }
 
 .notebook-title {
@@ -730,4 +780,142 @@ textarea { min-height: 88px; resize: vertical; }
   font-weight: 700;
   color: #3d3428;
   margin: 0 0 10px;
+}
+
+/* --- Compact dashboard: scrapbook hub --- */
+.dashboard-stack--compact {
+  gap: 10px !important;
+}
+
+.card--scrapbook {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(253, 248, 240, 0.95) 100%);
+  border: 2px dashed rgba(180, 160, 140, 0.35);
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.8) inset,
+    0 4px 18px rgba(45, 42, 38, 0.08);
+}
+
+.card--compact {
+  padding: 12px 14px;
+}
+
+.card--home-hub {
+  padding: 12px 12px 10px;
+}
+
+.washi-label {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5c1e33;
+  background: linear-gradient(90deg, rgba(245, 198, 216, 0.85), rgba(255, 228, 236, 0.9));
+  border: 1px solid rgba(181, 71, 106, 0.25);
+  border-radius: 3px;
+  padding: 5px 12px 5px 10px;
+  margin: 0 0 10px 2px;
+  box-shadow: 0 2px 6px rgba(181, 71, 106, 0.12);
+  transform: rotate(-0.5deg);
+}
+
+.home-hub-links {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.home-hub-links a {
+  font-weight: 600;
+}
+
+.recent-slim-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.recent-slim-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.recent-slim-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Dense 4×2 shortcut grid (shorter home scroll) */
+.quick-log-grid--dense {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 4px;
+  padding: 4px 0 2px;
+}
+
+.quick-log-grid--dense .quick-log-circle {
+  max-width: none;
+  gap: 4px;
+}
+
+.quick-log-grid--dense .quick-log-circle-disc {
+  width: 64px;
+  height: 64px;
+}
+
+.quick-log-grid--dense .quick-log-circle-stitch {
+  inset: 7px;
+  border-width: 1.5px;
+}
+
+.quick-log-grid--dense .quick-log-circle-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.quick-log-grid--dense .quick-log-circle-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+}
+
+.quick-log-grid--dense .quick-log-circle-hint {
+  display: none;
+}
+
+@media (max-width: 340px) {
+  .quick-log-grid--dense .quick-log-circle-disc {
+    width: 56px;
+    height: 56px;
+  }
+
+  .quick-log-grid--dense .quick-log-circle-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+.quick-log-circle-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f87171, #dc2626);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  z-index: 2;
 }

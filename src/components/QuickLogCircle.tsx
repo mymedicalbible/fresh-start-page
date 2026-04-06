@@ -8,15 +8,24 @@ type Props = {
   tone: Tone
   label: string
   hint?: string
+  /** Small count badge on the disc (e.g. open questions). */
+  badge?: number
   children: ReactNode
 }
 
-export function QuickLogCircle ({ to, tone, label, hint, children }: Props) {
+export function QuickLogCircle ({ to, tone, label, hint, badge, children }: Props) {
   return (
-    <Link to={to} className={`quick-log-circle quick-log-circle--${tone}`}>
+    <Link
+      to={to}
+      className={`quick-log-circle quick-log-circle--${tone}`}
+      title={hint}
+    >
       <span className="quick-log-circle-disc" aria-hidden>
         <span className="quick-log-circle-stitch" />
         <span className="quick-log-circle-icon">{children}</span>
+        {badge != null && badge > 0 && (
+          <span className="quick-log-circle-badge">{badge > 99 ? '99+' : badge}</span>
+        )}
       </span>
       <span className="quick-log-circle-label">{label}</span>
       {hint ? <span className="quick-log-circle-hint">{hint}</span> : null}

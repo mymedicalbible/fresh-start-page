@@ -838,138 +838,140 @@ export function DashboardPage () {
         />
       )}
 
-      <div className="dashboard-stack" style={{ display: 'grid', gap: 16, padding: '0 0 32px' }}>
+      <div
+        className="dashboard-stack dashboard-stack--compact"
+        style={{ display: 'grid', gap: 10, padding: '0 0 24px' }}
+      >
 
-        {upcoming.length > 0 && (
-          <section className="card card--appts">
+        {(upcoming.length > 0 || pendingCount > 0) && (
+          <section className="card card--scrapbook card--compact card--appts">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h2 className="dashboard-section-title" style={{ margin: 0 }}>Upcoming appointments</h2>
-              {'Notification' in window && Notification.permission === 'default' && (
+              <h2 className="dashboard-section-title" style={{ margin: 0, fontSize: '0.98rem' }}>Coming up</h2>
+              {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  style={{ fontSize: '0.75rem', padding: '3px 10px', whiteSpace: 'nowrap' }}
+                  style={{ fontSize: '0.72rem', padding: '2px 8px', whiteSpace: 'nowrap' }}
                   onClick={() => Notification.requestPermission().then((p) => {
                     if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
                   })}
                 >
-                  Enable reminders
+                  Reminders
                 </button>
               )}
             </div>
-            <ul style={{ margin: '10px 0 0', paddingLeft: 18 }}>
-              {upcoming.map((u) => {
-                const pendingQ = apptPendingQ[u.doctor] ?? 0
-                return (
-                  <li key={u.id} style={{ marginBottom: 4 }}>
-                    <span className="muted">
-                      {u.appointment_date}
-                      {u.appointment_time ? ` · ${u.appointment_time}` : ''}
-                      {` · ${u.doctor}`}
-                      {u.specialty ? ` (${u.specialty})` : ''}
-                    </span>
-                    {pendingQ > 0 && (
-                      <span style={{
-                        marginLeft: 8, fontSize: '0.7rem', fontWeight: 700,
-                        background: '#f59e0b', color: '#fff',
-                        padding: '1px 7px', borderRadius: 20, display: 'inline-block',
-                      }}>
-                        {pendingQ} Q{pendingQ !== 1 ? 's' : ''}
+            {pendingCount > 0 && (
+              <button
+                type="button"
+                className="btn btn-butter"
+                onClick={() => navigate('/app/visits?tab=pending')}
+                style={{
+                  width: '100%',
+                  marginTop: 8,
+                  justifyContent: 'space-between',
+                  textAlign: 'left',
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                }}
+              >
+                <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''}</span>
+                <span style={{ fontWeight: 500 }}>Finish →</span>
+              </button>
+            )}
+            {upcoming.length > 0 && (
+              <ul style={{ margin: pendingCount > 0 ? 10 : 8, marginBottom: 0, paddingLeft: 16, fontSize: '0.82rem' }}>
+                {upcoming.slice(0, 4).map((u) => {
+                  const pendingQ = apptPendingQ[u.doctor] ?? 0
+                  return (
+                    <li key={u.id} style={{ marginBottom: 3 }}>
+                      <span className="muted">
+                        {u.appointment_date}
+                        {u.appointment_time ? ` · ${u.appointment_time}` : ''}
+                        {` · ${u.doctor}`}
                       </span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )}
-
-        {pendingCount > 0 && (
-          <section className="card" style={{ padding: 12 }}>
-            <button
-              type="button"
-              className="btn btn-butter btn-block"
-              onClick={() => navigate('/app/visits?tab=pending')}
-              style={{ justifyContent: 'space-between', textAlign: 'left', margin: 0 }}
-            >
-              <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
-              <span style={{ fontWeight: 400 }}>Open →</span>
-            </button>
-          </section>
-        )}
-
-        <section className="card card--quick-log">
-          <span className="card-section-label">Quick log</span>
-          <div className="quick-log-grid">
-            <QuickLogCircle to="/app/log?tab=pain" tone="blush" label="Pain" hint="Log an entry">
-              <IconPain />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/log?tab=symptoms" tone="mint" label="Episode" hint="Log features">
-              <IconEpisode />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/questions" tone="sky" label="Question" hint="For your visit">
-              <IconQuestion />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/visits?new=1" tone="butter" label="Visit" hint="Record a visit">
-              <IconVisit />
-            </QuickLogCircle>
-          </div>
-        </section>
-
-        {openQsCount !== null && (
-          <section className="card">
-            <h2 className="dashboard-section-title">Open questions</h2>
-            <div className="openqs-block">
-              <div className="openqs-value">{openQsCount}</div>
-              <div className="openqs-label">WAITING FOR ANSWERS</div>
-            </div>
-          </section>
-        )}
-
-        <section className="card">
-          <h2 className="dashboard-section-title">Recent activity</h2>
-          {recentActivity.length === 0
-            ? <p className="muted" style={{ margin: 0, fontSize: '0.88rem' }}>Nothing logged yet. Use Quick log above.</p>
-            : (
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                {recentActivity.map((row) => (
-                  <li key={row.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <span className={`recent-dot recent-dot--${row.kind === 'pain' ? 'pain' : row.kind === 'episode' ? 'episode' : 'visit'}`} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.title}</div>
-                      <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{row.sub}</div>
-                    </div>
-                    <span className="muted" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {formatDistanceToNow(row.ts, { addSuffix: true })}
-                    </span>
-                  </li>
-                ))}
+                      {pendingQ > 0 && (
+                        <span style={{
+                          marginLeft: 6, fontSize: '0.65rem', fontWeight: 700,
+                          background: '#f59e0b', color: '#fff',
+                          padding: '0 6px', borderRadius: 20, display: 'inline-block', verticalAlign: 'middle',
+                        }}>
+                          {pendingQ} Q
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
-        </section>
+            {upcoming.length > 4 && (
+              <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.72rem' }}>
+                +{upcoming.length - 4} more — add or edit on a{' '}
+                <Link to="/app/doctors">doctor profile</Link>
+              </p>
+            )}
+          </section>
+        )}
 
-        <section className="card">
-          <span className="card-section-label">More</span>
-          <div className="quick-log-grid">
-            <QuickLogCircle to="/app/doctors" tone="sky" label="Doctors" hint="Profiles">
+        <section className="card card--scrapbook card--home-hub">
+          <span className="washi-label">Your shortcuts</span>
+          <div className="quick-log-grid quick-log-grid--dense">
+            <QuickLogCircle to="/app/log?tab=pain" tone="blush" label="Pain" hint="Log pain">
+              <IconPain />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/log?tab=symptoms" tone="mint" label="Episode" hint="Log episode">
+              <IconEpisode />
+            </QuickLogCircle>
+            <QuickLogCircle
+              to="/app/questions"
+              tone="sky"
+              label="Question"
+              hint="Questions for visits"
+              badge={openQsCount ?? undefined}
+            >
+              <IconQuestion />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/visits?new=1" tone="butter" label="Visit" hint="Log a visit">
+              <IconVisit />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/doctors" tone="sky" label="Doctors" hint="Doctor profiles">
               <IconDoctors />
             </QuickLogCircle>
             <QuickLogCircle to="/app/meds" tone="mint" label="Meds" hint="Medications">
               <IconMeds />
             </QuickLogCircle>
-            <QuickLogCircle to="/app/tests" tone="butter" label="Tests" hint="Labs & orders">
+            <QuickLogCircle to="/app/tests" tone="butter" label="Tests" hint="Tests & labs">
               <IconTests />
             </QuickLogCircle>
             <QuickLogCircle to="/app/analytics" tone="blush" label="Charts" hint="Trends">
               <IconCharts />
             </QuickLogCircle>
           </div>
-          <p className="muted" style={{ fontSize: '0.78rem', margin: '14px 0 0', textAlign: 'center' }}>
+          <p className="home-hub-links muted">
             <Link to="/app/diagnoses">Diagnoses</Link>
             {' · '}
-            <Link to="/app/records">Pain &amp; episodes archive</Link>
+            <Link to="/app/records">Pain, episodes &amp; history</Link>
           </p>
         </section>
+
+        {recentActivity.length > 0 && (
+          <section className="card card--scrapbook card--compact">
+            <h2 className="dashboard-section-title" style={{ margin: '0 0 6px', fontSize: '0.95rem' }}>Latest</h2>
+            <ul className="recent-slim-list">
+              {recentActivity.slice(0, 2).map((row) => (
+                <li key={row.id}>
+                  <span className={`recent-dot recent-dot--${row.kind === 'pain' ? 'pain' : row.kind === 'episode' ? 'episode' : 'visit'}`} />
+                  <span style={{ fontWeight: 600 }}>{row.title}</span>
+                  <span className="recent-slim-meta">{formatDistanceToNow(row.ts, { addSuffix: true })}</span>
+                </li>
+              ))}
+            </ul>
+            {recentActivity.length > 2 && (
+              <p style={{ margin: '8px 0 0', fontSize: '0.74rem' }}>
+                <Link to="/app/records">See more in Records →</Link>
+              </p>
+            )}
+          </section>
+        )}
 
       </div>
     </>
