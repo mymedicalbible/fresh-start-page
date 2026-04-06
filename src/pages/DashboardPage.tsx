@@ -57,7 +57,7 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
 // ────────────────────────────────────────────────────────────
 // NARRATIVE RENDERER — turns plain-text summary into styled sections
 // ────────────────────────────────────────────────────────────
-const SECTION_RE = /^[A-Z][A-Z &/()—\-]+$/
+const SECTION_RE = /^[A-Z][A-Z &/()—\-.0-9]+(  .*)?$/
 
 function NarrativeRenderer ({ text }: { text: string }) {
   const lines = text.split('\n')
@@ -290,10 +290,10 @@ function SummaryModal ({
                 </div>
               )}
 
-              {summary.aiText && summary.medCorrelationBlock.trim() && (
+              {summary.medCorrelationBlock.trim() && (
                 <div className="card" style={{ padding: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: 'var(--mint-ink)' }}>
-                    Med changes from your logs (app-derived)
+                    Medication changes & outcomes (app-derived)
                   </div>
                   <div className="summary-output" style={{ fontSize: '0.85rem', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
                     {summary.medCorrelationBlock}
@@ -580,8 +580,8 @@ export function DashboardPage () {
 
   function handoffTextForPdf (s: HealthSummary) {
     const main = s.aiText?.trim() || s.narrativeFallback
-    if (s.aiText?.trim() && s.medCorrelationBlock.trim()) {
-      return `${main}\n\n---\nMed changes from your logs (app-derived)\n\n${s.medCorrelationBlock}`
+    if (s.medCorrelationBlock.trim() && !main.includes('MEDICATION CHANGES')) {
+      return `${main}\n\n---\nMedication changes & outcomes (app-derived)\n\n${s.medCorrelationBlock}`
     }
     return main
   }

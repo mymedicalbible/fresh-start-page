@@ -4,6 +4,7 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { VisitLogWizard } from '../components/VisitLogWizard'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 
 type Doctor = { id: string; name: string; specialty: string | null }
 
@@ -49,8 +50,6 @@ export function VisitsPage () {
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [showNewDoctorPrompt, setShowNewDoctorPrompt] = useState(false)
-  const [pendingDoctorName, setPendingDoctorName] = useState('')
 
   const [selectedDoctor, setSelectedDoctor] = useState('')
   const [customDoctorName, setCustomDoctorName] = useState('')
@@ -62,7 +61,7 @@ export function VisitsPage () {
   })
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
-  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '' })
+  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
 
   useEffect(() => {
     if (!user) return
@@ -167,6 +166,7 @@ export function VisitsPage () {
         user_id: user!.id,
         medication: newMedEntry.medication.trim(),
         dose: newMedEntry.dose || null,
+        frequency: newMedEntry.frequency || null,
         notes: `Prescribed by: ${effectiveDoctorName}`,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,medication' })
@@ -174,21 +174,12 @@ export function VisitsPage () {
     }
 
     setBusy(false)
-
-    const { data: existing } = await supabase.from('doctors')
-      .select('id').eq('user_id', user!.id)
-      .ilike('name', effectiveDoctorName).limit(1)
-
-    if (!existing || existing.length === 0) {
-      setPendingDoctorName(effectiveDoctorName)
-      setShowNewDoctorPrompt(true)
-    } else {
-      setBanner('Visit saved!')
-      setShowForm(false)
-      resetForm()
-      loadVisits()
-      setTimeout(() => setBanner(null), 4000)
-    }
+    void ensureDoctorProfile(user!.id, effectiveDoctorName, form.specialty || null)
+    setBanner('Visit saved!')
+    setShowForm(false)
+    resetForm()
+    loadVisits()
+    setTimeout(() => setBanner(null), 4000)
   }
 
   function resetForm () {
@@ -201,7 +192,7 @@ export function VisitsPage () {
     })
     setDvTests([{ test_name: '', reason: '' }])
     setDvMeds([])
-    setNewMedEntry({ medication: '', dose: '' })
+    setNewMedEntry({ medication: '', dose: '', frequency: '' })
   }
 
   if (!user) return null
@@ -220,34 +211,6 @@ export function VisitsPage () {
     )
   }
 
-  if (showNewDoctorPrompt) {
-    return (
-      <div style={{ padding: '8px 0 40px' }}>
-        <BackButton label="Back" />
-        <div className="card" style={{ marginTop: 12 }}>
-          <h3 style={{ marginTop: 0 }}>Add to doctors list?</h3>
-          <p className="muted"><strong>{pendingDoctorName}</strong> isn't in your doctors list yet. Add them?</p>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button type="button" className="btn btn-primary"
-              onClick={() => navigate(`/app/doctors?prefill=${encodeURIComponent(pendingDoctorName)}`)}>
-              Yes, add doctor
-            </button>
-            <button type="button" className="btn btn-ghost"
-              onClick={() => {
-                setShowNewDoctorPrompt(false)
-                setBanner('Visit saved!')
-                setShowForm(false)
-                resetForm()
-                loadVisits()
-                setTimeout(() => setBanner(null), 4000)
-              }}>
-              No thanks
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div style={{ paddingBottom: 40 }}>
@@ -352,11 +315,13 @@ export function VisitsPage () {
                 </button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input style={{ flex: 2 }} value={newMedEntry.medication} placeholder="Add new medication"
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <input style={{ flex: '2 1 130px' }} value={newMedEntry.medication} placeholder="New medication name"
                 onChange={(e) => setNewMedEntry((prev) => ({ ...prev, medication: e.target.value }))} />
-              <input style={{ flex: 1 }} value={newMedEntry.dose} placeholder="Dose"
+              <input style={{ flex: '1 1 80px' }} value={newMedEntry.dose} placeholder="Dose"
                 onChange={(e) => setNewMedEntry((prev) => ({ ...prev, dose: e.target.value }))} />
+              <input style={{ flex: '1 1 120px' }} value={newMedEntry.frequency} placeholder="How often (e.g. once daily)"
+                onChange={(e) => setNewMedEntry((prev) => ({ ...prev, frequency: e.target.value }))} />
             </div>
           </div>
           <div className="form-group"><label>Instructions</label><textarea value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} /></div>

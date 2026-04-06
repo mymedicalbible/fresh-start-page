@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -84,6 +85,7 @@ export function QuestionsArchivePage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
+    if (form.doctor.trim()) void ensureDoctorProfile(user!.id, form.doctor, form.doctor_specialty || null)
     setBanner('Question saved.')
     setForm({
       date_created: todayISO(),

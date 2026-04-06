@@ -115,7 +115,7 @@ export function DoctorProfilePage () {
   const [visitForm, setVisitForm] = useState<Record<string, string>>({})
   const [visitTests, setVisitTests] = useState([{ test_name: '', reason: '' }])
   const [visitMeds, setVisitMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
-  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '' })
+  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
   const [visitMedsIncludeAll, setVisitMedsIncludeAll] = useState(false)
 
   // Inline question form
@@ -285,6 +285,7 @@ export function DoctorProfilePage () {
       await supabase.from('current_medications').upsert({
         user_id: user!.id, medication: newMedEntry.medication.trim(),
         dose: newMedEntry.dose || null,
+        frequency: newMedEntry.frequency || null,
         notes: `Prescribed by: ${doctor.name}`,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,medication' })
@@ -293,7 +294,7 @@ export function DoctorProfilePage () {
     setShowVisitForm(false)
     setVisitForm({})
     setVisitTests([{ test_name: '', reason: '' }])
-    setNewMedEntry({ medication: '', dose: '' })
+    setNewMedEntry({ medication: '', dose: '', frequency: '' })
     flash('Visit saved.')
     await loadData(doctor.name)
   }
@@ -555,10 +556,12 @@ export function DoctorProfilePage () {
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                <input style={{ flex: 2 }} value={newMedEntry.medication} placeholder="Add new medication"
+                <input style={{ flex: '2 1 130px' }} value={newMedEntry.medication} placeholder="New medication name"
                   onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
-                <input style={{ flex: 1 }} value={newMedEntry.dose} placeholder="Dose"
+                <input style={{ flex: '1 1 80px' }} value={newMedEntry.dose} placeholder="Dose"
                   onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+                <input style={{ flex: '1 1 120px' }} value={newMedEntry.frequency} placeholder="How often"
+                  onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
               </div>
             </div>
             <div className="form-group"><label>Notes</label>

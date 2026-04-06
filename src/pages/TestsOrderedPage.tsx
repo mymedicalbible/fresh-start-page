@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 
 
 type TestRow = {
@@ -45,6 +46,7 @@ export function TestsOrderedPage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [testEntries, setTestEntries] = useState([{ test_name: '', reason: '' }])
   const [formDoctor, setFormDoctor] = useState('')
+  const [formDoctorSpecialty, setFormDoctorSpecialty] = useState('')
   const [formDate, setFormDate] = useState(todayISO())
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -124,6 +126,7 @@ export function TestsOrderedPage () {
       for (const testId of insertedIds) await loadDocs(testId)
     }
 
+    if (formDoctor.trim()) void ensureDoctorProfile(user!.id, formDoctor, formDoctorSpecialty || null)
     setBusy(false)
     setBanner(
       pendingFiles.length > 0 && !uploadFailHint
@@ -135,6 +138,7 @@ export function TestsOrderedPage () {
     setShowForm(false)
     setTestEntries([{ test_name: '', reason: '' }])
     setFormDoctor('')
+    setFormDoctorSpecialty('')
     setFormDate(todayISO())
     setPendingFiles([])
     setTimeout(() => setBanner(null), 4000)
@@ -238,9 +242,16 @@ export function TestsOrderedPage () {
               <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
             </div>
             <DoctorPickOrNew
-              doctors={doctors.map((d) => ({ id: d.id, name: d.name }))}
+              doctors={doctors}
               value={formDoctor}
-              onChange={setFormDoctor}
+              onChange={(v) => {
+                setFormDoctor(v)
+                const doc = doctors.find((d) => d.name === v)
+                setFormDoctorSpecialty(doc?.specialty ?? '')
+              }}
+              specialty={formDoctorSpecialty}
+              onSpecialtyChange={setFormDoctorSpecialty}
+              showSpecialtyForNew
               label="Ordered by (optional)"
             />
           </div>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 
 
 type DiagnosisRow = {
@@ -15,7 +16,7 @@ type DiagnosisRow = {
 }
 
 
-type Doctor = { id: string; name: string }
+type Doctor = { id: string; name: string; specialty?: string | null }
 type StatusFilter = 'Active' | 'Closed' | 'All'
 
 
@@ -69,7 +70,7 @@ export function DiagnosesDirectoryPage () {
   const [searchText, setSearchText] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [form, setForm] = useState({
-    diagnosis: '', doctor: '', date_diagnosed: '', status: 'Suspected', notes: '',
+    diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '',
   })
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -77,7 +78,7 @@ export function DiagnosesDirectoryPage () {
   useEffect(() => {
     if (!user) return
     load()
-    supabase.from('doctors').select('id, name').eq('user_id', user.id).order('name')
+    supabase.from('doctors').select('id, name, specialty').eq('user_id', user.id).order('name')
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
 
@@ -114,7 +115,7 @@ export function DiagnosesDirectoryPage () {
 
 
   function quickAdd (name: string) {
-    setForm({ diagnosis: name, doctor: '', date_diagnosed: todayISO(), status: 'Suspected', notes: '' })
+    setForm({ diagnosis: name, doctor: '', doctor_specialty: '', date_diagnosed: todayISO(), status: 'Suspected', notes: '' })
     setSearchText(name)
     setShowForm(true)
   }
@@ -139,9 +140,10 @@ export function DiagnosesDirectoryPage () {
       if (e) { setError(e.message); setBusy(false); return }
     }
     setBusy(false)
+    if (form.doctor.trim()) void ensureDoctorProfile(user!.id, form.doctor, form.doctor_specialty || null)
     setBanner(editingId ? 'Diagnosis updated!' : 'Diagnosis added!')
     setShowForm(false); setEditingId(null)
-    setForm({ diagnosis: '', doctor: '', date_diagnosed: '', status: 'Suspected', notes: '' })
+    setForm({ diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '' })
     setSearchText(''); setSuggestions([])
     setTimeout(() => setBanner(null), 3000)
     load()
@@ -158,6 +160,7 @@ export function DiagnosesDirectoryPage () {
     setEditingId(row.id)
     setForm({
       diagnosis: row.diagnosis, doctor: row.doctor ?? '',
+      doctor_specialty: '',
       date_diagnosed: row.date_diagnosed ?? '', status: row.status,
       notes: row.notes ?? '',
     })
@@ -206,7 +209,7 @@ export function DiagnosesDirectoryPage () {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>📋 Diagnoses directory</h2>
           <button type="button" className="btn btn-primary"
-            onClick={() => { setShowForm((v) => !v); setEditingId(null); setForm({ diagnosis: '', doctor: '', date_diagnosed: '', status: 'Suspected', notes: '' }); setSearchText('') }}>
+            onClick={() => { setShowForm((v) => !v); setEditingId(null); setForm({ diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '' }); setSearchText('') }}>
             {showForm && !editingId ? 'Cancel' : '+ Add diagnosis'}
           </button>
         </div>
@@ -297,7 +300,13 @@ export function DiagnosesDirectoryPage () {
           <DoctorPickOrNew
             doctors={doctors}
             value={form.doctor}
-            onChange={(v) => setForm({ ...form, doctor: v })}
+            onChange={(v) => {
+              const doc = doctors.find((d) => d.name === v)
+              setForm({ ...form, doctor: v, doctor_specialty: doc?.specialty ?? form.doctor_specialty })
+            }}
+            specialty={form.doctor_specialty}
+            onSpecialtyChange={(v) => setForm((f) => ({ ...f, doctor_specialty: v }))}
+            showSpecialtyForNew
             label="Doctor (optional)"
           />
           <div className="form-group">

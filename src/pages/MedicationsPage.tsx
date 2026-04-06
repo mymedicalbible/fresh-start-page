@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 
 type MedRow = {
   id: string
@@ -29,7 +30,7 @@ type ArchivedMed = {
   notes: string | null
 }
 
-type Doctor = { id: string; name: string }
+type Doctor = { id: string; name: string; specialty?: string | null }
 
 type AddForm = {
   medication: string
@@ -39,6 +40,7 @@ type AddForm = {
   start_date: string
   purpose: string
   prescribed_by: string
+  prescribed_by_specialty: string
   effectiveness: string
   side_effects: string
 }
@@ -47,7 +49,7 @@ function emptyMed (): AddForm {
   return {
     medication: '', dose: '', prn: false, frequency: '',
     start_date: new Date().toISOString().slice(0, 10),
-    purpose: '', prescribed_by: '', effectiveness: '', side_effects: '',
+    purpose: '', prescribed_by: '', prescribed_by_specialty: '', effectiveness: '', side_effects: '',
   }
 }
 
@@ -152,7 +154,13 @@ function MedFormPopup ({
         <DoctorPickOrNew
           doctors={doctors}
           value={form.prescribed_by}
-          onChange={(v) => onChange({ ...form, prescribed_by: v })}
+          onChange={(v) => {
+            const doc = doctors.find((d) => d.name === v)
+            onChange({ ...form, prescribed_by: v, prescribed_by_specialty: doc?.specialty ?? form.prescribed_by_specialty })
+          }}
+          specialty={form.prescribed_by_specialty}
+          onSpecialtyChange={(v) => onChange({ ...form, prescribed_by_specialty: v })}
+          showSpecialtyForNew
           label="Prescribed by"
         />
 
@@ -447,7 +455,7 @@ export function MedicationsPage () {
     if (!user) return
     load()
     loadArchived()
-    supabase.from('doctors').select('id, name').eq('user_id', user.id).order('name')
+    supabase.from('doctors').select('id, name, specialty').eq('user_id', user.id).order('name')
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
 
@@ -507,6 +515,7 @@ export function MedicationsPage () {
       )
       if (e) { setFormError(e.message); setBusy(false); return }
     }
+    if (addForm.prescribed_by.trim()) void ensureDoctorProfile(user!.id, addForm.prescribed_by, addForm.prescribed_by_specialty || null)
     setBusy(false)
     setShowMedPopup(false)
     setEditingId(null)
@@ -529,6 +538,7 @@ export function MedicationsPage () {
       start_date: med.start_date ?? todayISO(),
       purpose: med.purpose ?? '',
       prescribed_by: prescribedBy,
+      prescribed_by_specialty: '',
       effectiveness: med.effectiveness ?? '',
       side_effects: med.side_effects ?? '',
     })

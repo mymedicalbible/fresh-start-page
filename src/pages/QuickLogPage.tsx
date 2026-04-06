@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import {
   PAIN_AREA_LIST,
   MIDLINE_AREA_LIST,
@@ -183,6 +184,7 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
+    if (form.doctor.trim()) void ensureDoctorProfile(user.id, form.doctor, form.doctor_specialty || null)
     setPostSave({ archive: '/app/questions', title: 'Questions archive' })
   }
 

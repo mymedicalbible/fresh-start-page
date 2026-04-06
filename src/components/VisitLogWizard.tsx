@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -47,7 +48,7 @@ export function VisitLogWizard ({
   const [questionLines, setQuestionLines] = useState<string[]>([''])
 
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
-  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '' })
+  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [findings, setFindings] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -241,11 +242,13 @@ export function VisitLogWizard ({
         user_id: user.id,
         medication: newMedEntry.medication.trim(),
         dose: newMedEntry.dose || null,
+        frequency: newMedEntry.frequency || null,
         notes: `Prescribed by: ${effectiveName}`,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,medication' })
     }
 
+    void ensureDoctorProfile(user.id, effectiveName, specialty || null)
     setBusy(false)
     if (onDone) {
       onDone()
@@ -367,9 +370,10 @@ export function VisitLogWizard ({
               </button>
             </div>
           ))}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <input style={{ flex: 2 }} placeholder="New med" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
-            <input style={{ flex: 1 }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
+            <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+            <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
           </div>
 
           <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%', marginTop: 10 }} />
