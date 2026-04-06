@@ -58,13 +58,23 @@ export async function generateOllamaHandoffSummary (opts: {
     }),
   })
 
-  const data = (await res.json()) as OllamaChatResponse
+  let data: OllamaChatResponse
+  try {
+    data = (await res.json()) as OllamaChatResponse
+  } catch {
+    throw new Error(`Ollama returned an unreadable response (HTTP ${res.status}). Is Ollama running?`)
+  }
   if (!res.ok)
     throw new Error(data.error || `Ollama HTTP ${res.status}`)
 
   const text = data.message?.content?.trim() ?? ''
-  if (!text) throw new Error('Ollama returned an empty summary.')
+  if (!text) throw new Error('Ollama returned an empty response. Try a different model.')
   return text
+}
+
+/** True when the error looks like a browser CORS / network block. */
+export function isOllamaCorsOrNetworkError (msg: string): boolean {
+  return /failed to fetch|load failed|networkerror|cors|net::/i.test(msg)
 }
 
 export function handoffOllamaModelLabel (): string {

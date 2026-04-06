@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
-import { generateOllamaHandoffSummary, handoffOllamaModelLabel } from '../lib/ollamaSummary'
+import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError } from '../lib/ollamaSummary'
 
 type SummaryAiSource = 'app' | 'ollama'
 
@@ -312,14 +312,30 @@ function SummaryModal ({
                 {summary.aiText && !summary.aiProvider && (
                   <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI</span>
                 )}
+                {!summary.aiText && summary.aiError && (
+                  <span style={{ marginLeft: 8, color: 'var(--danger)' }}> · Ollama failed — showing app fallback</span>
+                )}
                 {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
               </div>
 
               {summary.aiError && (
-                <div className="banner ai-warn" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
-                  <strong>AI generation did not complete.</strong> Showing app-generated narrative instead.
-                  <div className="muted" style={{ fontSize: '0.73rem', marginTop: 4 }}>
-                    {summary.aiError.length > 180 ? summary.aiError.slice(0, 180) + '...' : summary.aiError}
+                <div className="banner error" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
+                  <strong>Ollama did not return a summary.</strong>
+                  {isOllamaCorsOrNetworkError(summary.aiError) ? (
+                    <div style={{ marginTop: 6, lineHeight: 1.5 }}>
+                      <div>Ollama is blocking the request. You need to allow this app's origin.</div>
+                      <div style={{ marginTop: 8, background: '#fff', padding: '8px 10px', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
+                        {`# Run this in PowerShell before starting Ollama:\n$env:OLLAMA_ORIGINS="*"\nollama serve\n\n# Or set it permanently in Windows:\n# System Properties → Advanced → Environment Variables\n# OLLAMA_ORIGINS = *`}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 4, fontSize: '0.73rem', color: 'var(--muted)' }}>
+                      {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '…' : summary.aiError}
+                      <div style={{ marginTop: 4 }}>Make sure Ollama is running: <code style={{ fontSize: '0.85em' }}>ollama serve</code></div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, fontWeight: 600, fontSize: '0.78rem' }}>
+                    Showing app-generated narrative below as a fallback.
                   </div>
                 </div>
               )}
@@ -364,7 +380,9 @@ function SummaryModal ({
           )}
           {loading && (
             <div className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '24px 0' }}>
-              Pulling your data and building the narrative...
+              {aiSource === 'ollama'
+                ? 'Pulling your data and sending to Ollama… this may take a minute.'
+                : 'Pulling your data and building the narrative…'}
             </div>
           )}
         </div>
