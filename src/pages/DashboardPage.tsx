@@ -75,12 +75,10 @@ function NarrativeRenderer ({ text }: { text: string }) {
       blocks.push({ type: 'heading', content: trimmed })
       if (trimmed === 'CLINICAL SNAPSHOT' && i + 1 < lines.length) {
         i++
-        const snap: string[] = []
         while (i < lines.length && lines[i].trim() && !SECTION_RE.test(lines[i].trim())) {
-          snap.push(lines[i].trim())
+          blocks.push({ type: 'snapshot', content: lines[i].trim() })
           i++
         }
-        if (snap.length) blocks.push({ type: 'snapshot', content: snap.join(' ') })
         continue
       }
     } else if (trimmed.startsWith('•') || trimmed.startsWith('-') || /^\d+\./.test(trimmed)) {
@@ -99,7 +97,7 @@ function NarrativeRenderer ({ text }: { text: string }) {
         if (b.type === 'heading')
           return <div key={idx} style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', letterSpacing: '0.04em', marginTop: 12, paddingBottom: 2, borderBottom: '1px solid var(--border)' }}>{b.content}</div>
         if (b.type === 'snapshot')
-          return <div key={idx} style={{ fontSize: '0.92rem', lineHeight: 1.7, color: 'var(--text)', padding: '8px 12px', background: 'var(--mint-surface)', borderRadius: 10, borderLeft: '3px solid var(--accent)', marginBottom: 4 }}>{b.content}</div>
+          return <div key={idx} style={{ fontSize: '0.9rem', lineHeight: 1.65, color: 'var(--text)', padding: '6px 12px', background: 'var(--mint-surface)', borderRadius: 8, borderLeft: '3px solid var(--accent)', marginBottom: 3 }}>{b.content}</div>
         if (b.type === 'bullet')
           return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, paddingLeft: 8, whiteSpace: 'pre-wrap' }}>{b.content}</div>
         return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{b.content}</div>
@@ -286,17 +284,6 @@ function SummaryModal ({
                   <div style={{ marginTop: 6, fontSize: '0.78rem' }}>{summary.medEventsLoadError}</div>
                   <div style={{ marginTop: 8, fontSize: '0.78rem', background: '#fff', padding: '8px 10px', borderRadius: 8, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
                     {`Fix: open your Supabase SQL Editor and run the migration file:\n20250406200000_med_change_events_rpc.sql\n\nOr paste this:\nSELECT pg_notify('pgrst', 'reload schema');`}
-                  </div>
-                </div>
-              )}
-
-              {summary.medCorrelationBlock.trim() && (
-                <div className="card" style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: 'var(--mint-ink)' }}>
-                    Medication changes & outcomes (app-derived)
-                  </div>
-                  <div className="summary-output" style={{ fontSize: '0.85rem', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-                    {summary.medCorrelationBlock}
                   </div>
                 </div>
               )}

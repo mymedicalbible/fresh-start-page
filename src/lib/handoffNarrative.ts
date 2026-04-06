@@ -12,7 +12,6 @@
 import {
   type MedChangeEvent,
   buildMedSymptomCorrelationLines,
-  formatCorrelationBlock,
   isPrnFrequency,
 } from './medSymptomCorrelation'
 
@@ -171,33 +170,53 @@ export function buildHandoffNarrative (d: HandoffNarrativeInput): string {
     }
   }
 
-  // ─── CURRENT MEDICATIONS ───
+  // ─── MEDICATIONS (current list + outcomes merged) ───
   parts.push('')
-  parts.push('CURRENT MEDICATIONS')
-  if (d.medList.length === 0) {
+  parts.push('MEDICATIONS')
+  if (d.medList.length === 0 && !d.medChangeEventsLoadError) {
     parts.push('  • None listed.')
   } else {
+    // Build a map of medication name → correlation outcome line for quick lookup
+    const corrLines = d.medChangeEventsLoadError
+      ? []
+      : buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21)
+    const outcomeMap = new Map<string, string>()
+    for (const cl of corrLines) {
+      outcomeMap.set(cl.event.medication.toLowerCase(), cl.line)
+    }
+
     for (const m of d.medList) {
       const med = String(m.medication ?? '')
-      const bits = [m.dose, m.frequency].map(String).filter((s) => s && s !== 'undefined').join(' · ')
+      const bits = [m.dose, m.frequency]
+        .map(String)
+        .filter((s) => s && s !== 'undefined' && s !== 'null')
+        .join(' · ')
       const prn = m.frequency && isPrnFrequency(String(m.frequency)) ? ' (PRN)' : ''
-      const eff = m.effectiveness ? ` — effectiveness: ${m.effectiveness}` : ''
       const purpose = m.purpose ? ` — for ${m.purpose}` : ''
-      parts.push(`  • ${med}${bits ? ` · ${bits}` : ''}${prn}${purpose}${eff}`)
+      const eff = m.effectiveness ? ` — effectiveness: ${m.effectiveness}` : ''
+      // Strip the "Med · dose · freq · started date — " prefix from the outcome line
+      // so we only keep the plain-English outcome sentence inline
+      const outcomeFull = outcomeMap.get(med.toLowerCase())
+      let outcomeSuffix = ''
+      if (outcomeFull) {
+        const dashIdx = outcomeFull.indexOf(' — ')
+        if (dashIdx !== -1) outcomeSuffix = `  →  ${outcomeFull.slice(dashIdx + 3)}`
+        outcomeMap.delete(med.toLowerCase())
+      }
+      parts.push(`  • ${med}${bits ? ` · ${bits}` : ''}${prn}${purpose}${eff}${outcomeSuffix}`)
     }
-  }
 
-  // ─── MEDICATION CHANGES & CORRELATION ───
-  parts.push('')
-  parts.push('MEDICATION CHANGES & OUTCOMES')
-  if (d.medChangeEventsLoadError) {
-    parts.push(`  • Unable to load medication change history: ${d.medChangeEventsLoadError}`)
-    parts.push('  • Run the migration 20250406200000_med_change_events_rpc.sql in your Supabase SQL Editor to fix this.')
-  } else {
-    const corrLines = buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21)
-    const block = formatCorrelationBlock(corrLines)
-    for (const line of block.split('\n').filter(Boolean))
-      parts.push(`  ${line}`)
+    // Any correlation lines for meds not in the current list (e.g. stopped meds)
+    for (const cl of corrLines) {
+      if (outcomeMap.has(cl.event.medication.toLowerCase())) {
+        parts.push(`  • ${cl.line}`)
+      }
+    }
+
+    if (d.medChangeEventsLoadError) {
+      parts.push(`  • Unable to load change history: ${d.medChangeEventsLoadError}`)
+      parts.push('  • Run migration 20250406200000_med_change_events_rpc.sql in Supabase SQL Editor to fix this.')
+    }
   }
 
   // ─── PENDING TESTS ───
@@ -291,11 +310,6 @@ function buildSnapshot (
     sentences.push(epSent + '.')
   }
 
-  // Meds sentence
-  if (d.medList.length > 0) {
-    sentences.push(`Currently taking ${plural(d.medList.length, 'medication')}.`)
-  }
-
   // Action items sentence
   const actionParts: string[] = []
   if (pendingTests.length > 0) actionParts.push(`${plural(pendingTests.length, 'pending test')}`)
@@ -311,5 +325,6 @@ function buildSnapshot (
     sentences.push('Pain levels have been relatively well-controlled in this period.')
   }
 
-  return sentences.join(' ')
+  // One sentence per line so the snapshot is scannable, not a wall of text
+  return sentences.join('\n')
 }
