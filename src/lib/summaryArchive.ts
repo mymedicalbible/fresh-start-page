@@ -8,6 +8,8 @@ export type ArchivedHandoffSummary = {
   generatedLabel: string
   text: string
   sourceAi: boolean
+  /** When sourceAi: local Ollama vs legacy exports without this flag */
+  aiKind?: 'ollama'
 }
 
 function uid (): string {

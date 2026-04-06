@@ -13,6 +13,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
+import { generateOllamaHandoffSummary, handoffOllamaModelLabel } from '../lib/ollamaSummary'
+
+type SummaryAiSource = 'app' | 'ollama'
+
+const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
 
 type UpcomingAppt = {
   id: string
@@ -26,6 +31,8 @@ type HealthSummary = {
   generatedAt: string
   aiText: string | null
   aiError: string | null
+  /** When AI text is shown (Ollama only in this app) */
+  aiProvider: 'ollama' | null
   narrativeFallback: string
   /** Supabase error when loading medication_change_events (if any) */
   medEventsLoadError: string | null
@@ -113,9 +120,11 @@ function SummaryModal ({
   summary,
   loading,
   mode,
+  aiSource,
   focus,
   onFocusChange,
   onModeChange,
+  onAiSourceChange,
   onGenerate,
   onClose,
   onDownload,
@@ -124,9 +133,11 @@ function SummaryModal ({
   summary: HealthSummary | null
   loading: boolean
   mode: 'fast' | 'thorough'
+  aiSource: SummaryAiSource
   focus: string
   onFocusChange: (v: string) => void
   onModeChange: (v: 'fast' | 'thorough') => void
+  onAiSourceChange: (v: SummaryAiSource) => void
   onGenerate: () => void
   onClose: () => void
   onDownload: () => void
@@ -204,6 +215,34 @@ function SummaryModal ({
             />
           </div>
 
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label>Summary style</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {([
+                { id: 'app' as const, label: 'App only' },
+                { id: 'ollama' as const, label: 'Ollama (local)' },
+              ]).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`btn ${aiSource === id ? 'btn-mint' : 'btn-secondary'}`}
+                  style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                  disabled={loading}
+                  onClick={() => onAiSourceChange(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {aiSource === 'ollama' && (
+              <p className="muted" style={{ fontSize: '0.72rem', marginTop: 8, marginBottom: 0 }}>
+                Run Ollama locally (default model: <code style={{ fontSize: '0.85em' }}>{handoffOllamaModelLabel()}</code>
+                ). Dev server proxies to <code style={{ fontSize: '0.85em' }}>127.0.0.1:11434</code>
+                ; for production builds set <code style={{ fontSize: '0.85em' }}>VITE_OLLAMA_URL</code> or Ollama <code style={{ fontSize: '0.85em' }}>OLLAMA_ORIGINS</code>.
+              </p>
+            )}
+          </div>
+
           {/* Mode + generate */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
             <button type="button"
@@ -244,7 +283,9 @@ function SummaryModal ({
                   <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span className="muted" style={{ fontSize: '0.75rem', flex: 1, minWidth: 120 }}>
                       {new Date(a.savedAtIso).toLocaleString()} · {a.generatedLabel}
-                      {a.sourceAi ? ' · AI' : ''}
+                      {a.sourceAi
+                        ? (a.aiKind === 'ollama' ? ' · Ollama' : ' · AI')
+                        : ' · App'}
                     </span>
                     <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
                       onClick={() => onLoadArchived(a)}>
@@ -265,7 +306,12 @@ function SummaryModal ({
             <div style={{ display: 'grid', gap: 12 }}>
               <div className="muted" style={{ fontSize: '0.73rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 Generated {summary.generatedAt} · ~90-day data window
-                {summary.aiText && <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI-enhanced</span>}
+                {summary.aiText && summary.aiProvider === 'ollama' && (
+                  <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · Ollama (local)</span>
+                )}
+                {summary.aiText && !summary.aiProvider && (
+                  <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI</span>
+                )}
                 {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
               </div>
 
@@ -338,6 +384,7 @@ export function DashboardPage () {
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
+  const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
 
@@ -375,8 +422,19 @@ export function DashboardPage () {
     try {
       const s = localStorage.getItem('mb-handoff-focus')
       if (s) setPatientFocus(s)
+      const raw = localStorage.getItem(AI_SOURCE_STORAGE)
+      if (raw === 'app' || raw === 'ollama') setSummaryAiSource(raw)
+      else if (raw === 'cloud') {
+        try { localStorage.setItem(AI_SOURCE_STORAGE, 'app') } catch { /* ignore */ }
+        setSummaryAiSource('app')
+      }
     } catch { /* ignore */ }
   }, [])
+
+  function persistAiSource (v: SummaryAiSource) {
+    setSummaryAiSource(v)
+    try { localStorage.setItem(AI_SOURCE_STORAGE, v) } catch { /* ignore */ }
+  }
 
   async function generateSummary () {
     if (!user) return
@@ -531,19 +589,22 @@ export function DashboardPage () {
 
     let aiText: string | null = null
     let aiError: string | null = null
-    try {
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke('generate-summary', {
-        body: { patientData, patientFocus: patientFocus.trim() || undefined, mode: summaryMode },
-      })
-      if (fnErr) throw fnErr
-      const resp = fnData as { summary?: string; error?: string }
-      if (resp?.error) throw new Error(resp.error)
-      aiText = resp?.summary ?? null
-      if (!aiText?.trim()) aiText = null
-    } catch (aiErr) {
-      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)
-      console.warn('AI summary failed, using narrative fallback:', msg)
-      aiError = msg
+    let aiProvider: 'ollama' | null = null
+
+    if (summaryAiSource === 'ollama') {
+      try {
+        aiText = await generateOllamaHandoffSummary({
+          patientData,
+          patientFocus: patientFocus.trim() || undefined,
+          mode: summaryMode,
+        })
+        if (!aiText?.trim()) aiText = null
+        else aiProvider = 'ollama'
+      } catch (aiErr) {
+        const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)
+        console.warn('Ollama summary failed, using narrative fallback:', msg)
+        aiError = msg
+      }
     }
 
     const generatedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -554,11 +615,12 @@ export function DashboardPage () {
         generatedLabel: generatedAt,
         text: handoffText,
         sourceAi: !!aiText?.trim(),
+        aiKind: aiProvider ?? undefined,
       })
     }
 
     setSummary({
-      generatedAt, aiText, aiError, narrativeFallback,
+      generatedAt, aiText, aiError, aiProvider, narrativeFallback,
       medEventsLoadError, medCorrelationBlock,
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
@@ -573,6 +635,7 @@ export function DashboardPage () {
       generatedAt: entry.generatedLabel,
       aiText: entry.sourceAi ? entry.text : null,
       aiError: null,
+      aiProvider: entry.sourceAi && entry.aiKind === 'ollama' ? 'ollama' : null,
       narrativeFallback: entry.sourceAi ? '' : entry.text,
       medEventsLoadError: null,
       medCorrelationBlock: '',
@@ -609,9 +672,11 @@ export function DashboardPage () {
           summary={summary}
           loading={summaryLoading}
           mode={summaryMode}
+          aiSource={summaryAiSource}
           focus={patientFocus}
           onFocusChange={setPatientFocus}
           onModeChange={setSummaryMode}
+          onAiSourceChange={persistAiSource}
           onGenerate={generateSummary}
           onClose={() => setSummaryOpen(false)}
           onDownload={downloadPdf}
@@ -682,7 +747,12 @@ export function DashboardPage () {
             </div>
             <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
               {summary
-                ? `Generated ${summary.generatedAt}${summary.aiText ? ' · AI' : ' · app-generated'}`
+                ? `Generated ${summary.generatedAt}${
+                  summary.aiText && summary.aiProvider === 'ollama'
+                    ? ' · Ollama'
+                    : summary.aiText
+                      ? ' · AI'
+                      : ' · app-generated'}`
                 : 'Doctor-ready narrative from all your logs'}
             </div>
           </div>

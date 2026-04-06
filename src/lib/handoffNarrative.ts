@@ -316,13 +316,13 @@ function buildSnapshot (
   if (d.qList.length > 0) actionParts.push(`${plural(d.qList.length, 'unanswered question')} for the care team`)
   if (actionParts.length > 0) sentences.push(`Action items: ${listSentence(actionParts)}.`)
 
-  // Trend sentence (only if meaningful data)
+  // Trend sentence — descriptive only (no treatment or medication advice)
   if (flares.length >= 3) {
-    sentences.push('Pain flares are frequent and may warrant a medication or management adjustment.')
+    sentences.push('Pain flares at 7+/10 were logged frequently in this window.')
   } else if (avgPain != null && avgPain >= 6) {
-    sentences.push('Average pain is elevated and may need attention.')
+    sentences.push('Average reported pain in logs was elevated in this period.')
   } else if (pain30.length > 0 && avgPain != null && avgPain <= 3 && flares.length === 0) {
-    sentences.push('Pain levels have been relatively well-controlled in this period.')
+    sentences.push('Logged pain levels were mostly lower in this period, without 7+/10 flares.')
   }
 
   // One sentence per line so the snapshot is scannable, not a wall of text
