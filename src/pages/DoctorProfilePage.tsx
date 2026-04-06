@@ -32,7 +32,7 @@ type MedRow = {
   frequency: string | null; purpose: string | null
 }
 type TestRow = {
-  id: string; test_date: string; test_name: string; status: string
+  id: string; test_date: string; test_name: string; status: string; reason: string | null
 }
 
 
@@ -113,6 +113,7 @@ export function DoctorProfilePage () {
   const [visitTests, setVisitTests] = useState([{ test_name: '', reason: '' }])
   const [visitMeds, setVisitMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '' })
+  const [visitMedsIncludeAll, setVisitMedsIncludeAll] = useState(false)
 
   // Inline question form
   const [showQuestionForm, setShowQuestionForm] = useState(false)
@@ -153,8 +154,21 @@ export function DoctorProfilePage () {
   }
 
 
-  async function loadData (doctorName: string) {
-    const [v, q, d, dd, m, t] = await Promise.all([
+  async function loadData (doctorName: string, medsAllForVisit = visitMedsIncludeAll) {
+    const prescribedBy = `Prescribed by: ${doctorName}%`
+    const mVisitQ = medsAllForVisit
+      ? supabase.from('current_medications')
+        .select('id, medication, dose, frequency, purpose')
+        .eq('user_id', user!.id)
+        .order('medication', { ascending: true })
+        .limit(200)
+      : supabase.from('current_medications')
+        .select('id, medication, dose, frequency, purpose')
+        .eq('user_id', user!.id)
+        .ilike('notes', prescribedBy)
+        .limit(60)
+
+    const [v, q, d, dd, m, t, mVisit] = await Promise.all([
       supabase.from('doctor_visits')
         .select('id, visit_date, reason, findings, tests_ordered, instructions, notes, follow_up')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
@@ -175,9 +189,10 @@ export function DoctorProfilePage () {
         .select('id, medication, dose, frequency, purpose')
         .eq('user_id', user!.id).ilike('notes', `%${doctorName}%`).limit(30),
       supabase.from('tests_ordered')
-        .select('id, test_date, test_name, status')
+        .select('id, test_date, test_name, status, reason')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
-        .order('test_date', { ascending: false }).limit(30),
+        .order('test_date', { ascending: false }).limit(60),
+      mVisitQ,
     ])
     setVisits((v.data ?? []) as VisitRow[])
     setQuestions((q.data ?? []) as QuestionRow[])
@@ -186,7 +201,7 @@ export function DoctorProfilePage () {
     setMeds((m.data ?? []) as MedRow[])
     setTests((t.data ?? []) as TestRow[])
     setVisitMeds(
-      ((m.data ?? []) as MedRow[]).map((med) => ({
+      ((mVisit.data ?? []) as MedRow[]).map((med) => ({
         medication: med.medication, dose: med.dose ?? '', action: 'keep' as const,
       }))
     )
@@ -484,6 +499,9 @@ export function DoctorProfilePage () {
             <div className="form-group"><label>Findings / notes from doctor</label>
               <textarea value={visitForm.findings ?? ''} onChange={(e) => setVisitForm({ ...visitForm, findings: e.target.value })} />
             </div>
+            <div className="form-group"><label>Instructions from doctor</label>
+              <textarea value={visitForm.instructions ?? ''} onChange={(e) => setVisitForm({ ...visitForm, instructions: e.target.value })} placeholder="e.g. Continue current meds, follow up if worse…" />
+            </div>
             <div className="form-group">
               <label>Tests / orders</label>
               {visitTests.map((t, i) => (
@@ -503,6 +521,18 @@ export function DoctorProfilePage () {
             </div>
             <div className="form-group">
               <label>Current medications</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', fontWeight: 400, marginBottom: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={visitMedsIncludeAll}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                    setVisitMedsIncludeAll(next)
+                    if (doctor) void loadData(doctor.name, next)
+                  }}
+                />
+                Show all my medications (not only those tagged for this provider)
+              </label>
               {visitMeds.map((m, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
@@ -548,17 +578,34 @@ export function DoctorProfilePage () {
 
         {visits.length === 0 && <p className="muted" style={{ fontSize: '0.85rem' }}>No visits logged yet.</p>}
         <div style={{ display: 'grid', gap: 8 }}>
-          {visits.map((v) => (
-            <div key={v.id} className="list-item">
-              <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{v.visit_date}</div>
-              {v.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {v.reason}</div>}
-              {v.findings && <div className="muted" style={{ fontSize: '0.85rem' }}>Findings: {v.findings}</div>}
-              {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
-              {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
-              {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Follow-up: {v.follow_up}</div>}
-              {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
-            </div>
-          ))}
+          {visits.map((v) => {
+            const testsForVisit = tests.filter((t) => t.test_date === v.visit_date)
+            return (
+              <div key={v.id} className="list-item">
+                <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{v.visit_date}</div>
+                {v.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {v.reason}</div>}
+                {v.findings && <div className="muted" style={{ fontSize: '0.85rem' }}>Findings: {v.findings}</div>}
+                {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
+                {testsForVisit.length > 0 && (
+                  <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                    <div style={{ fontWeight: 600 }}>Tests & orders (detail)</div>
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                      {testsForVisit.map((t) => (
+                        <li key={t.id}>
+                          {t.test_name}
+                          {t.reason ? ` — ${t.reason}` : ''}
+                          <span className="muted"> ({t.status})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
+                {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Follow-up: {v.follow_up}</div>}
+                {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
+              </div>
+            )
+          })}
         </div>
       </div>
 

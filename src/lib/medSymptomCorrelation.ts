@@ -146,7 +146,11 @@ export function buildMedSymptomCorrelationLines (
 
 export function formatCorrelationBlock (lines: CorrelationLine[]): string {
   if (lines.length === 0) {
-    return '(No medication start/stop/dose changes recorded yet. Changes are logged automatically when you add, edit dose/frequency, or stop a med on the Medications page.)'
+    return [
+      'No recorded medication start, stop, or dose/frequency changes in the app for this window.',
+      'To build this section: use the Medications page to add meds or use “Log dose change” / edits so the app can save history (requires the medication_change_events migration on your project).',
+      'Correlation also needs pain and episode logs around those dates to describe before/after patterns.',
+    ].join(' ')
   }
   return lines.map((x) => `• ${x.line}`).join('\n')
 }

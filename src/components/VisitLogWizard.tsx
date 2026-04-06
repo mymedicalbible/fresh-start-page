@@ -142,10 +142,15 @@ export function VisitLogWizard ({
       setBusy(false)
       if (e) { setError(e.message); return }
     } else {
-      const { data, error: e } = await supabase.from('doctor_visits').insert(payload).select('id').single()
+      const { data: rows, error: e } = await supabase.from('doctor_visits').insert(payload).select('id')
       setBusy(false)
       if (e) { setError(e.message); return }
-      setVisitId(data!.id as string)
+      const newId = rows?.[0]?.id as string | undefined
+      if (!newId) {
+        setError('Visit was not saved (no row returned). Check your connection and that doctor_visits exists.')
+        return
+      }
+      setVisitId(newId)
     }
     setStep(2)
   }

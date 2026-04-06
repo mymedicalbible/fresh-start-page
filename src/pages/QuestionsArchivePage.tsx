@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BackButton } from '../components/BackButton'
+import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -9,6 +10,7 @@ type QuestionRow = {
   date_created: string
   appointment_date: string | null
   doctor: string | null
+  doctor_specialty: string | null
   question: string
   priority: string | null
   answer: string | null
@@ -34,12 +36,11 @@ export function QuestionsArchivePage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({})
 
-  const [selectedDoctor, setSelectedDoctor] = useState('')
-  const [customDoctorName, setCustomDoctorName] = useState('')
-
   const [form, setForm] = useState({
     date_created: todayISO(),
     appointment_date: '',
+    doctor: '',
+    doctor_specialty: '',
     question: '',
     priority: 'Medium',
   })
@@ -64,11 +65,6 @@ export function QuestionsArchivePage () {
   }
 
 
-  const effectiveDoctor = selectedDoctor === '__new__'
-    ? customDoctorName.trim()
-    : selectedDoctor
-
-
   async function saveNewQuestions () {
     if (!form.question.trim()) {
       setError('Enter a question.')
@@ -79,7 +75,8 @@ export function QuestionsArchivePage () {
       user_id: user!.id,
       date_created: form.date_created,
       appointment_date: form.appointment_date || null,
-      doctor: effectiveDoctor || null,
+      doctor: form.doctor.trim() || null,
+      doctor_specialty: form.doctor_specialty.trim() || null,
       question: form.question.trim(),
       priority: form.priority,
       status: 'Unanswered',
@@ -88,9 +85,14 @@ export function QuestionsArchivePage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     setBanner('Question saved.')
-    setForm({ date_created: todayISO(), appointment_date: '', question: '', priority: 'Medium' })
-    setSelectedDoctor('')
-    setCustomDoctorName('')
+    setForm({
+      date_created: todayISO(),
+      appointment_date: '',
+      doctor: '',
+      doctor_specialty: '',
+      question: '',
+      priority: 'Medium',
+    })
     setTimeout(() => setBanner(null), 4000)
     loadQuestions()
   }
@@ -158,27 +160,16 @@ export function QuestionsArchivePage () {
                 onChange={(e) => setForm({ ...form, appointment_date: e.target.value })} />
             </div>
           </div>
-          <div className="form-group">
-            <label>Doctor (optional)</label>
-            <select value={selectedDoctor} onChange={(e) => {
-              setSelectedDoctor(e.target.value)
-              if (e.target.value !== '__new__') setCustomDoctorName('')
-            }}>
-              <option value="">— Any / not set —</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.name}>{d.name}</option>
-              ))}
-              <option value="__new__">+ Other…</option>
-            </select>
-            {selectedDoctor === '__new__' && (
-              <input
-                style={{ marginTop: 8 }}
-                placeholder="Doctor name"
-                value={customDoctorName}
-                onChange={(e) => setCustomDoctorName(e.target.value)}
-              />
-            )}
-          </div>
+          <DoctorPickOrNew
+            doctors={doctors}
+            value={form.doctor}
+            onChange={(v) => setForm((f) => ({ ...f, doctor: v }))}
+            specialty={form.doctor_specialty}
+            onSpecialtyChange={(v) => setForm((f) => ({ ...f, doctor_specialty: v }))}
+            showSpecialtyForNew
+            label="Doctor (optional)"
+            id="q-doctor-pick"
+          />
           <div className="form-group">
             <label>Priority</label>
             <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
@@ -239,7 +230,7 @@ export function QuestionsArchivePage () {
                 <div style={{ fontWeight: 700 }}>{q.question}</div>
                 <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
                   {q.date_created}
-                  {q.doctor ? ` · ${q.doctor}` : ''}
+                  {q.doctor ? ` · ${q.doctor}${q.doctor_specialty ? ` (${q.doctor_specialty})` : ''}` : ''}
                   {q.priority ? ` · ${q.priority}` : ''}
                 </div>
                 {q.appointment_date && (

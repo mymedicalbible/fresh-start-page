@@ -4,7 +4,11 @@ import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
 import { buildHandoffNarrative } from '../lib/handoffNarrative'
-import type { MedChangeEvent } from '../lib/medSymptomCorrelation'
+import {
+  type MedChangeEvent,
+  buildMedSymptomCorrelationLines,
+  formatCorrelationBlock,
+} from '../lib/medSymptomCorrelation'
 import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
@@ -23,6 +27,10 @@ type HealthSummary = {
   aiText: string | null
   aiError: string | null
   narrativeFallback: string
+  /** Supabase error when loading medication_change_events (if any) */
+  medEventsLoadError: string | null
+  /** Same correlation text shown in narrative; highlighted separately in the modal */
+  medCorrelationBlock: string
   painCount: number
   symptomCount: number
   medCount: number
@@ -218,6 +226,24 @@ function SummaryModal ({
                 </div>
               )}
 
+              {summary.medEventsLoadError && (
+                <div className="banner error" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
+                  <strong>Could not load medication change events.</strong> The handoff may show an empty med-change section until this is fixed.
+                  <div className="muted" style={{ fontSize: '0.73rem', marginTop: 4 }}>{summary.medEventsLoadError}</div>
+                </div>
+              )}
+
+              {summary.aiText && summary.medCorrelationBlock.trim() && (
+                <div className="card" style={{ padding: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: 'var(--mint-ink)' }}>
+                    Med changes from your logs (app-derived)
+                  </div>
+                  <div className="summary-output" style={{ fontSize: '0.85rem', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                    {summary.medCorrelationBlock}
+                  </div>
+                </div>
+              )}
+
               {summary.painChart.length > 0 && (
                 <div className="card" style={{ padding: 12 }}>
                   <PainSummaryChart data={summary.painChart} />
@@ -391,8 +417,13 @@ export function DashboardPage () {
     const slogRows = (symptomLogRes.error ? [] : (symptomLogRes.data ?? [])) as { logged_at: string; activity_last_4h: string | null; symptoms: string[] | null }[]
 
     let medChangeEvents: MedChangeEvent[] = []
+    const medEventsLoadError = medEventsRes.error?.message ?? null
     if (medEventsRes.error) console.warn('medication_change_events:', medEventsRes.error.message)
     else medChangeEvents = (medEventsRes.data ?? []) as MedChangeEvent[]
+
+    const medCorrelationBlock = medEventsLoadError
+      ? `Could not load medication change history: ${medEventsLoadError} Check your connection and that the medication_change_events table and migrations are applied on your Supabase project.`
+      : formatCorrelationBlock(buildMedSymptomCorrelationLines(medChangeEvents, painRows, sympRows, 21))
 
     const pendingTests = pendingTestsRes.count ?? 0
 
@@ -416,6 +447,7 @@ export function DashboardPage () {
 
     const narrativeFallback = buildHandoffNarrative({
       todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents,
+      medChangeEventsLoadError: medEventsLoadError,
       painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
     })
 
@@ -449,6 +481,7 @@ export function DashboardPage () {
 
     setSummary({
       generatedAt, aiText, aiError, narrativeFallback,
+      medEventsLoadError, medCorrelationBlock,
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
       painChart: buildPainChartSeries(painRows, 60),
@@ -463,6 +496,8 @@ export function DashboardPage () {
       aiText: entry.sourceAi ? entry.text : null,
       aiError: null,
       narrativeFallback: entry.sourceAi ? '' : entry.text,
+      medEventsLoadError: null,
+      medCorrelationBlock: '',
       painCount: 0,
       symptomCount: 0,
       medCount: 0,
@@ -474,7 +509,11 @@ export function DashboardPage () {
   }
 
   function handoffTextForPdf (s: HealthSummary) {
-    return s.aiText?.trim() || s.narrativeFallback
+    const main = s.aiText?.trim() || s.narrativeFallback
+    if (s.aiText?.trim() && s.medCorrelationBlock.trim()) {
+      return `${main}\n\n---\nMed changes from your logs (app-derived)\n\n${s.medCorrelationBlock}`
+    }
+    return main
   }
 
   function downloadPdf () {

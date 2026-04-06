@@ -22,6 +22,14 @@ type Doctor = { id: string; name: string; specialty: string | null }
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 
+function uniqueFileKey (file: File) {
+  const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().slice(0, 8)
+    : String(Math.random()).slice(2, 10)
+  const safe = file.name.replace(/[^\w.\-]+/g, '_').replace(/\s+/g, '-').slice(0, 120)
+  return `${Date.now()}-${rand}-${safe}`
+}
+
 
 export function TestsOrderedPage () {
   const { user } = useAuth()
@@ -85,13 +93,22 @@ export function TestsOrderedPage () {
       if (id) insertedIds.push(id)
     }
 
+    if (insertedIds.length !== valid.length) {
+      setError(
+        `Only ${insertedIds.length} of ${valid.length} test row id(s) were returned after save. Check Supabase RLS allows returning rows after insert on tests_ordered.`,
+      )
+      setBusy(false)
+      loadTests()
+      return
+    }
+
+    let uploadFailHint = ''
     if (pendingFiles.length > 0 && insertedIds.length > 0) {
       const uploadErrors: string[] = []
-      let seq = 0
       for (const testId of insertedIds) {
         for (const file of pendingFiles) {
           const folder = `${user!.id}/tests/${testId}`
-          const safeName = `${Date.now()}-${seq++}-${file.name.replace(/[^\w.\-]+/g, '_')}`.replace(/\s+/g, '-')
+          const safeName = uniqueFileKey(file)
           const { error: upErr } = await supabase.storage.from('visit-docs')
             .upload(`${folder}/${safeName}`, file, {
               contentType: file.type || 'application/octet-stream',
@@ -100,11 +117,21 @@ export function TestsOrderedPage () {
           if (upErr) uploadErrors.push(`${file.name}: ${upErr.message}`)
         }
       }
-      if (uploadErrors.length) setError(`Tests saved, but some file uploads failed. ${uploadErrors[0]}`)
+      if (uploadErrors.length) {
+        setError(`Tests saved, but some file uploads failed. ${uploadErrors[0]}`)
+        uploadFailHint = ' Some uploads failed — see message above.'
+      }
+      for (const testId of insertedIds) await loadDocs(testId)
     }
 
     setBusy(false)
-    setBanner(`${valid.length} test(s) saved!`)
+    setBanner(
+      pendingFiles.length > 0 && !uploadFailHint
+        ? `${valid.length} test(s) saved. Files attached to each new test.`
+        : pendingFiles.length > 0
+          ? `${valid.length} test(s) saved.${uploadFailHint}`
+          : `${valid.length} test(s) saved!`,
+    )
     setShowForm(false)
     setTestEntries([{ test_name: '', reason: '' }])
     setFormDoctor('')
@@ -152,7 +179,7 @@ export function TestsOrderedPage () {
     setUploadingId(testId)
     try {
       const folder = `${user.id}/tests/${testId}`
-      const safeName = `${Date.now()}-${file.name}`.replace(/\s+/g, '-')
+      const safeName = uniqueFileKey(file)
       const { error: upErr } = await supabase.storage.from('visit-docs')
         .upload(`${folder}/${safeName}`, file, {
           contentType: file.type || 'application/octet-stream',

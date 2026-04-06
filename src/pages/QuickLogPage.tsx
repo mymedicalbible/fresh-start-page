@@ -41,7 +41,7 @@ export function QuickLogPage () {
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)
 
-  const [doctors, setDoctors] = useState<{ id: string; name: string }[]>([])
+  const [doctors, setDoctors] = useState<{ id: string; name: string; specialty: string | null }[]>([])
 
   // Symptom suggestions — learned from past logs
   const [pastSymptoms, setPastSymptoms] = useState<string[]>([])
@@ -52,6 +52,7 @@ export function QuickLogPage () {
     date: new Date().toISOString().split('T')[0],
     time: nowTime(),
     doctor: '',
+    doctor_specialty: '',
     intensity: 5,
     notes: '',
     activity: '',        // what were you doing in the last 4 hours
@@ -68,7 +69,7 @@ export function QuickLogPage () {
   useEffect(() => {
     if (!user) return
     async function loadInitialData () {
-      const { data: docData } = await supabase.from('doctors').select('id, name').eq('user_id', user!.id).order('name')
+      const { data: docData } = await supabase.from('doctors').select('id, name, specialty').eq('user_id', user!.id).order('name')
       if (docData) setDoctors(docData)
 
       // Load past symptoms to build suggestions
@@ -174,7 +175,8 @@ export function QuickLogPage () {
     const { error: e } = await supabase.from('doctor_questions').insert({
       user_id: user.id,
       date_created: form.date,
-      doctor: form.doctor || null,
+      doctor: form.doctor.trim() || null,
+      doctor_specialty: form.doctor_specialty.trim() || null,
       question: form.question,
       priority: form.priority,
       status: 'Unanswered',
@@ -402,7 +404,11 @@ export function QuickLogPage () {
             doctors={doctors}
             value={form.doctor}
             onChange={(v) => setForm({ ...form, doctor: v })}
+            specialty={form.doctor_specialty}
+            onSpecialtyChange={(v) => setForm({ ...form, doctor_specialty: v })}
+            showSpecialtyForNew
             label="Doctor (optional)"
+            id="quicklog-q-doctor"
           />
           <div className="form-group">
             <label>Priority</label>

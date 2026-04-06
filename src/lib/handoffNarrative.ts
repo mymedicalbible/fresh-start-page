@@ -20,6 +20,8 @@ export type HandoffNarrativeInput = {
   visitRows: Record<string, unknown>[]
   qList: Record<string, unknown>[]
   medChangeEvents: MedChangeEvent[]
+  /** When the DB query for medication_change_events failed (RLS, missing table, etc.) */
+  medChangeEventsLoadError?: string | null
   painAvg: number | null
   painTopAreas: { area: string; n: number }[]
   painTopTypes: { type: string; n: number }[]
@@ -251,8 +253,9 @@ export function buildHandoffNarrative (d: HandoffNarrativeInput): string {
     }
   }
 
-  const corrLines = buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21)
-  const corrBlock = formatCorrelationBlock(corrLines)
+  const corrBlock = d.medChangeEventsLoadError?.trim()
+    ? `Could not load medication change history: ${d.medChangeEventsLoadError.trim()} Check your connection and that the medication_change_events table and migrations are applied on your Supabase project.`
+    : formatCorrelationBlock(buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21))
   if (corrBlock.trim()) {
     parts.push('')
     parts.push('Medication changes & what happened')

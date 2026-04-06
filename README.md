@@ -194,6 +194,10 @@ supabase db push
 | `20250404230000_symptom_logs.sql` | `symptom_logs` quick snapshots |
 | `20250405000000_missing_columns.sql` | Idempotent fixes: missing columns/tables on older DBs (`doctor_visits.status`, `mcas_episodes.activity`, `doctors`, `tests_ordered`, etc.) |
 | `20250406100000_medication_change_events.sql` | `medication_change_events` table + trigger on `current_medications` (insert/update/delete) for audit + handoff correlation |
+| `20250407100000_visit_docs_storage_update.sql` | Storage policy update on `visit-docs` so objects can be updated (needed for some client upload flows) |
+| `20250408100000_doctor_questions_specialty.sql` | `doctor_questions.doctor_specialty` (optional specialty when doctor is free text) |
+
+**Tests & orders → document uploads** use the private **`visit-docs`** bucket with paths `${user_id}/tests/${test_id}/...`. Apply `20250326000000_visit_docs_storage.sql` and `20250407100000_visit_docs_storage_update.sql` on your Supabase project, or uploads will fail at the storage API.
 
 If the app errors with **“column not found”** or **“schema cache”** issues, the remote database is usually missing the latest migration—re-apply and refresh the Supabase API schema if needed.
 
