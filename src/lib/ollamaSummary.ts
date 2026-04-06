@@ -80,3 +80,20 @@ export function isOllamaCorsOrNetworkError (msg: string): boolean {
 export function handoffOllamaModelLabel (): string {
   return defaultModel()
 }
+
+/** Copy-paste hint for Windows PowerShell (includes this site + common dev origins). */
+export function ollamaOriginsPowerShellSnippet (appOrigin: string): string {
+  const o = appOrigin.replace(/\/$/, '')
+  const extras = ',http://localhost:5173,http://127.0.0.1:5173'
+  return [
+    '# Quit Ollama, then in PowerShell (each line separate):',
+    `$env:OLLAMA_ORIGINS="${o}${extras},*"`,
+    'ollama serve',
+    '',
+    '# If "ollama serve" is installed as a Windows Service / tray app, set a USER or SYSTEM',
+    '# environment variable OLLAMA_ORIGINS to the same string, then restart Ollama from',
+    '# the Start menu (tray apps do not see $env: from an unrelated PowerShell window).',
+    '',
+    `# Your app origin: ${o}`,
+  ].join('\n')
+}

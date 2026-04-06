@@ -23,12 +23,13 @@ type Doctor = { id: string; name: string; specialty: string | null }
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 
-function uniqueFileKey (file: File) {
+function uniqueFileKey (file: File, testId: string, salt: number) {
   const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID().slice(0, 8)
     : String(Math.random()).slice(2, 10)
   const safe = file.name.replace(/[^\w.\-]+/g, '_').replace(/\s+/g, '-').slice(0, 120)
-  return `${Date.now()}-${rand}-${safe}`
+  const tid = testId.replace(/-/g, '').slice(0, 12)
+  return `${tid}-${salt}-${Date.now()}-${rand}-${safe}`
 }
 
 
@@ -80,24 +81,27 @@ export function TestsOrderedPage () {
     if (valid.length === 0) { setError('Enter at least one test name.'); return }
     setBusy(true)
 
-    const insertedIds: string[] = []
-    for (const t of valid) {
-      const { data: rows, error: e } = await supabase.from('tests_ordered').insert({
-        user_id: user!.id,
-        test_date: formDate,
-        doctor: formDoctor.trim() || null,
-        test_name: t.test_name.trim(),
-        reason: t.reason || null,
-        status: 'Pending',
-      }).select('id')
-      if (e) { setError(e.message); setBusy(false); return }
-      const id = rows?.[0]?.id as string | undefined
-      if (id) insertedIds.push(id)
+    const insertPayload = valid.map((t) => ({
+      user_id: user!.id,
+      test_date: formDate,
+      doctor: formDoctor.trim() || null,
+      test_name: t.test_name.trim(),
+      reason: t.reason || null,
+      status: 'Pending',
+    }))
+    const { data: insertedRows, error: insertErr } = await supabase
+      .from('tests_ordered')
+      .insert(insertPayload)
+      .select('id')
+    if (insertErr) {
+      setError(insertErr.message)
+      setBusy(false)
+      return
     }
-
+    const insertedIds = (insertedRows ?? []).map((r) => r.id as string).filter(Boolean)
     if (insertedIds.length !== valid.length) {
       setError(
-        `Only ${insertedIds.length} of ${valid.length} test row id(s) were returned after save. Check Supabase RLS allows returning rows after insert on tests_ordered.`,
+        `Only ${insertedIds.length} of ${valid.length} test id(s) returned after save. Check Supabase RLS on tests_ordered allows INSERT … SELECT id.`,
       )
       setBusy(false)
       loadTests()
@@ -107,16 +111,18 @@ export function TestsOrderedPage () {
     let uploadFailHint = ''
     if (pendingFiles.length > 0 && insertedIds.length > 0) {
       const uploadErrors: string[] = []
+      let salt = 0
       for (const testId of insertedIds) {
         for (const file of pendingFiles) {
+          salt += 1
           const folder = `${user!.id}/tests/${testId}`
-          const safeName = uniqueFileKey(file)
+          const safeName = uniqueFileKey(file, testId, salt)
           const { error: upErr } = await supabase.storage.from('visit-docs')
             .upload(`${folder}/${safeName}`, file, {
               contentType: file.type || 'application/octet-stream',
-              upsert: false,
+              upsert: true,
             })
-          if (upErr) uploadErrors.push(`${file.name}: ${upErr.message}`)
+          if (upErr) uploadErrors.push(`${file.name} → ${testId.slice(0, 8)}…: ${upErr.message}`)
         }
       }
       if (uploadErrors.length) {
@@ -183,11 +189,11 @@ export function TestsOrderedPage () {
     setUploadingId(testId)
     try {
       const folder = `${user.id}/tests/${testId}`
-      const safeName = uniqueFileKey(file)
+      const safeName = uniqueFileKey(file, testId, Date.now())
       const { error: upErr } = await supabase.storage.from('visit-docs')
         .upload(`${folder}/${safeName}`, file, {
           contentType: file.type || 'application/octet-stream',
-          upsert: false,
+          upsert: true,
         })
       if (upErr) throw new Error(upErr.message)
       await loadDocs(testId)

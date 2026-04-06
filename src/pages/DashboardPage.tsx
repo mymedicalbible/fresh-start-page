@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
-import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError } from '../lib/ollamaSummary'
+import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
 
 type SummaryAiSource = 'app' | 'ollama'
 
@@ -323,9 +323,12 @@ function SummaryModal ({
                   <strong>Ollama did not return a summary.</strong>
                   {isOllamaCorsOrNetworkError(summary.aiError) ? (
                     <div style={{ marginTop: 6, lineHeight: 1.5 }}>
-                      <div>Ollama is blocking the request. You need to allow this app's origin.</div>
+                      <div>The browser cannot reach Ollama (often CORS). Allow this site and vite dev in <code style={{ fontSize: '0.85em' }}>OLLAMA_ORIGINS</code>, then restart Ollama from the Start menu so it picks up the variable.</div>
                       <div style={{ marginTop: 8, background: '#fff', padding: '8px 10px', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
-                        {`# Run this in PowerShell before starting Ollama:\n$env:OLLAMA_ORIGINS="*"\nollama serve\n\n# Or set it permanently in Windows:\n# System Properties → Advanced → Environment Variables\n# OLLAMA_ORIGINS = *`}
+                        {ollamaOriginsPowerShellSnippet(typeof window !== 'undefined' ? window.location.origin : 'https://your-app.example')}
+                      </div>
+                      <div className="muted" style={{ marginTop: 8, fontSize: '0.72rem' }}>
+                        Tip: Running <code style={{ fontSize: '0.85em' }}>npm run dev</code> uses a same-origin proxy to Ollama (no CORS). Use that for local testing without changing Ollama.
                       </div>
                     </div>
                   ) : (
