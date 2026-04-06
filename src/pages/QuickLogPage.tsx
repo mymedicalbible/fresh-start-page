@@ -173,15 +173,23 @@ export function QuickLogPage () {
     if (!user) return
     setBusy(true)
     setError(null)
-    const { error: e } = await supabase.from('doctor_questions').insert({
+    const basePayload = {
       user_id: user.id,
       date_created: form.date,
       doctor: form.doctor.trim() || null,
-      doctor_specialty: form.doctor_specialty.trim() || null,
       question: form.question,
       priority: form.priority,
       status: 'Unanswered',
+    }
+    let { error: e } = await supabase.from('doctor_questions').insert({
+      ...basePayload,
+      doctor_specialty: form.doctor_specialty.trim() || null,
     })
+    if (e?.message?.toLowerCase().includes('doctor_specialty')) {
+      // Column not yet migrated — insert without it
+      const res2 = await supabase.from('doctor_questions').insert(basePayload)
+      e = res2.error
+    }
     setBusy(false)
     if (e) { setError(e.message); return }
     if (form.doctor.trim()) void ensureDoctorProfile(user.id, form.doctor, form.doctor_specialty || null)

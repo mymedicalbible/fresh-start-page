@@ -138,12 +138,24 @@ export function VisitLogWizard ({
       reason: reason || null,
       status: 'pending' as const,
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { status: _s, ...payloadNoStatus } = payload
+
     if (visitId) {
-      const { error: e } = await supabase.from('doctor_visits').update(payload).eq('id', visitId)
+      let { error: e } = await supabase.from('doctor_visits').update(payload).eq('id', visitId)
+      if (e?.message?.toLowerCase().includes('status')) {
+        const res2 = await supabase.from('doctor_visits').update(payloadNoStatus).eq('id', visitId)
+        e = res2.error
+      }
       setBusy(false)
       if (e) { setError(e.message); return }
     } else {
-      const { data: rows, error: e } = await supabase.from('doctor_visits').insert(payload).select('id')
+      let { data: rows, error: e } = await supabase.from('doctor_visits').insert(payload).select('id')
+      if (e?.message?.toLowerCase().includes('status')) {
+        const res2 = await supabase.from('doctor_visits').insert(payloadNoStatus).select('id')
+        rows = res2.data
+        e = res2.error
+      }
       setBusy(false)
       if (e) { setError(e.message); return }
       const newId = rows?.[0]?.id as string | undefined

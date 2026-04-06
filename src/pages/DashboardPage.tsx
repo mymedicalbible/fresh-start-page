@@ -491,9 +491,30 @@ export function DashboardPage () {
       medChangeEvents = (medEventsRes.data ?? []) as MedChangeEvent[]
     }
 
+    // Augment medChangeEvents with synthetic "start" events for meds that predate
+    // the medication_change_events feature (i.e. they exist in current_medications
+    // with a start_date but have no matching event record).
+    const eventedMeds = new Set(medChangeEvents.map((e) => e.medication.toLowerCase()))
+    const syntheticStarts: MedChangeEvent[] = (medList as Record<string, unknown>[])
+      .filter((m) => {
+        const name = String(m.medication ?? '')
+        const sd = String(m.start_date ?? '')
+        return name && sd && !eventedMeds.has(name.toLowerCase())
+      })
+      .map((m) => ({
+        event_date: String(m.start_date),
+        medication: String(m.medication),
+        event_type: 'start' as const,
+        dose_previous: null,
+        dose_new: m.dose != null ? String(m.dose) : null,
+        frequency_previous: null,
+        frequency_new: m.frequency != null ? String(m.frequency) : null,
+      }))
+    const allMedEvents = medEventsLoadError ? [] : [...medChangeEvents, ...syntheticStarts]
+
     const medCorrelationBlock = medEventsLoadError
       ? ''
-      : formatCorrelationBlock(buildMedSymptomCorrelationLines(medChangeEvents, painRows, sympRows, 21))
+      : formatCorrelationBlock(buildMedSymptomCorrelationLines(allMedEvents, painRows, sympRows, 21))
 
     const pendingTests = pendingTestsRes.count ?? 0
 
@@ -512,11 +533,11 @@ export function DashboardPage () {
     try { localStorage.setItem('mb-handoff-focus', patientFocus) } catch { /* ignore */ }
 
     const patientData = buildCompactPatientData({
-      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows, medChangeEvents,
+      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows, medChangeEvents: allMedEvents,
     })
 
     const narrativeFallback = buildHandoffNarrative({
-      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents,
+      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents: allMedEvents,
       medChangeEventsLoadError: medEventsLoadError,
       painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
     })

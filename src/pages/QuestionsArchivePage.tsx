@@ -72,17 +72,24 @@ export function QuestionsArchivePage () {
       return
     }
     setBusy(true)
-    const { error: e } = await supabase.from('doctor_questions').insert({
+    const baseQ = {
       user_id: user!.id,
       date_created: form.date_created,
       appointment_date: form.appointment_date || null,
       doctor: form.doctor.trim() || null,
-      doctor_specialty: form.doctor_specialty.trim() || null,
       question: form.question.trim(),
       priority: form.priority,
       status: 'Unanswered',
       answer: null,
+    }
+    let { error: e } = await supabase.from('doctor_questions').insert({
+      ...baseQ,
+      doctor_specialty: form.doctor_specialty.trim() || null,
     })
+    if (e?.message?.toLowerCase().includes('doctor_specialty')) {
+      const res2 = await supabase.from('doctor_questions').insert(baseQ)
+      e = res2.error
+    }
     setBusy(false)
     if (e) { setError(e.message); return }
     if (form.doctor.trim()) void ensureDoctorProfile(user!.id, form.doctor, form.doctor_specialty || null)

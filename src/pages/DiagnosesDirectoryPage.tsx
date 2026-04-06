@@ -311,8 +311,18 @@ export function DiagnosesDirectoryPage () {
           />
           <div className="form-group">
             <label>Date diagnosed (optional)</label>
-            <input type="date" value={form.date_diagnosed}
-              onChange={(e) => setForm({ ...form, date_diagnosed: e.target.value })} />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input type="date" value={form.date_diagnosed}
+                onChange={(e) => setForm({ ...form, date_diagnosed: e.target.value })}
+                style={{ flex: 1 }} />
+              {form.date_diagnosed && (
+                <button type="button" className="btn btn-ghost"
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                  onClick={() => setForm({ ...form, date_diagnosed: '' })}>
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
 
