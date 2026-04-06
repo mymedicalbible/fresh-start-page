@@ -351,12 +351,33 @@ export function DoctorProfilePage () {
       const diags = diagForm.diagnoses_mentioned.split(',').map((d) => d.trim()).filter(Boolean)
       for (const diag of diags) {
         const { data: existing } = await supabase.from('diagnoses_directory')
-          .select('id').eq('user_id', user!.id).ilike('diagnosis', diag).limit(1)
+          .select('id, doctor').eq('user_id', user!.id).ilike('diagnosis', diag).limit(1)
         if (!existing || existing.length === 0) {
           await supabase.from('diagnoses_directory').insert({
             user_id: user!.id, diagnosis: diag, doctor: doctor.name,
             date_diagnosed: diagForm.note_date || todayISO(), status: 'Suspected',
           })
+        } else if (!existing[0].doctor) {
+          await supabase.from('diagnoses_directory')
+            .update({ doctor: doctor.name })
+            .eq('id', existing[0].id)
+        }
+      }
+    }
+    if (!e && diagForm.diagnoses_ruled_out?.trim()) {
+      const diags = diagForm.diagnoses_ruled_out.split(',').map((d) => d.trim()).filter(Boolean)
+      for (const diag of diags) {
+        const { data: existing } = await supabase.from('diagnoses_directory')
+          .select('id, doctor').eq('user_id', user!.id).ilike('diagnosis', diag).limit(1)
+        if (!existing || existing.length === 0) {
+          await supabase.from('diagnoses_directory').insert({
+            user_id: user!.id, diagnosis: diag, doctor: doctor.name,
+            date_diagnosed: diagForm.note_date || todayISO(), status: 'Ruled Out',
+          })
+        } else {
+          await supabase.from('diagnoses_directory')
+            .update({ status: 'Ruled Out', ...(!existing[0].doctor ? { doctor: doctor.name } : {}) })
+            .eq('id', existing[0].id)
         }
       }
     }
@@ -438,10 +459,22 @@ export function DoctorProfilePage () {
               </div>
             )}
             {doctor.phone && (
-              <div style={{ fontSize: '0.85rem', marginTop: 4 }}>📞 {doctor.phone}</div>
+              <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                <a href={`tel:${doctor.phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  📞 {doctor.phone}
+                </a>
+              </div>
             )}
             {doctor.address && (
-              <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>📍 {doctor.address}</div>
+              <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(doctor.address)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                >
+                  📍 {doctor.address}
+                </a>
+              </div>
             )}
             {doctor.notes && (
               <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4, fontStyle: 'italic' }}>{doctor.notes}</div>

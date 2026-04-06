@@ -9,6 +9,7 @@ type Doctor = {
   id: string; name: string; specialty: string | null
   clinic: string | null; phone: string | null
   address: string | null; notes: string | null
+  archived_at: string | null; archive_reason: string | null
 }
 
 type QuestionCount = { doctor: string; count: number }
@@ -36,6 +37,9 @@ export function DoctorsPage () {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiveModal, setArchiveModal] = useState<{ id: string; name: string } | null>(null)
+  const [archiveReason, setArchiveReason] = useState('')
 
 
   useEffect(() => {
@@ -91,10 +95,22 @@ export function DoctorsPage () {
   }
 
 
-  async function deleteDoctor (id: string) {
-    if (!confirm('Remove this doctor from your list?')) return
-    await supabase.from('doctors').delete().eq('id', id)
-    setDoctors((prev) => prev.filter((d) => d.id !== id))
+  async function archiveDoctor (id: string, reason: string) {
+    await supabase.from('doctors').update({
+      archived_at: new Date().toISOString(),
+      archive_reason: reason || null,
+    }).eq('id', id)
+    setDoctors((prev) => prev.map((d) => d.id === id
+      ? { ...d, archived_at: new Date().toISOString(), archive_reason: reason || null }
+      : d
+    ))
+    setArchiveModal(null)
+    setArchiveReason('')
+  }
+
+  async function restoreDoctor (id: string) {
+    await supabase.from('doctors').update({ archived_at: null, archive_reason: null }).eq('id', id)
+    setDoctors((prev) => prev.map((d) => d.id === id ? { ...d, archived_at: null, archive_reason: null } : d))
   }
 
 
@@ -171,68 +187,152 @@ export function DoctorsPage () {
       )}
 
 
-      {doctors.length === 0 && !showForm && (
-        <div className="card"><p className="muted">No doctors added yet.</p></div>
-      )}
-
-
-      {doctors.map((doc) => {
-        const openQ = openCounts[doc.name] ?? 0
-        return (
-          <div
-            key={doc.id}
-            className="card"
-            style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
-            onClick={() => navigate(`/app/doctors/${doc.id}`)}>
-
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* Avatar */}
-              <div style={{
-                width: 46, height: 46, borderRadius: '50%',
-                background: '#e8f0e0', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontWeight: 700, fontSize: '0.95rem',
-                color: '#4a7a32', flexShrink: 0,
-              }}>
-                {initials(doc.name)}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 2 }}>{doc.name}</div>
-                {(doc.specialty || doc.clinic) && (
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>
-                    {[doc.specialty, doc.clinic].filter(Boolean).join(' · ')}
-                  </div>
-                )}
-                {doc.phone && (
-                  <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>📞 {doc.phone}</div>
-                )}
-                {openQ > 0 && (
-                  <div style={{
-                    display: 'inline-block', marginTop: 6,
-                    fontSize: '0.72rem', fontWeight: 700,
-                    background: '#fef3c7', color: '#92400e',
-                    padding: '2px 8px', borderRadius: 20,
-                  }}>
-                    {openQ} open question{openQ !== 1 ? 's' : ''}
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                <button type="button" className="btn btn-ghost"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem' }}
-                  onClick={(e) => { e.stopPropagation(); startEdit(doc) }}>Edit</button>
-                <button type="button" className="btn btn-ghost"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', color: 'red' }}
-                  onClick={(e) => { e.stopPropagation(); deleteDoctor(doc.id) }}>Remove</button>
-                <span style={{ color: '#aaa', fontSize: '1rem' }}>›</span>
-              </div>
+      {/* ARCHIVE MODAL */}
+      {archiveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div className="card" style={{ maxWidth: 380, width: '100%' }}>
+            <h3 style={{ marginTop: 0 }}>Archive {archiveModal.name}?</h3>
+            <p className="muted" style={{ fontSize: '0.88rem' }}>
+              Archived doctors are hidden from your main list but their records are preserved. You can restore them later.
+            </p>
+            <div className="form-group">
+              <label>Reason (optional)</label>
+              <input
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                placeholder="e.g. No longer seeing, retired, moved…"
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button type="button" className="btn btn-primary"
+                onClick={() => archiveDoctor(archiveModal.id, archiveReason)}>
+                Archive
+              </button>
+              <button type="button" className="btn btn-ghost"
+                onClick={() => { setArchiveModal(null); setArchiveReason('') }}>
+                Cancel
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {(() => {
+        const active = doctors.filter((d) => !d.archived_at)
+        const archived = doctors.filter((d) => !!d.archived_at)
+
+        return (
+          <>
+            {active.length === 0 && !showForm && (
+              <div className="card"><p className="muted">No doctors added yet.</p></div>
+            )}
+
+            {active.map((doc) => {
+              const openQ = openCounts[doc.name] ?? 0
+              return (
+                <div
+                  key={doc.id}
+                  className="card"
+                  style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+                  onClick={() => navigate(`/app/doctors/${doc.id}`)}>
+
+                  <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                      width: 46, height: 46, borderRadius: '50%',
+                      background: '#e8f0e0', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontWeight: 700, fontSize: '0.95rem',
+                      color: '#4a7a32', flexShrink: 0,
+                    }}>
+                      {initials(doc.name)}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 2 }}>{doc.name}</div>
+                      {(doc.specialty || doc.clinic) && (
+                        <div className="muted" style={{ fontSize: '0.85rem' }}>
+                          {[doc.specialty, doc.clinic].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                      {doc.phone && (
+                        <div style={{ fontSize: '0.8rem', marginTop: 2 }}>
+                          <a
+                            href={`tel:${doc.phone.replace(/\s/g, '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ color: '#4a7a32', textDecoration: 'none' }}
+                          >
+                            📞 {doc.phone}
+                          </a>
+                        </div>
+                      )}
+                      {openQ > 0 && (
+                        <div style={{
+                          display: 'inline-block', marginTop: 6,
+                          fontSize: '0.72rem', fontWeight: 700,
+                          background: '#fef3c7', color: '#92400e',
+                          padding: '2px 8px', borderRadius: 20,
+                        }}>
+                          {openQ} open question{openQ !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                      <button type="button" className="btn btn-ghost"
+                        style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                        onClick={(e) => { e.stopPropagation(); startEdit(doc) }}>Edit</button>
+                      <button type="button" className="btn btn-ghost"
+                        style={{ padding: '4px 10px', fontSize: '0.8rem', color: '#b45309' }}
+                        onClick={(e) => { e.stopPropagation(); setArchiveModal({ id: doc.id, name: doc.name }); setArchiveReason('') }}>
+                        Archive
+                      </button>
+                      <span style={{ color: '#aaa', fontSize: '1rem' }}>›</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {archived.length > 0 && (
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <button type="button"
+                  style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={() => setShowArchived((v) => !v)}>
+                  <span className="muted" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    📦 Archived doctors ({archived.length})
+                  </span>
+                  <span className="muted" style={{ fontSize: '0.8rem' }}>{showArchived ? '▲' : '▼'}</span>
+                </button>
+
+                {showArchived && (
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '8px 16px 12px', display: 'grid', gap: 8 }}>
+                    {archived.map((doc) => (
+                      <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#9ca3af' }}>{doc.name}</div>
+                          {doc.archive_reason && (
+                            <div className="muted" style={{ fontSize: '0.8rem' }}>Reason: {doc.archive_reason}</div>
+                          )}
+                          {doc.archived_at && (
+                            <div className="muted" style={{ fontSize: '0.75rem' }}>
+                              Archived {new Date(doc.archived_at).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                        <button type="button" className="btn btn-ghost"
+                          style={{ fontSize: '0.78rem', padding: '3px 10px', flexShrink: 0 }}
+                          onClick={() => restoreDoctor(doc.id)}>
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )
-      })}
+      })()}
     </div>
   )
 }

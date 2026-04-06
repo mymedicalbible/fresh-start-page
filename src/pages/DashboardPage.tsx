@@ -27,6 +27,26 @@ type UpcomingAppt = {
   appointment_time: string | null
 }
 
+function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  const now = Date.now()
+  for (const appt of appts) {
+    const q = pendingQMap[appt.doctor] ?? 0
+    if (q === 0) continue
+    const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time ?? '09:00'}`)
+    const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
+    const delay = notifyAt - now
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+      setTimeout(() => {
+        new Notification('Medical Bible — Log your visit', {
+          body: `You had an appointment with ${appt.doctor} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
+          icon: '/icon-192.png',
+        })
+      }, delay)
+    }
+  }
+}
+
 type HealthSummary = {
   generatedAt: string
   aiText: string | null
@@ -402,6 +422,7 @@ export function DashboardPage () {
   const navigate = useNavigate()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [pendingCount, setPendingCount] = useState(0)
+  const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
@@ -424,7 +445,24 @@ export function DashboardPage () {
       if (apptErr) console.warn('appointments:', apptErr.message)
       else {
         const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
-        setUpcoming(rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[])
+        const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
+        setUpcoming(active)
+
+        if (active.length > 0) {
+          const doctors = [...new Set(active.map((a) => a.doctor))]
+          const { data: qRows } = await supabase
+            .from('doctor_questions')
+            .select('doctor')
+            .eq('user_id', user!.id)
+            .eq('status', 'Unanswered')
+            .in('doctor', doctors)
+          const qMap: Record<string, number> = {}
+          for (const row of (qRows ?? []) as { doctor: string | null }[]) {
+            if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
+          }
+          setApptPendingQ(qMap)
+          scheduleApptNotifications(active, qMap)
+        }
       }
 
       try {
@@ -710,16 +748,44 @@ export function DashboardPage () {
         {/* UPCOMING APPOINTMENTS */}
         {upcoming.length > 0 && (
           <div className="banner info" style={{ marginBottom: 0 }}>
-            <strong>Upcoming appointments</strong>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong>Upcoming appointments</strong>
+              {'Notification' in window && Notification.permission === 'default' && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.75rem', padding: '3px 10px', whiteSpace: 'nowrap' }}
+                  onClick={() => Notification.requestPermission().then((p) => {
+                    if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
+                  })}
+                >
+                  🔔 Enable reminders
+                </button>
+              )}
+            </div>
             <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-              {upcoming.map((u) => (
-                <li key={u.id} className="muted">
-                  {u.appointment_date}
-                  {u.appointment_time ? ` · ${u.appointment_time}` : ''}
-                  {` · ${u.doctor}`}
-                  {u.specialty ? ` (${u.specialty})` : ''}
-                </li>
-              ))}
+              {upcoming.map((u) => {
+                const pendingQ = apptPendingQ[u.doctor] ?? 0
+                return (
+                  <li key={u.id} style={{ marginBottom: 4 }}>
+                    <span className="muted">
+                      {u.appointment_date}
+                      {u.appointment_time ? ` · ${u.appointment_time}` : ''}
+                      {` · ${u.doctor}`}
+                      {u.specialty ? ` (${u.specialty})` : ''}
+                    </span>
+                    {pendingQ > 0 && (
+                      <span style={{
+                        marginLeft: 8, fontSize: '0.7rem', fontWeight: 700,
+                        background: '#f59e0b', color: '#fff',
+                        padding: '1px 7px', borderRadius: 20, display: 'inline-block',
+                      }}>
+                        {pendingQ} question{pendingQ !== 1 ? 's' : ''} pending
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         )}

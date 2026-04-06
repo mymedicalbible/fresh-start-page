@@ -194,6 +194,25 @@ export function AnalyticsPage () {
     })
   }
 
+  // Pain over time — group by date, avg intensity per day
+  const painOverTime = useMemo(() => {
+    const map = new Map<string, { sum: number; n: number }>()
+    for (const row of pain) {
+      const d = row.entry_date
+      if (!d) continue
+      const cur = map.get(d) ?? { sum: 0, n: 0 }
+      const inten = safeNum(row.intensity)
+      if (inten !== null) { cur.sum += inten; cur.n += 1 }
+      else cur.n += 1
+      map.set(d, cur)
+    }
+    return [...map.entries()]
+      .map(([date, v]) => ({ date, avg: v.n > 0 ? Math.round((v.sum / v.n) * 10) / 10 : null, count: v.n }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+  }, [pain])
+
+  const maxPainIntensity = Math.max(...painOverTime.map((d) => d.avg ?? 0), 1)
+
   const visiblePainAreas = expandPainAreas ? areaStats : areaStats.slice(0, 3)
   const visibleSymptoms = expandSymptoms ? topSymptoms : topSymptoms.slice(0, 3)
 
@@ -258,6 +277,46 @@ export function AnalyticsPage () {
 
       {!loading && (
         <>
+          {/* PAIN OVER TIME */}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Pain over time</h2>
+            <p className="muted" style={{ fontSize: '0.85rem', marginTop: -8 }}>Avg intensity per day logged. Tap a bar for details.</p>
+            {painOverTime.length === 0
+              ? <p className="muted">No pain entries yet.</p>
+              : (
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, minWidth: Math.max(painOverTime.length * 28, 100), height: 80, marginBottom: 4 }}>
+                    {painOverTime.map((d) => (
+                      <div key={d.date} style={{ flex: '0 0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <div
+                          title={`${d.date}: avg intensity ${d.avg ?? 'N/A'}/10 (${d.count} ${d.count === 1 ? 'entry' : 'entries'})`}
+                          style={{
+                            width: '100%',
+                            height: d.avg !== null ? `${Math.max(6, (d.avg / maxPainIntensity) * 64)}px` : 6,
+                            background: d.avg !== null ? `rgba(167,139,250,${0.3 + (d.avg / 10) * 0.7})` : '#e5e7eb',
+                            borderRadius: '3px 3px 0 0',
+                            cursor: 'default',
+                          }}
+                        />
+                        <div style={{ fontSize: '0.55rem', color: '#9ca3af', writingMode: 'vertical-lr', transform: 'rotate(180deg)', height: 28, overflow: 'hidden' }}>
+                          {d.date.slice(5)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: '0.78rem', color: '#6b7280', flexWrap: 'wrap' }}>
+                    <span>Total: <strong>{pain.length}</strong> {pain.length === 1 ? 'entry' : 'entries'}</span>
+                    {pain.length > 0 && (() => {
+                      const allInten = pain.map((r) => safeNum(r.intensity)).filter((x): x is number => x !== null)
+                      if (allInten.length === 0) return null
+                      const avg = Math.round((allInten.reduce((a, b) => a + b, 0) / allInten.length) * 10) / 10
+                      return <span>Overall avg: <strong>{avg}/10</strong></span>
+                    })()}
+                  </div>
+                </div>
+              )}
+          </div>
+
           {/* TOP PAIN AREAS — collapsible, top 3 default */}
           <div className="card">
             <button type="button" onClick={() => setExpandPainAreas(v => !v)}

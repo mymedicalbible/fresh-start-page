@@ -30,6 +30,7 @@ export function RecordsPage () {
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [removingFeature, setRemovingFeature] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -37,7 +38,9 @@ export function RecordsPage () {
     async function load () {
       const [p, s] = await Promise.all([
         supabase.from('pain_entries').select('*').eq('user_id', user!.id)
-          .order('entry_date', { ascending: false }).limit(100),
+          .order('entry_date', { ascending: false })
+          .order('entry_time', { ascending: false, nullsFirst: false })
+          .limit(100),
         supabase.from('mcas_episodes')
           .select('id, episode_date, episode_time, activity, symptoms, severity, relief, notes')
           .eq('user_id', user!.id)
@@ -58,6 +61,19 @@ export function RecordsPage () {
       symptoms: symptoms.filter((r) => f(r.symptoms) || f(r.activity) || f(r.notes) || f(r.relief) || f(r.severity)),
     }
   }, [q, pain, symptoms])
+
+  async function removeFeature (episodeId: string, sym: string) {
+    const key = `${episodeId}::${sym}`
+    setRemovingFeature(key)
+    const episode = symptoms.find((r) => r.id === episodeId)
+    if (!episode) { setRemovingFeature(null); return }
+    const updated = (episode.symptoms ?? '')
+      .split(',').map((s) => s.trim()).filter((s) => s && s !== sym).join(', ') || null
+    const { error: e } = await supabase.from('mcas_episodes').update({ symptoms: updated }).eq('id', episodeId)
+    setRemovingFeature(null)
+    if (e) { setError(e.message); return }
+    setSymptoms((prev) => prev.map((r) => r.id === episodeId ? { ...r, symptoms: updated } : r))
+  }
 
   if (!user) return null
 
@@ -124,11 +140,23 @@ export function RecordsPage () {
                 <div style={{ marginTop: 6 }}>
                   <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Features</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym, i) => (
-                      <span key={i} style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46' }}>
-                        {sym}
-                      </span>
-                    ))}
+                    {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym, i) => {
+                      const key = `${r.id}::${sym}`
+                      return (
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', padding: '2px 6px 2px 8px', borderRadius: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46' }}>
+                          {sym}
+                          <button
+                            type="button"
+                            disabled={removingFeature === key}
+                            onClick={() => removeFeature(r.id, sym)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: '#6b7280', fontSize: '0.7rem', display: 'flex', alignItems: 'center' }}
+                            title="Remove feature"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               )}

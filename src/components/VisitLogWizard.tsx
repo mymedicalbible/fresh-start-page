@@ -36,6 +36,9 @@ export function VisitLogWizard ({
   const [doctors, setDoctors] = useState<DoctorRow[]>([])
   const [pastReasons, setPastReasons] = useState<string[]>([])
   const [visitId, setVisitId] = useState<string | null>(resumeVisitId ?? null)
+  const [pinnedReasons, setPinnedReasons] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('mb-pinned-visit-reasons') ?? '[]') } catch { return [] }
+  })
 
   const [visitDate, setVisitDate] = useState(todayISO())
   const [visitTime, setVisitTime] = useState(nowTime())
@@ -269,21 +272,55 @@ export function VisitLogWizard ({
     navigate('/app')
   }
 
-  const chipRow = useMemo(() => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-      {pastReasons.map((r) => (
-        <button
-          key={r}
-          type="button"
-          className="pill"
-          style={{ fontSize: '0.78rem' }}
-          onClick={() => setReason(r)}
-        >
-          {r.length > 42 ? `${r.slice(0, 40)}…` : r}
-        </button>
-      ))}
-    </div>
-  ), [pastReasons])
+  function pinReason (r: string) {
+    if (!r.trim() || pinnedReasons.includes(r.trim())) return
+    const next = [r.trim(), ...pinnedReasons].slice(0, 20)
+    setPinnedReasons(next)
+    try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
+  }
+
+  function unpinReason (r: string) {
+    const next = pinnedReasons.filter((x) => x !== r)
+    setPinnedReasons(next)
+    try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
+  }
+
+  const chipRow = useMemo(() => {
+    const unpinned = pastReasons.filter((r) => !pinnedReasons.includes(r))
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        {pinnedReasons.map((r) => (
+          <span key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            <button
+              type="button"
+              className="pill on"
+              style={{ fontSize: '0.78rem' }}
+              onClick={() => setReason(r)}
+            >
+              📌 {r.length > 38 ? `${r.slice(0, 36)}…` : r}
+            </button>
+            <button
+              type="button"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '0.7rem', color: '#9ca3af', lineHeight: 1 }}
+              title="Unpin"
+              onClick={() => unpinReason(r)}
+            >✕</button>
+          </span>
+        ))}
+        {unpinned.map((r) => (
+          <button
+            key={r}
+            type="button"
+            className="pill"
+            style={{ fontSize: '0.78rem' }}
+            onClick={() => setReason(r)}
+          >
+            {r.length > 42 ? `${r.slice(0, 40)}…` : r}
+          </button>
+        ))}
+      </div>
+    )
+  }, [pastReasons, pinnedReasons])
 
   if (!user) return null
 
@@ -325,9 +362,24 @@ export function VisitLogWizard ({
             <input value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Doctor name" style={{ width: '100%', marginTop: 10 }} />
           )}
           <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Specialty (optional)" style={{ width: '100%', marginTop: 10 }} />
-          <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — tap a past reason or type</p>
+          <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — tap a saved/past reason or type</p>
           {chipRow}
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="In your own words…" rows={3} style={{ marginTop: 8, width: '100%' }} />
+          {reason.trim() && !pinnedReasons.includes(reason.trim()) && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: '0.78rem', padding: '3px 10px', marginTop: 4 }}
+              onClick={() => pinReason(reason)}
+            >
+              📌 Save as quick button
+            </button>
+          )}
+          {reason.trim() && pinnedReasons.includes(reason.trim()) && (
+            <span style={{ fontSize: '0.78rem', color: '#4a7a32', marginTop: 4, display: 'inline-block' }}>
+              📌 Saved as quick button
+            </span>
+          )}
           <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy} onClick={() => void saveStep1()}>
             Continue
           </button>
