@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { formatDistanceToNow } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
@@ -14,6 +15,17 @@ import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryChar
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
 import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
+import {
+  QuickLogCircle,
+  IconPain,
+  IconEpisode,
+  IconQuestion,
+  IconVisit,
+  IconDoctors,
+  IconMeds,
+  IconTests,
+  IconCharts,
+} from '../components/QuickLogCircle'
 
 type SummaryAiSource = 'app' | 'ollama'
 
@@ -25,6 +37,23 @@ type UpcomingAppt = {
   specialty: string | null
   appointment_date: string
   appointment_time: string | null
+}
+
+type RecentActivityItem = {
+  id: string
+  kind: 'pain' | 'episode' | 'visit'
+  title: string
+  sub: string
+  ts: number
+}
+
+function parseActivityDate (dateStr: string, timeStr: string | null): number {
+  const t = timeStr && String(timeStr).length >= 5
+    ? String(timeStr).slice(0, 5)
+    : '12:00'
+  const d = new Date(`${dateStr}T${t}:00`)
+  const n = d.getTime()
+  return Number.isFinite(n) ? n : Date.now()
 }
 
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
@@ -425,6 +454,7 @@ export function DashboardPage () {
   const [pendingCount, setPendingCount] = useState(0)
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([])
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
@@ -488,6 +518,56 @@ export function DashboardPage () {
         .eq('user_id', user!.id)
         .eq('status', 'Unanswered')
       setOpenQsCount(oq ?? 0)
+
+      const [painR, epR, visR] = await Promise.all([
+        supabase.from('pain_entries')
+          .select('id, entry_date, entry_time, location')
+          .eq('user_id', user!.id)
+          .order('entry_date', { ascending: false })
+          .limit(5),
+        supabase.from('mcas_episodes')
+          .select('id, episode_date, episode_time, symptoms')
+          .eq('user_id', user!.id)
+          .order('episode_date', { ascending: false })
+          .limit(5),
+        supabase.from('doctor_visits')
+          .select('id, visit_date, visit_time, doctor, reason, status')
+          .eq('user_id', user!.id)
+          .order('visit_date', { ascending: false })
+          .limit(5),
+      ])
+
+      const merged: RecentActivityItem[] = []
+      for (const r of (painR.data ?? []) as { id: string; entry_date: string; entry_time: string | null; location: string | null }[]) {
+        merged.push({
+          id: `p-${r.id}`,
+          kind: 'pain',
+          title: 'Pain log',
+          sub: r.location?.trim() || 'Entry saved',
+          ts: parseActivityDate(r.entry_date, r.entry_time),
+        })
+      }
+      for (const r of (epR.data ?? []) as { id: string; episode_date: string; episode_time: string | null; symptoms: string | null }[]) {
+        const feat = (r.symptoms ?? '').split(',').map((s) => s.trim()).filter(Boolean)[0]
+        merged.push({
+          id: `e-${r.id}`,
+          kind: 'episode',
+          title: 'Episode',
+          sub: feat || 'Features logged',
+          ts: parseActivityDate(r.episode_date, r.episode_time),
+        })
+      }
+      for (const r of (visR.data ?? []) as { id: string; visit_date: string; visit_time: string | null; doctor: string | null; reason: string | null; status: string | null }[]) {
+        merged.push({
+          id: `v-${r.id}`,
+          kind: 'visit',
+          title: 'Visit',
+          sub: [r.doctor, r.reason].filter(Boolean).join(' — ') || 'Visit logged',
+          ts: parseActivityDate(r.visit_date, r.visit_time),
+        })
+      }
+      merged.sort((a, b) => b.ts - a.ts)
+      setRecentActivity(merged.slice(0, 5))
     }
     load()
   }, [user])
@@ -758,13 +838,12 @@ export function DashboardPage () {
         />
       )}
 
-      <div style={{ display: 'grid', gap: 18, padding: '4px 0 40px' }}>
+      <div className="dashboard-stack" style={{ display: 'grid', gap: 16, padding: '0 0 32px' }}>
 
-        {/* UPCOMING APPOINTMENTS */}
         {upcoming.length > 0 && (
-          <div className="scrapbook-card scrapbook-card--tape-butter scrapbook-card--tilt1">
+          <section className="card card--appts">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <strong style={{ fontFamily: 'var(--font-serif)', fontSize: '1.02rem', color: '#3d3428' }}>Upcoming appointments</strong>
+              <h2 className="dashboard-section-title" style={{ margin: 0 }}>Upcoming appointments</h2>
               {'Notification' in window && Notification.permission === 'default' && (
                 <button
                   type="button"
@@ -802,12 +881,11 @@ export function DashboardPage () {
                 )
               })}
             </ul>
-          </div>
+          </section>
         )}
 
-        {/* PENDING VISITS NUDGE */}
         {pendingCount > 0 && (
-          <div className="scrapbook-card scrapbook-card--tape-mint scrapbook-card--tilt2" style={{ padding: 12 }}>
+          <section className="card" style={{ padding: 12 }}>
             <button
               type="button"
               className="btn btn-butter btn-block"
@@ -817,99 +895,81 @@ export function DashboardPage () {
               <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
               <span style={{ fontWeight: 400 }}>Open →</span>
             </button>
-          </div>
+          </section>
         )}
 
-        {/* OPEN QUESTIONS — single stat (no pain/episode counts) */}
-        {openQsCount !== null && (
-          <div className="scrapbook-card scrapbook-card--tape-sky scrapbook-card--tilt3">
-            <div className="scrapbook-stat-openqs">
-              <div className="stat-value">{openQsCount}</div>
-              <div className="stat-label">OPEN QUESTIONS</div>
-            </div>
-          </div>
-        )}
-
-        {/* LOG TODAY */}
-        <div className="scrapbook-card scrapbook-card--tape-mint scrapbook-card--tilt2">
+        <section className="card card--quick-log">
           <span className="card-section-label">Quick log</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 6 }}>
-            <Link to="/app/log?tab=pain" className="log-tile blush">
-              <span className="tile-label">Pain</span>
-              <span className="tile-hint">Log a pain entry</span>
-            </Link>
-            <Link to="/app/log?tab=symptoms" className="log-tile mint">
-              <span className="tile-label">Episodes</span>
-              <span className="tile-hint">Log an episode</span>
-            </Link>
-            <Link to="/app/questions" className="log-tile sky">
-              <span className="tile-label">Questions</span>
-              <span className="tile-hint">Add a question for your doctor</span>
-            </Link>
-            <Link to="/app/visits?new=1" className="log-tile butter">
-              <span className="tile-label">Visit log</span>
-              <span className="tile-hint">Record a doctor visit</span>
-            </Link>
+          <div className="quick-log-grid">
+            <QuickLogCircle to="/app/log?tab=pain" tone="blush" label="Pain" hint="Log an entry">
+              <IconPain />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/log?tab=symptoms" tone="mint" label="Episode" hint="Log features">
+              <IconEpisode />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/questions" tone="sky" label="Question" hint="For your visit">
+              <IconQuestion />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/visits?new=1" tone="butter" label="Visit" hint="Record a visit">
+              <IconVisit />
+            </QuickLogCircle>
           </div>
-        </div>
+        </section>
 
-        {/* HANDOFF SUMMARY — compact trigger card */}
-        <div className="scrapbook-card scrapbook-card--tape-lavender scrapbook-card--tilt3" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', fontFamily: 'var(--font-serif)', color: '#3d3428' }}>
-              Clinical handoff summary
+        {openQsCount !== null && (
+          <section className="card">
+            <h2 className="dashboard-section-title">Open questions</h2>
+            <div className="openqs-block">
+              <div className="openqs-value">{openQsCount}</div>
+              <div className="openqs-label">WAITING FOR ANSWERS</div>
             </div>
-            <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
-              {summary
-                ? `Generated ${summary.generatedAt}${
-                  summary.aiText && summary.aiProvider === 'ollama'
-                    ? ' · Ollama'
-                    : summary.aiText
-                      ? ' · AI'
-                      : ' · app-generated'}`
-                : 'Doctor-ready narrative from all your logs'}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-mint"
-            style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0 }}
-            onClick={() => setSummaryOpen(true)}
-          >
-            {summary ? 'View / update' : 'Open'}
-          </button>
-        </div>
+          </section>
+        )}
 
-        {/* YOUR CARE & RECORDS */}
-        <div className="scrapbook-card scrapbook-card--tape-sky scrapbook-card--tilt1">
-          <span className="card-section-label">Your care &amp; records</span>
-          <div className="bento-grid" style={{ marginTop: 8 }}>
-            <Link to="/app/doctors" className="bento-cell">
-              <span>Doctors</span>
-              <span className="bento-hint">Profiles &amp; visit history</span>
-            </Link>
-            <Link to="/app/diagnoses" className="bento-cell">
-              <span>Diagnoses</span>
-              <span className="bento-hint">Your diagnosis directory</span>
-            </Link>
-            <Link to="/app/tests" className="bento-cell">
-              <span>Tests &amp; orders</span>
-              <span className="bento-hint">Pending &amp; completed</span>
-            </Link>
-            <Link to="/app/meds" className="bento-cell">
-              <span>Medications</span>
-              <span className="bento-hint">Current &amp; archived meds</span>
-            </Link>
-            <Link to="/app/records" className="bento-cell">
-              <span>Pain &amp; episodes</span>
-              <span className="bento-hint">Browse your log archive</span>
-            </Link>
-            <Link to="/app/analytics" className="bento-cell">
-              <span>Charts &amp; trends</span>
-              <span className="bento-hint">Visualize your data</span>
-            </Link>
+        <section className="card">
+          <h2 className="dashboard-section-title">Recent activity</h2>
+          {recentActivity.length === 0
+            ? <p className="muted" style={{ margin: 0, fontSize: '0.88rem' }}>Nothing logged yet. Use Quick log above.</p>
+            : (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+                {recentActivity.map((row) => (
+                  <li key={row.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <span className={`recent-dot recent-dot--${row.kind === 'pain' ? 'pain' : row.kind === 'episode' ? 'episode' : 'visit'}`} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.title}</div>
+                      <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>{row.sub}</div>
+                    </div>
+                    <span className="muted" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {formatDistanceToNow(row.ts, { addSuffix: true })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+        </section>
+
+        <section className="card">
+          <span className="card-section-label">More</span>
+          <div className="quick-log-grid">
+            <QuickLogCircle to="/app/doctors" tone="sky" label="Doctors" hint="Profiles">
+              <IconDoctors />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/meds" tone="mint" label="Meds" hint="Medications">
+              <IconMeds />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/tests" tone="butter" label="Tests" hint="Labs & orders">
+              <IconTests />
+            </QuickLogCircle>
+            <QuickLogCircle to="/app/analytics" tone="blush" label="Charts" hint="Trends">
+              <IconCharts />
+            </QuickLogCircle>
           </div>
-        </div>
+          <p className="muted" style={{ fontSize: '0.78rem', margin: '14px 0 0', textAlign: 'center' }}>
+            <Link to="/app/diagnoses">Diagnoses</Link>
+            {' · '}
+            <Link to="/app/records">Pain &amp; episodes archive</Link>
+          </p>
+        </section>
 
       </div>
     </>

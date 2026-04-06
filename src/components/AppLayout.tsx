@@ -1,7 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
-import { SpiralBinding } from './SpiralBinding'
 
 type NavItem =
   | { kind: 'path'; path: string; label: string; icon: string }
@@ -37,30 +36,25 @@ export function AppLayout () {
 
   return (
     <div className="app-shell">
-      <div className="notebook-outer">
-        <div className="spiral-gutter" aria-hidden="true">
-          <SpiralBinding />
-        </div>
-        <div className="notebook-page">
-          <div className="page-inner">
-            <header className="top-bar">
-              <div>
-                <h1 className="notebook-title">Medical Bible</h1>
-                <div className="top-bar-date">{todayLine}</div>
-                {user?.email && (
-                  <div className="subtitle top-bar-email">{user.email}</div>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary btn-signout"
-                onClick={() => signOut()}
-              >
-                Sign out
-              </button>
-            </header>
-            <Outlet />
-          </div>
+      <div className="app-page">
+        <div className="paper-sheet">
+          <header className="top-bar">
+            <div>
+              <h1 className="notebook-title">Medical Bible</h1>
+              <div className="top-bar-date">{todayLine}</div>
+              {user?.email && (
+                <div className="subtitle top-bar-email">{user.email}</div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-signout"
+              onClick={() => signOut()}
+            >
+              Sign out
+            </button>
+          </header>
+          <Outlet />
         </div>
       </div>
 

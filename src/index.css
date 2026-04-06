@@ -69,7 +69,7 @@ html, body {
   margin: 0;
   min-height: 100%;
   font-family: var(--font-sans);
-  background: linear-gradient(165deg, var(--desk) 0%, var(--desk-deep) 45%, #a8a49c 100%);
+  background: #d4cfc6;
   color: var(--text);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -94,62 +94,36 @@ button, input, select, textarea { font: inherit; }
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 8px);
 }
 
-/* --- Spiral notebook frame --- */
-.notebook-outer {
+/* --- Single full-width paper column (no side spiral) --- */
+.app-page {
   flex: 1;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
   width: 100%;
-  max-width: 56rem;
+  max-width: 28rem;
   margin: 0 auto;
-  padding: 12px 10px 0;
-  gap: 0;
+  padding: 12px 14px 0;
   min-height: 0;
 }
 
-.spiral-gutter {
-  width: 38px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 12px;
-  align-self: flex-start;
-  height: calc(100dvh - var(--nav-height) - 36px);
-  max-height: calc(100dvh - var(--nav-height) - 36px);
-  border-radius: 10px 0 0 10px;
-  overflow: hidden;
-  box-shadow: inset -3px 0 6px rgba(0, 0, 0, 0.08);
-  pointer-events: none;
-}
-
-.spiral-binding-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.notebook-page {
-  flex: 1;
-  min-width: 0;
+.paper-sheet {
   background-color: var(--paper);
   background-image:
-    linear-gradient(90deg, transparent 0, transparent 27px, var(--paper-margin-line) 27px, var(--paper-margin-line) 28px, transparent 28px),
+    linear-gradient(90deg, transparent 0, transparent 26px, var(--paper-margin-line) 26px, var(--paper-margin-line) 27px, transparent 27px),
     repeating-linear-gradient(
       transparent,
-      transparent 27px,
-      var(--paper-line) 27px,
-      var(--paper-line) 28px
+      transparent 26px,
+      var(--paper-line) 26px,
+      var(--paper-line) 27px
     );
-  background-size: 100% 28px;
-  border: 1px solid rgba(45, 42, 38, 0.12);
-  border-left: none;
-  border-radius: 0 14px 14px 0;
+  background-size: 100% 27px;
+  border: 1px solid rgba(45, 42, 38, 0.1);
+  border-radius: 14px;
   box-shadow: var(--shadow-notebook);
-  margin-left: -2px;
+  padding: 16px 16px 20px;
+  min-height: calc(100dvh - var(--nav-height) - 48px);
 }
 
-.page-inner {
-  padding: 16px 18px 20px 20px;
+@media (min-width: 480px) {
+  .app-page { max-width: 32rem; padding: 14px 18px 0; }
 }
 
 /* ============================================================
@@ -218,6 +192,10 @@ button, input, select, textarea { font: inherit; }
 }
 
 .card + .card { margin-top: 14px; }
+
+.dashboard-stack .card + .card {
+  margin-top: 0;
+}
 
 .card-section-label {
   display: inline-block;
@@ -593,87 +571,163 @@ textarea { min-height: 88px; resize: vertical; }
 .bottom-nav-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 
 /* ============================================================
-   SCRAPBOOK CARDS (dashboard sections)
+   DASHBOARD — calm section cards
    ============================================================ */
-.scrapbook-card {
+.card--appts {
+  background: linear-gradient(180deg, #fffbeb 0%, #fffef8 100%);
+  border-color: rgba(180, 160, 100, 0.35);
+}
+
+.card--quick-log {
   position: relative;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(45, 42, 38, 0.1);
-  border-radius: var(--radius);
-  padding: 18px 18px 18px 20px;
-  box-shadow: 0 4px 18px rgba(45, 42, 38, 0.08), 0 1px 3px rgba(45, 42, 38, 0.04);
+  background: linear-gradient(165deg, #e8f4fc 0%, #f8fbfe 55%, #ffffff 100%);
+  border-color: rgba(100, 150, 180, 0.28);
+  overflow: hidden;
 }
 
-.scrapbook-card--tilt1 { transform: rotate(-0.2deg); }
-.scrapbook-card--tilt2 { transform: rotate(0.15deg); }
-.scrapbook-card--tilt3 { transform: rotate(-0.1deg); }
-
-.scrapbook-card::before {
+/* subtle folded corner */
+.card--quick-log::after {
   content: '';
   position: absolute;
-  left: 50%;
-  top: -10px;
-  transform: translateX(-50%) rotate(-1.5deg);
-  width: min(52%, 200px);
-  height: 22px;
-  border-radius: 2px;
-  opacity: 0.88;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 18px 18px;
+  border-color: transparent transparent rgba(45, 42, 38, 0.06) transparent;
   pointer-events: none;
-  z-index: 1;
 }
 
-.scrapbook-card--tape-butter::before {
-  background: linear-gradient(90deg, rgba(253, 238, 163, 0.92), rgba(245, 198, 216, 0.75));
-}
-.scrapbook-card--tape-sky::before {
-  background: linear-gradient(90deg, rgba(189, 228, 244, 0.9), rgba(184, 232, 200, 0.65));
-}
-.scrapbook-card--tape-lavender::before {
-  background: linear-gradient(90deg, rgba(221, 214, 243, 0.9), rgba(189, 228, 244, 0.7));
-}
-.scrapbook-card--tape-mint::before {
-  background: linear-gradient(90deg, rgba(184, 232, 200, 0.95), rgba(253, 238, 163, 0.7));
-}
-
-.scrapbook-card::after {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  top: 10px;
-  right: 14px;
-  background: radial-gradient(circle at 35% 35%, #fce7f3, #db2777 45%, #9d174d 100%);
-  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2), inset -1px -1px 2px rgba(255, 255, 255, 0.4);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.scrapbook-stat-openqs {
+.openqs-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(189, 228, 244, 0.45), rgba(184, 232, 200, 0.35));
+  background: linear-gradient(135deg, rgba(189, 228, 244, 0.35), rgba(184, 232, 200, 0.28));
   border: 1px solid rgba(45, 42, 38, 0.08);
 }
 
-.scrapbook-stat-openqs .stat-value {
+.openqs-block .openqs-value {
   font-family: var(--font-serif);
-  font-size: 1.85rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--sky-ink);
   line-height: 1;
 }
 
-.scrapbook-stat-openqs .stat-label {
-  font-size: 0.7rem;
+.openqs-block .openqs-label {
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   color: var(--muted);
   margin-top: 8px;
+}
+
+.recent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.recent-dot--pain { background: var(--blush-dark); }
+.recent-dot--episode { background: var(--mint-dark); }
+.recent-dot--visit { background: var(--sky-dark); }
+
+/* ============================================================
+   QUICK LOG — circular stitched buttons
+   ============================================================ */
+.quick-log-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 12px;
+  justify-items: center;
+  padding: 8px 4px 4px;
+}
+
+.quick-log-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 120px;
+  text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.quick-log-circle:active .quick-log-circle-disc { transform: scale(0.97); }
+
+.quick-log-circle-disc {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 14px rgba(45, 42, 38, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition: transform 0.12s ease;
+}
+
+/* dashed “stitched” inner ring */
+.quick-log-circle-stitch {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  border: 2px dashed rgba(45, 42, 38, 0.22);
+  pointer-events: none;
+}
+
+.quick-log-circle-icon {
+  position: relative;
+  z-index: 1;
+  color: rgba(35, 40, 38, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-log-circle--blush .quick-log-circle-disc {
+  background: linear-gradient(145deg, #fdeef4 0%, #f5c6d8 45%, #e8b4c8 100%);
+}
+.quick-log-circle--mint .quick-log-circle-disc {
+  background: linear-gradient(145deg, #f0faf3 0%, #b8e8c8 40%, #9dd4ae 100%);
+}
+.quick-log-circle--sky .quick-log-circle-disc {
+  background: linear-gradient(145deg, #f2f9fd 0%, #bde4f4 45%, #9dd0ea 100%);
+}
+.quick-log-circle--butter .quick-log-circle-disc {
+  background: linear-gradient(145deg, #fffef5 0%, #fdeea3 45%, #f5d76a 100%);
+}
+
+.quick-log-circle-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3d3428;
   text-align: center;
+  line-height: 1.2;
+}
+
+.quick-log-circle-hint {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.25;
+  max-width: 7.5rem;
+}
+
+.dashboard-section-title {
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #3d3428;
+  margin: 0 0 10px;
 }
