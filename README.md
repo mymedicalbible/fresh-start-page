@@ -1,377 +1,204 @@
-# Medical Bible Project (Medical Tracker)
+# Medical Bible — User guide
 
-A **private, personal health tracker** web application. It helps you log pain, symptoms, visits, medications, tests, diagnoses, and doctor questions in one place—then assemble a **doctor-ready clinical handoff narrative** (with optional AI polish and **PDF export**). Authentication, database, and file storage run on **Supabase**; the client is **Vite + React 18 + TypeScript**.
-
-> **Sensitive data:** This app is built to hold medical information. Protect your Supabase project, never commit real `.env` files, use HTTPS in production, and treat **Row Level Security (RLS)** as mandatory—not optional.
+Welcome. This guide is written for **anyone using the app**, not for programmers. If you need technical setup (installing on a server, database steps), see **[DEVELOPERS.md](./DEVELOPERS.md)**.
 
 ---
 
-## Table of contents
+## What is this app?
 
-1. [What this app does](#what-this-app-does)
-2. [Feature map](#feature-map)
-3. [Routes](#routes)
-4. [Tech stack](#tech-stack)
-5. [Architecture at a glance](#architecture-at-a-glance)
-6. [Prerequisites](#prerequisites)
-7. [Local development](#local-development)
-8. [Environment variables](#environment-variables)
-9. [Database and migrations](#database-and-migrations)
-10. [Medication change events and correlation](#medication-change-events-and-correlation)
-11. [Clinical handoff summary](#clinical-handoff-summary)
-12. [Storage (visit documents)](#storage-visit-documents)
-13. [Deploying the frontend](#deploying-the-frontend)
-14. [Deploying the AI Edge Function](#deploying-the-ai-edge-function)
-15. [Troubleshooting](#troubleshooting)
-16. [Security and compliance](#security-and-compliance)
-17. [Project structure](#project-structure)
-18. [Scripts](#scripts)
-19. [License / contributing](#license--contributing)
+**Medical Bible** (also called **Medical Tracker** in the project) is a **private notebook for your health**. You use it in a **web browser** on a phone, tablet, or computer. It helps you:
+
+- Remember **pain**, **symptom episodes**, **doctor visits**, **medications**, **tests**, **diagnoses**, and **questions** you want to ask.
+- See **simple charts** so patterns are easier to spot over time.
+- Build a **written summary** you can read before an appointment or **save as a PDF** to share (for example with a doctor—only if *you* choose to).
+
+It is **not** a replacement for medical care. It does **not** diagnose you or tell you what treatment to do. **You** and your care team make medical decisions.
 
 ---
 
-## What this app does
+## What you need to use it
 
-- **Capture** structured health data (pain, MCAS-style symptom episodes, quick symptom snapshots, visits, meds, tests, questions, diagnoses, appointments).
-- **Organize** it by time, doctor, and record type so you can find things before an appointment.
-- **Summarize** in first-person “handoff” prose suitable to share with a clinician, with a **~90-day data window** for aggregation and **30-day-highlight** copy for recent pain/symptom intensity where applicable.
-- **Optionally enhance** that summary with an LLM via a **Supabase Edge Function** (keys stay on the server).
-- **Export** the final text as a **PDF** on the device (jsPDF).
+1. **Internet** — the app loads from the web and saves your entries to a secure account online.
+2. **An account** — usually **email and password** (whoever set up your copy of the app will tell you how to sign up or log in).
+3. **The website address (URL)** — the link you open to reach *your* copy of the app (for example a custom link if someone deployed it for you).
 
-The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in global CSS—no emoji in the primary dashboard layout.
+Your data is stored in a service called **Supabase** (think of it as a private locker for your account). **Only you** (when logged in) should see your own entries, when the system is set up correctly.
 
 ---
 
-## Feature map
+## Signing in and staying safe
 
-| Area | Path / entry | What you get |
-|------|----------------|--------------|
-| **Dashboard** | `/app` | Upcoming appointments, pending-visit nudge, **Log today** grid (pain, symptoms, questions, visit), **Clinical handoff** (opens a slide-up panel—not a full-page form), **Your care & records** bento links |
-| **Quick log** | `/app/log` | Fast flows for pain and symptoms; navigation to archives after save |
-| **Records** | `/app/records` | Hub for pain / symptom archives and related tabs |
-| **Analytics** | `/app/analytics` | Charts (Recharts); data stays in the browser unless you screenshot/share |
-| **Visits** | `/app/visits` | Visit wizard; **after save, returns to dashboard** by default |
-| **Doctors** | `/app/doctors` | Scannable list; each card links to a **Doctor profile** |
-| **Doctor profile** | `/app/doctors/:id` | Full-width sections: visits, questions, diagnoses, medications, tests for one provider |
-| **Tests & orders** | `/app/tests` | Pending vs archived; completing can move items out of “current” |
-| **Medications** | `/app/meds` | List with **PRN vs scheduled** toggle on add/edit, **Log dose change** modal (events + optional med field updates), archive on remove |
-| **Questions** | `/app/questions` | Archive with add-first layout and filters (e.g. open / unanswered) |
-| **Diagnoses** | `/app/diagnoses` | Diagnosis directory |
-| **Auth** | `/login` | Supabase email auth; `/app/*` is protected |
+- Use a **strong password** and do not share it.
+- **Log out** if you use a shared computer.
+- This app can hold **sensitive health information**. Treat it like any other private medical notes.
+- Laws about health data (**HIPAA**, **GDPR**, and others) depend on **who runs the app** and **how** it is hosted. This README is **not legal advice**. If you need formal compliance, talk to a professional.
 
 ---
 
-## Routes
+## The home screen (Dashboard)
 
-| Path | Page |
-|------|------|
-| `/`, `*` | Redirect to `/app` |
-| `/login` | Login |
-| `/app` | Dashboard (home) |
-| `/app/log` | Quick log |
-| `/app/records` | Records hub |
-| `/app/analytics` | Charts |
-| `/app/meds` | Medications |
-| `/app/doctors` | Doctor list |
-| `/app/doctors/:id` | Doctor profile |
-| `/app/tests` | Tests & orders |
-| `/app/questions` | Questions |
-| `/app/diagnoses` | Diagnoses |
-| `/app/visits` | Visits / visit wizard |
+When you open the app after logging in, you usually land on the **Dashboard**. You may see:
+
+- **Upcoming appointments** — dates and doctors you have saved.
+  - If you have **unanswered questions** saved for that doctor, you may see a **badge** reminding you how many are still open.
+  - You may see **Enable reminders** — this asks your browser for permission to show a **notification** (for example after an appointment time) so you remember to log how the visit went. Notifications work best if you **add the app to your phone’s home screen** (on some phones this is required for alerts).
+- **Pending visits** — visits you started but have not finished yet.
+- **Log today** — shortcuts to **Pain**, **Episodes**, **Questions**, and **Visit log**.
+- **Clinical handoff summary** — builds a story-style summary from your saved data (more below).
+- **Links** to the rest of your records (medications, doctors, tests, and so on).
 
 ---
 
-## Tech stack
+## Quick log (Pain and Episodes)
 
-| Layer | Technology |
-|-------|------------|
-| UI | React 18, React Router 6 |
-| Build | Vite 6, TypeScript 5 |
-| Backend | Supabase (Postgres, Auth, Storage, Edge Functions) |
-| Charts | Recharts |
-| PDF | jsPDF |
-| Optional AI | Edge Function `generate-summary` — Anthropic Claude first, optional OpenAI fallback |
+**Quick log** is for fast entries without hunting through menus.
 
----
+### Pain
 
-## Architecture at a glance
+- You can note **date, time, intensity, where it hurts**, and optional details (triggers, what helped, notes).
+- Saved pain appears in **Records** (Pain tab), newest first.
+- It also feeds **Charts & trends** (see below).
 
-```
-Browser (React)
-  ├── Supabase JS client (anon key) → PostgREST + Auth + Storage
-  └── Edge Functions.invoke('generate-summary') → server-side LLM (optional)
+### Episodes (symptom episodes)
 
-Postgres
-  ├── Tables for logs, visits, meds, tests, etc. (see migrations)
-  ├── RLS: row access scoped to auth.uid()
-  └── Triggers: e.g. medication_change_events on current_medications
-```
-
-- **All patient rows** should be protected by RLS policies defined in migrations.
-- **Never** put service-role keys or LLM API keys in `VITE_*` variables—they are bundled into the client.
+- Episodes are for logging things like **flare-ups** or **clusters of symptoms** you care about.
+- You can list **features** (individual symptoms or bullet points).  
+- In **Records**, under each episode, each **feature** can show a small **✕** so you can remove one feature from that entry if you tapped the wrong one—without deleting the whole episode.
 
 ---
 
-## Prerequisites
+## Records (Pain & episodes archive)
 
-- **Node.js** 20+ (recommended)
-- A **Supabase** project: [supabase.com](https://supabase.com)
-- **Optional:** [Supabase CLI](https://supabase.com/docs/guides/cli) for `db push`, `secrets`, and `functions deploy`
+**Records** is a searchable list of what you already saved:
 
----
+- **Pain** tab — your pain log.
+- **Episodes** tab — your episode log.
 
-## Local development
-
-```bash
-git clone <your-repo-url>
-cd "Medical Bible Project"
-npm install
-cp .env.example .env
-```
-
-1. Open **Supabase → Project Settings → API**.
-2. Set in `.env`:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-
-3. Apply **all** SQL migrations to your project (see [Database and migrations](#database-and-migrations)).
-
-```bash
-npm run dev
-```
-
-Vite prints the local URL (typically `http://localhost:5173`).
-
-**Lockfile note:** CI hosts (e.g. Cloudflare Pages) often run `npm ci`. If CI reports lockfile drift, regenerate with `npm install` and commit the updated `package-lock.json`.
+Use **Search** to filter by text (for example a body area or a word in your notes).
 
 ---
 
-## Environment variables
+## Charts & trends (Analytics)
 
-### Frontend (`.env` — safe to expose in build)
+**Charts & trends** turns your saved pain and episodes into **pictures**, not doctor’s orders:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_SUPABASE_URL` | Yes | Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Yes | Anonymous public key |
+- **Pain over time** — simple bars by average intensity per day so you can see ups and downs even if some entries do not have every optional field filled in.
+- **Top pain areas** — uses the **locations** you typed (left/right and areas are counted separately if you wrote them that way).
+- **Common episode features** — how often each feature showed up in your episode log.
+- **Time of day** grids — only fill in if you logged **times** with your entries; that is normal if you sometimes skip the clock.
 
-### Edge Function secrets (Supabase dashboard or CLI — **not** in Vite)
-
-| Secret | Purpose |
-|--------|---------|
-| `ANTHROPIC_API_KEY` | Primary LLM (Claude) for `generate-summary` |
-| `OPENAI_API_KEY` | Optional fallback (e.g. rate limits) |
-| `OPENAI_MODEL` | Optional; defaults to `gpt-4o-mini` in the Edge Function |
-| `ANTHROPIC_MODEL_FAST` / `ANTHROPIC_MODEL_THOROUGH` | Optional model overrides |
-
-Example:
-
-```bash
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-api03-...
-# optional
-supabase secrets set OPENAI_API_KEY=sk-...
-```
+Charts are for **your awareness** and for **talking with your clinician**—not for self-diagnosis.
 
 ---
 
-## Database and migrations
+## Visits
 
-Schema and **Row Level Security** live under `supabase/migrations/`. Apply files **in filename order** using the SQL Editor or:
+You can **log a visit** in a guided **wizard** (step by step) or using fuller forms on the visit pages, depending on how your screen is set up.
 
-```bash
-supabase link --project-ref YOUR_PROJECT_REF
-supabase db push
-```
+**Useful tips:**
 
-### Migration inventory
-
-| File | Purpose |
-|------|---------|
-| `20250325000000_initial.sql` | Core schema: profiles, visits, pain, MCAS episodes, medications, reactions, doctors, questions, diagnoses, tests, RLS, auth-related triggers, etc. |
-| `20250326000000_visit_docs_storage.sql` | Private Storage bucket + policies for visit documents |
-| `20250403120000_doctor_visits_status.sql` | `doctor_visits.status`: `complete` \| `pending` (pending visits finish later) |
-| `20250404100000_appointments_visit_logged.sql` | Appointments + `visit_logged` for dashboard |
-| `20250404230000_symptom_logs.sql` | `symptom_logs` quick snapshots |
-| `20250405000000_missing_columns.sql` | Idempotent fixes: missing columns/tables on older DBs (`doctor_visits.status`, `mcas_episodes.activity`, `doctors`, `tests_ordered`, etc.) |
-| `20250406100000_medication_change_events.sql` | `medication_change_events` table + trigger on `current_medications` (insert/update/delete) for audit + handoff correlation |
-| `20250407100000_visit_docs_storage_update.sql` | Storage policy update on `visit-docs` so objects can be updated (needed for some client upload flows) |
-| `20250408100000_doctor_questions_specialty.sql` | `doctor_questions.doctor_specialty` (optional specialty when doctor is free text) |
-
-**Tests & orders → document uploads** use the private **`visit-docs`** bucket with paths `${user_id}/tests/${test_id}/...`. Apply `20250326000000_visit_docs_storage.sql` and `20250407100000_visit_docs_storage_update.sql` on your Supabase project, or uploads will fail at the storage API.
-
-If the app errors with **“column not found”** or **“schema cache”** issues, the remote database is usually missing the latest migration—re-apply and refresh the Supabase API schema if needed.
-
-### Authentication
-
-- Enable **Email** provider under **Authentication → Providers** as needed.
-- Configure **email confirmation** according to your security preference.
-- New users typically get a `profiles` row via patterns in the initial migration—verify triggers match your project.
+- **Reason for visit** — you can pick from **past reasons** or type a new one.
+- **Save as quick button** — if you type a reason you want to reuse, you can **pin** it so it stays at the top of your quick picks (saved on **this device/browser**).
+- You can save a visit as **complete** or **pending** and finish details later.
 
 ---
 
-## Medication change events and correlation
+## Doctors
 
-Two mechanisms work together:
+**My Doctors** is your address book of providers.
 
-1. **Database trigger** (`20250406100000_medication_change_events.sql`): Any insert/update/delete on `current_medications` writes a row to `medication_change_events` (`start` / `adjustment` / `stop` with previous/new dose and frequency when applicable).
+- Tap a doctor to open a **profile** with visits, questions, diagnoses, medications, and tests linked to that name.
+- **Phone** — tap to start a **call** on your phone (uses your phone’s dialer).
+- **Address** — tap to open **Google Maps** (or your map app) with directions search.
+- **Archive** — instead of deleting someone forever, you can **archive** them and optionally note why (retired, switched clinics, and so on). Archived doctors move to an **Archived** section; you can **restore** them later.
 
-2. **App “Log dose change”** (Medications page): Inserts an explicit `medication_change_events` row and can update **dose, frequency, effectiveness, side effects** on the current medication row when you save from that popup—so your handoff and lists stay coherent.
+**Diagnoses** you log on a doctor’s profile are meant to stay in sync with your main **Diagnoses directory** when the app can match the names—so you are not maintaining two totally separate lists by hand.
 
-**Handoff narrative** (`src/lib/handoffNarrative.ts` + `src/lib/medSymptomCorrelation.ts`) compares **loose** before/after windows (~3 weeks) of pain and symptom episode counts around each event. This is **not** clinical inference of causation—it's a **timeline hint** for you and your doctor.
+---
+
+## Questions for your doctor
+
+The **Questions** area is where you write things you want to remember to ask.
+
+- You can track **priority**, **whether it was answered**, and sometimes tie a question to an **appointment date**.
+- On the **Dashboard**, upcoming appointments can show if you still have **open questions** for that doctor—so you remember to bring them up or to log answers after the visit.
+
+---
+
+## Medications
+
+Track **current medications**, doses, how often you take them, and notes (for example who prescribed them). You can log **dose changes** over time so your summary can mention what changed and when.
+
+**PRN** means “as needed”—your app may let you mark that separately from scheduled doses.
+
+---
+
+## Tests & orders
+
+List **tests** (labs, imaging, and similar) with **status** (pending, completed, and so on) and optional documents if your setup supports uploads.
+
+---
+
+## Diagnoses directory
+
+A **single place** to see conditions you are tracking, their **status** (for example suspected vs confirmed), **dates**, and **which doctor** they are linked to—grouped so you can expand or collapse by provider.
+
+**Quick add** chips can speed up common diagnosis names; you can still type your own.
 
 ---
 
 ## Clinical handoff summary
 
-### Where it lives
+This feature **reads the information you already saved** and writes a **first-person story**—as if you are speaking to a clinician—covering recent pain/episodes, medications, changes, visits, and your questions.
 
-- **UI:** Dashboard → **Clinical handoff summary** → opens a **bottom sheet / panel** (generate, optional depth, patient focus, PDF, links).
-- **App narrative:** `src/lib/handoffNarrative.ts` — first-person template, including:
-  - Title line with date
-  - Opening context (diagnoses + current meds)
-  - **Past 30 days** pain/symptom highlights (counts, average, flares ≥7, areas, character; top symptoms)
-  - **What I need to address today**
-  - **Recent visits** / **Recent results**
-  - **Medication changes & what happened** (correlation bullets)
-  - **My questions for you**
+- You can often choose **short** vs **more thorough** wording inside the app.
+- You may optionally use **AI** to polish the text **if** whoever hosts the app turned that on (it uses a secure server; you do not paste API keys yourself).
+- You can **download a PDF** of the summary on your device.
 
-### Optional AI
-
-- Client sends **compact context** from `src/lib/summaryContext.ts` to `generate-summary`.
-- If the function fails or keys are missing, the UI still shows the **app-generated** narrative and may show a short diagnostic message.
-- **Patient focus** text is optional; it is persisted in `localStorage` (`mb-handoff-focus`) for convenience when generating again.
-
-### PDF
-
-- Implemented in `src/lib/summaryPdf.ts` using **jsPDF** (browser-only download).
+The summary is a **draft meant to help you communicate**. Always **double-check** facts before sharing; **do not** treat it as a prescription or a diagnosis.
 
 ---
 
-## Storage (visit documents)
+## Privacy in plain words
 
-- Private bucket (see `20250326000000_visit_docs_storage.sql`, commonly `visit-docs`).
-- Policies restrict object access to the owning authenticated user.
-- Used by visit-related flows after migrations and bucket creation.
-
----
-
-## Deploying the frontend
-
-Typical static hosts: **Cloudflare Pages**, Netlify, Vercel, etc.
-
-| Setting | Value |
-|---------|--------|
-| Install | `npm ci` (ensure `package-lock.json` is committed) or `npm install` |
-| Build | `npm run build` |
-| Output | `dist` |
-| Env | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
-
-Do **not** expose the **service role** key or LLM keys in frontend environment variables.
+- Your entries are tied to **your login**.
+- **Do not** post screenshots of the app in public places if they show private information.
+- If you use **optional AI**, a compact version of your summary context may be sent to an AI provider **through the app’s backend** when that feature is enabled—only the person hosting the app can confirm exactly what is sent.
 
 ---
 
-## Deploying the AI Edge Function
+## If something looks wrong
 
-1. Install and log in to Supabase CLI.
-2. Link your project: `supabase link --project-ref YOUR_PROJECT_REF`
-3. Set secrets (see [Environment variables](#environment-variables)).
-4. Deploy:
-
-```bash
-supabase functions deploy generate-summary
-```
-
-Code: `supabase/functions/generate-summary/index.ts`.
-
-If you do not deploy the function, the app **still works** with the built-in narrative.
+- **Blank charts** — you may need more entries, or **fill in time** for time-of-day charts and **location** for area rankings.
+- **Errors after an update** — whoever maintains your database may need to run the latest **SQL migrations** (technical step—see **DEVELOPERS.md**).
+- **Notifications** — phones differ; you may need to allow notifications in **system settings** and, on iPhone, sometimes add the site to your **Home Screen** first.
 
 ---
 
-## Troubleshooting
+## Where to get help
 
-| Symptom | Likely cause | What to try |
-|---------|----------------|-------------|
-| `npm ci` fails / lockfile missing packages | Lockfile out of sync | Run `npm install`, commit `package-lock.json` |
-| Type errors about missing `@types/*` | Corrupted or empty `node_modules` (e.g. cloud sync) | Delete broken folders under `node_modules/@types`, run `npm install` |
-| “Column not found” / schema cache | Migration not applied | Run latest SQL migrations on Supabase |
-| Edge Function invoke error | Not deployed, CORS, or missing secrets | Deploy function; set `ANTHROPIC_API_KEY`; check function logs |
-| Pain/symptom data “missing” in summary | Date range | Summary aggregates ~90 days; opening paragraph emphasizes last 30 days where data exists |
-| Medication correlation empty | No change events | Add/adjust meds or use **Log dose change**; ensure migration `20250406100000_*` is applied |
+- **Day-to-day use** — refer back to this guide.
+- **Hosting, passwords reset by admin, or database errors** — talk to whoever **set up** your copy of Medical Bible, or read **DEVELOPERS.md** if you are that person.
 
 ---
 
-## Security and compliance
+## Quick map of the app (optional)
 
-- This README is **not legal advice**. HIPAA, GDPR, and regional health-privacy rules may apply depending on how you host and who uses the app.
-- Use **HTTPS**, strong passwords, and **RLS** on all user tables.
-- Prefer **Edge Functions** (or another server) for third-party AI keys.
-- If the repo lives in **OneDrive/iCloud**, occasional file-sync conflicts in `node_modules` can break installs; clean reinstall or exclude `node_modules` from sync.
+| You want to…              | Look for…                          |
+|---------------------------|------------------------------------|
+| Log pain or an episode fast | Dashboard → Quick log, or **Log** |
+| See old pain/episodes     | **Records**                        |
+| See graphs                | **Charts & trends**                |
+| Log or finish a visit     | **Visits**                         |
+| Manage doctors            | **My Doctors**                     |
+| List questions            | **Questions**                      |
+| Meds list                 | **Medications**                    |
+| Labs / imaging            | **Tests** (wording may vary)       |
+| Conditions list           | **Diagnoses**                      |
+| Big summary for a visit   | **Clinical handoff** on Dashboard |
 
----
-
-## Project structure
-
-```
-src/
-  App.tsx                    # Routes and auth guard
-  main.tsx                   # React root + BrowserRouter
-  index.css                  # Global pastel theme, buttons, cards, modals
-  components/
-    AppLayout.tsx            # Shell: header, outlet
-    VisitLogWizard.tsx       # Visit logging flow
-    ...                      # Other shared components
-  contexts/
-    AuthContext.tsx          # Supabase session
-  pages/
-    DashboardPage.tsx        # Home, handoff modal, bento links
-    QuickLogPage.tsx
-    RecordsPage.tsx
-    AnalyticsPage.tsx
-    MedicationsPage.tsx      # PRN toggle, dose-change popup, archive
-    DoctorsPage.tsx
-    DoctorProfilePage.tsx
-    TestsOrderedPage.tsx
-    QuestionsArchivePage.tsx
-    DiagnosesDirectoryPage.tsx
-    VisitsPage.tsx
-    LoginPage.tsx
-  lib/
-    supabase.ts              # Browser client
-    handoffNarrative.ts      # First-person handoff template
-    medSymptomCorrelation.ts # Loose med change vs pain/symptom windows
-    summaryContext.ts        # Compact blob for optional AI
-    summaryPdf.ts            # PDF download
-    parse.ts                 # Text helpers (areas, triggers, etc.)
-supabase/
-  migrations/                # Ordered SQL
-  functions/
-    generate-summary/        # Optional Claude / OpenAI handoff
-public/                      # Icons, manifest (if used)
-index.html                   # Entry HTML (e.g. theme-color)
-.env.example                 # Template for VITE_* only
-package.json
-```
+Names on the buttons might match these ideas even if the exact label is slightly different in your version.
 
 ---
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Vite dev server |
-| `npm run build` | `tsc -b` + production bundle to `dist/` |
-| `npm run preview` | Serve `dist/` locally |
-
-**Playwright** is listed in `devDependencies`; add or document test commands if you introduce a standard `npm test` workflow.
-
----
-
-## License / contributing
-
-Add a **LICENSE** and contribution guidelines if you open-source or share the repository. When adding features:
-
-- Prefer **new forward-only migrations** with clear timestamps.
-- Document new **VITE_** vars here and new **Edge secrets** in the same section.
-- Keep the ** anon** key in the client only; never commit `.env` with real secrets.
-
-If you maintain a fork for a clinical study or caregiver use, document data retention and access controls separately.
+*This project is a personal health organizer. It does not provide medical advice.*

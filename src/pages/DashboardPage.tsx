@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
@@ -420,15 +420,23 @@ function SummaryModal ({
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   const [pendingCount, setPendingCount] = useState(0)
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
+  const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
   const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('handoff') !== '1') return
+    setSummaryOpen(true)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (!user) return
@@ -473,6 +481,13 @@ export function DashboardPage () {
           .eq('status', 'pending')
         setPendingCount(count ?? 0)
       } catch { setPendingCount(0) }
+
+      const { count: oq } = await supabase
+        .from('doctor_questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .eq('status', 'Unanswered')
+      setOpenQsCount(oq ?? 0)
     }
     load()
   }, [user])
@@ -743,13 +758,13 @@ export function DashboardPage () {
         />
       )}
 
-      <div style={{ display: 'grid', gap: 14, padding: '8px 0 40px' }}>
+      <div style={{ display: 'grid', gap: 18, padding: '4px 0 40px' }}>
 
         {/* UPCOMING APPOINTMENTS */}
         {upcoming.length > 0 && (
-          <div className="banner info" style={{ marginBottom: 0 }}>
+          <div className="scrapbook-card scrapbook-card--tape-butter scrapbook-card--tilt1">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <strong>Upcoming appointments</strong>
+              <strong style={{ fontFamily: 'var(--font-serif)', fontSize: '1.02rem', color: '#3d3428' }}>Upcoming appointments</strong>
               {'Notification' in window && Notification.permission === 'default' && (
                 <button
                   type="button"
@@ -759,11 +774,11 @@ export function DashboardPage () {
                     if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
                   })}
                 >
-                  🔔 Enable reminders
+                  Enable reminders
                 </button>
               )}
             </div>
-            <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+            <ul style={{ margin: '10px 0 0', paddingLeft: 18 }}>
               {upcoming.map((u) => {
                 const pendingQ = apptPendingQ[u.doctor] ?? 0
                 return (
@@ -780,7 +795,7 @@ export function DashboardPage () {
                         background: '#f59e0b', color: '#fff',
                         padding: '1px 7px', borderRadius: 20, display: 'inline-block',
                       }}>
-                        {pendingQ} question{pendingQ !== 1 ? 's' : ''} pending
+                        {pendingQ} Q{pendingQ !== 1 ? 's' : ''}
                       </span>
                     )}
                   </li>
@@ -792,20 +807,32 @@ export function DashboardPage () {
 
         {/* PENDING VISITS NUDGE */}
         {pendingCount > 0 && (
-          <button
-            type="button"
-            className="btn btn-butter btn-block"
-            onClick={() => navigate('/app/visits?tab=pending')}
-            style={{ justifyContent: 'space-between', textAlign: 'left' }}
-          >
-            <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
-            <span style={{ fontWeight: 400 }}>Open →</span>
-          </button>
+          <div className="scrapbook-card scrapbook-card--tape-mint scrapbook-card--tilt2" style={{ padding: 12 }}>
+            <button
+              type="button"
+              className="btn btn-butter btn-block"
+              onClick={() => navigate('/app/visits?tab=pending')}
+              style={{ justifyContent: 'space-between', textAlign: 'left', margin: 0 }}
+            >
+              <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''} — finish them</span>
+              <span style={{ fontWeight: 400 }}>Open →</span>
+            </button>
+          </div>
+        )}
+
+        {/* OPEN QUESTIONS — single stat (no pain/episode counts) */}
+        {openQsCount !== null && (
+          <div className="scrapbook-card scrapbook-card--tape-sky scrapbook-card--tilt3">
+            <div className="scrapbook-stat-openqs">
+              <div className="stat-value">{openQsCount}</div>
+              <div className="stat-label">OPEN QUESTIONS</div>
+            </div>
+          </div>
         )}
 
         {/* LOG TODAY */}
-        <div className="card">
-          <span className="card-section-label">Log today</span>
+        <div className="scrapbook-card scrapbook-card--tape-mint scrapbook-card--tilt2">
+          <span className="card-section-label">Quick log</span>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 6 }}>
             <Link to="/app/log?tab=pain" className="log-tile blush">
               <span className="tile-label">Pain</span>
@@ -827,9 +854,9 @@ export function DashboardPage () {
         </div>
 
         {/* HANDOFF SUMMARY — compact trigger card */}
-        <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div className="scrapbook-card scrapbook-card--tape-lavender scrapbook-card--tilt3" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--mint-ink)' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', fontFamily: 'var(--font-serif)', color: '#3d3428' }}>
               Clinical handoff summary
             </div>
             <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
@@ -854,7 +881,7 @@ export function DashboardPage () {
         </div>
 
         {/* YOUR CARE & RECORDS */}
-        <div className="card">
+        <div className="scrapbook-card scrapbook-card--tape-sky scrapbook-card--tilt1">
           <span className="card-section-label">Your care &amp; records</span>
           <div className="bento-grid" style={{ marginTop: 8 }}>
             <Link to="/app/doctors" className="bento-cell">
