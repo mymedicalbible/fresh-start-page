@@ -850,25 +850,6 @@ export function DashboardPage () {
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">UPCOMING</div>
-          {upcoming.length > 0 && (
-            <div className="scrap-upcoming-headline" aria-live="polite">
-              <span className="scrap-upcoming-headline-k">Doctor</span>
-              {' '}
-              {upcoming[0].doctorId ? (
-                <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-headline-name">
-                  {upcoming[0].doctor || '—'}
-                </Link>
-              ) : (
-                <span className="scrap-upcoming-headline-name">{upcoming[0].doctor || '—'}</span>
-              )}
-              <span className="scrap-upcoming-headline-sep"> · </span>
-              <span className="scrap-upcoming-headline-k">Specialty</span>
-              <span className="scrap-upcoming-headline-spec">
-                {' '}
-                {upcoming[0].specialty?.trim() || '—'}
-              </span>
-            </div>
-          )}
           {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
