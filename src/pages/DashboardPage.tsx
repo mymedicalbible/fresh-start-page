@@ -560,12 +560,6 @@ export function DashboardPage () {
   const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [nowMs, setNowMs] = useState(() => Date.now())
-
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 60_000)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
@@ -914,13 +908,6 @@ export function DashboardPage () {
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   const hasAnyPendingVisits = pendingDockEntries.length > 0
 
-  /** Filter out appointments that ended more than 2 hours ago (auto-expires banner). */
-  const liveUpcoming = upcoming.filter((a) => {
-    const apptMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '23:59'}`).getTime()
-    const expiresAt = apptMs + 2 * 60 * 60 * 1000
-    return nowMs < expiresAt
-  })
-
   return (
     <>
       {/* SUMMARY MODAL */}
@@ -954,93 +941,138 @@ export function DashboardPage () {
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">UPCOMING</div>
-          {liveUpcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+          {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
               className="btn btn-ghost scrap-reminders-prompt"
               onClick={() => {
                 void Notification.requestPermission().then((p) => {
-                  if (p === 'granted') scheduleApptNotifications(liveUpcoming, apptPendingQ)
+                  if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
                 })
               }}
             >
               Enable visit reminders
             </button>
           )}
-          {liveUpcoming.length === 0 && !hasAnyPendingVisits && (
+          {upcoming.length === 0 && !hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
-          {liveUpcoming.length > 0 && (
-              <div className="scrap-upcoming-hero">
-                <div className="scrap-upcoming-hero-label">Next appointment</div>
-                {liveUpcoming[0].doctorId ? (
-                  <Link to={`/app/doctors/${liveUpcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
-                    {liveUpcoming[0].doctor?.trim() || 'Doctor'}
-                  </Link>
-                ) : (
-                  <div className="scrap-upcoming-hero-name">{liveUpcoming[0].doctor?.trim() || 'Doctor'}</div>
-                )}
-                <div className="scrap-upcoming-hero-spec">
-                  <span className="scrap-upcoming-hero-spec-k">Specialty</span>
-                  {liveUpcoming[0].specialty?.trim() ? ` · ${liveUpcoming[0].specialty.trim()}` : ' · —'}
-                </div>
-                <div className="scrap-upcoming-hero-when">
-                  {format(new Date(`${liveUpcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
-                  {liveUpcoming[0].appointment_time
-                    ? ` at ${String(liveUpcoming[0].appointment_time).slice(0, 5)}`
-                    : ''}
-                  {(() => {
-                    const pq = apptPendingQ[liveUpcoming[0].doctor ?? ''] ?? 0
-                    if (pq <= 0) return null
-                    return (
-                      <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
-                    )
-                  })()}
-                </div>
+          {upcoming.length === 0 && hasAnyPendingVisits && (
+            <div className="scrap-upcoming-pending-docked">
+              <p className="scrap-body scrap-body--muted scrap-upcoming-pending-docked-intro">
+                No upcoming appointments. Visits still waiting to be finished:
+              </p>
+              <ul className="scrap-upcoming-pending-dock-list">
+                {pendingDockEntries.map(({ norm, count, label, resumeId }) => (
+                  <li key={norm}>
+                    <button
+                      type="button"
+                      className="scrap-pending-line scrap-pending-line--in-hero"
+                      onClick={() => {
+                        if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
+                        else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+                      }}
+                    >
+                      {count === 1
+                        ? `Continue visit log — ${label} →`
+                        : `Continue latest visit — ${label} (${count} in progress) →`}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {upcoming.length > 0 && (
+            <div className="scrap-upcoming-hero">
+              <div className="scrap-upcoming-hero-label">Next appointment</div>
+              {upcoming[0].doctorId ? (
+                <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
+                  {upcoming[0].doctor?.trim() || 'Doctor'}
+                </Link>
+              ) : (
+                <div className="scrap-upcoming-hero-name">{upcoming[0].doctor?.trim() || 'Doctor'}</div>
+              )}
+              <div className="scrap-upcoming-hero-spec">
+                <span className="scrap-upcoming-hero-spec-k">Specialty</span>
+                {upcoming[0].specialty?.trim() ? ` · ${upcoming[0].specialty.trim()}` : ' · —'}
+              </div>
+              <div className="scrap-upcoming-hero-when">
+                {format(new Date(`${upcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
+                {upcoming[0].appointment_time
+                  ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
+                  : ''}
                 {(() => {
-                  const doc = liveUpcoming[0].doctor?.trim()
-                  const norm = doc ? normDoctorName(doc) : ''
-                  const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
-                  const newUrl = doc
-                    ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
-                    : '/app/visits?new=1'
+                  const pq = apptPendingQ[upcoming[0].doctor ?? ''] ?? 0
+                  if (pq <= 0) return null
                   return (
-                    <>
-                      {resumeId ? (
-                        <Link
-                          to={`/app/visits?resume=${resumeId}`}
-                          className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
-                        >
-                          Continue visit log — finish this appointment →
-                        </Link>
-                      ) : (
-                        <Link to={newUrl} className="scrap-upcoming-visit-log-link">
-                          Start visit log for this appointment →
-                        </Link>
-                      )}
-                    </>
+                    <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
                   )
                 })()}
               </div>
-          )}
-          {/* Pending visits shown as stickers — under appt hero if one exists, or alone if not */}
-          {hasAnyPendingVisits && (
-            <PendingVisitStickers
-              entries={pendingDockEntries}
-              onNavigate={(resumeId, label) => {
-                if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
-                else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
-              }}
-              onDismiss={(norm) => {
-                setPendingVisitsByNorm((prev) => {
-                  const next = { ...prev }
-                  delete next[norm]
-                  return next
-                })
-              }}
-            />
+              {(() => {
+                const doc = upcoming[0].doctor?.trim()
+                const norm = doc ? normDoctorName(doc) : ''
+                const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
+                const newUrl = doc
+                  ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
+                  : '/app/visits?new=1'
+                return (
+                  <>
+                    {resumeId ? (
+                      <Link
+                        to={`/app/visits?resume=${resumeId}`}
+                        className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
+                      >
+                        Continue visit log — finish this appointment →
+                      </Link>
+                    ) : (
+                      <Link to={newUrl} className="scrap-upcoming-visit-log-link">
+                        Start visit log for this appointment →
+                      </Link>
+                    )}
+                    {pendingDockEntries.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        {pendingDockEntries.map(({ norm: pNorm, count, label, resumeId: pResume }) => (
+                          <button
+                            key={pNorm}
+                            type="button"
+                            className="scrap-pending-line scrap-pending-line--in-hero"
+                            onClick={() => {
+                              if (pResume) navigate(`/app/visits?resume=${pResume}`)
+                              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+                            }}
+                          >
+                            {count === 1
+                              ? `Unfinished visit — ${label} →`
+                              : `${count} unfinished visits — ${label} →`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
           )}
         </section>
+
+        {/* Pending visit stickers — outside the banner, below it */}
+        {upcoming.length > 0 && hasAnyPendingVisits && (
+          <PendingVisitStickers
+            entries={pendingDockEntries}
+            onNavigate={(resumeId, label) => {
+              if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
+              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+            }}
+            onDismiss={(norm) => {
+              setPendingVisitsByNorm((prev) => {
+                const next = { ...prev }
+                delete next[norm]
+                return next
+              })
+            }}
+          />
+        )}
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">
