@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -27,6 +28,47 @@ function nowTime () {
 }
 
 type QuestionLine = { text: string; priority: string }
+
+function normPin (s: string) {
+  return s
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function priorityBtnLook (p: 'High' | 'Medium' | 'Low', active: boolean): CSSProperties {
+  const base: CSSProperties = {
+    flex: 1,
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    borderWidth: 2,
+    borderStyle: 'solid',
+  }
+  if (p === 'Low') {
+    return {
+      ...base,
+      borderColor: active ? '#22c55e' : '#bbf7d0',
+      background: active ? '#d1fae5' : '#f7fee7',
+      color: active ? '#065f46' : '#64748b',
+    }
+  }
+  if (p === 'Medium') {
+    return {
+      ...base,
+      borderColor: active ? '#eab308' : '#fde68a',
+      background: active ? '#fef3c7' : '#fffbeb',
+      color: active ? '#92400e' : '#64748b',
+    }
+  }
+  return {
+    ...base,
+    borderColor: active ? '#ef4444' : '#fecaca',
+    background: active ? '#fee2e2' : '#fef2f2',
+    color: active ? '#991b1b' : '#64748b',
+  }
+}
 
 export function VisitLogWizard ({
   resumeVisitId,
@@ -308,21 +350,29 @@ export function VisitLogWizard ({
     navigate('/app')
   }
 
+  function isReasonPinned (text: string) {
+    const n = normPin(text)
+    return pinnedReasons.some((x) => normPin(x) === n)
+  }
+
   function pinReason (r: string) {
-    if (!r.trim() || pinnedReasons.includes(r.trim())) return
-    const next = [r.trim(), ...pinnedReasons].slice(0, 20)
+    const t = r.trim()
+    if (!t) return
+    if (pinnedReasons.some((x) => normPin(x) === normPin(t))) return
+    const next = [t, ...pinnedReasons].slice(0, 20)
     setPinnedReasons(next)
     try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   function unpinReason (r: string) {
-    const next = pinnedReasons.filter((x) => x !== r)
+    const needle = normPin(r)
+    const next = pinnedReasons.filter((x) => normPin(x) !== needle)
     setPinnedReasons(next)
     try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   const chipRow = useMemo(() => {
-    const unpinned = pastReasons.filter((r) => !pinnedReasons.includes(r))
+    const unpinned = pastReasons.filter((r) => !pinnedReasons.some((p) => normPin(p) === normPin(r)))
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
         {pinnedReasons.map((r) => (
@@ -338,8 +388,12 @@ export function VisitLogWizard ({
             <button
               type="button"
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '0.7rem', color: '#9ca3af', lineHeight: 1 }}
-              title="Unpin"
-              onClick={() => unpinReason(r)}
+              title="Remove from quick picks"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                unpinReason(r)
+              }}
             >✕</button>
           </span>
         ))}
@@ -401,7 +455,7 @@ export function VisitLogWizard ({
           <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — tap a saved/past reason or type</p>
           {chipRow}
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="In your own words…" rows={3} style={{ marginTop: 8, width: '100%' }} />
-          {reason.trim() && !pinnedReasons.includes(reason.trim()) && (
+          {reason.trim() && !isReasonPinned(reason) && (
             <button
               type="button"
               className="btn btn-ghost"
@@ -411,16 +465,16 @@ export function VisitLogWizard ({
               📌 Save as quick button
             </button>
           )}
-          {reason.trim() && pinnedReasons.includes(reason.trim()) && (
+          {reason.trim() && isReasonPinned(reason) && (
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: '0.78rem', color: '#4a7a32' }}>📌 In your quick picks</span>
               <button
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: '0.78rem', padding: '3px 10px' }}
-                onClick={() => unpinReason(reason.trim())}
+                onClick={() => unpinReason(reason)}
               >
-                Unpin from quick picks
+                Remove from quick picks
               </button>
             </div>
           )}
@@ -448,8 +502,7 @@ export function VisitLogWizard ({
                     <button
                       key={p}
                       type="button"
-                      className={`btn ${line.priority === p ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ flex: 1, fontSize: '0.82rem' }}
+                      style={priorityBtnLook(p, line.priority === p)}
                       onClick={() => setQuestionLines((prev) => prev.map((x, j) => (j === i ? { ...x, priority: p } : x)))}
                     >
                       {p}
@@ -488,71 +541,6 @@ export function VisitLogWizard ({
             + Add another question
           </button>
 
-          {visitId && (
-            <div className="form-group" style={{ marginTop: 4 }}>
-              <label style={{ fontWeight: 600 }}>Documents / photos (optional)</label>
-              <p style={{ margin: '4px 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
-                Upload reports or photos for this visit. Files upload when you save the visit on the last step (or stay queued below until then).
-              </p>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                ref={visitFileInputRef}
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? [])
-                  setPendingVisitFiles((prev) => [...prev, ...files])
-                  if (visitFileInputRef.current) visitFileInputRef.current.value = ''
-                }}
-              />
-              {pendingVisitFiles.length > 0 && (
-                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
-                  {pendingVisitFiles.map((f, idx) => (
-                    <div key={`${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="muted" style={{ fontSize: '0.85rem' }}>{f.name}</span>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ fontSize: '0.75rem', color: 'red' }}
-                        onClick={() => setPendingVisitFiles((prev) => prev.filter((_, j) => j !== idx))}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {visitDocList.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Already attached</div>
-                  {visitDocList.map((d) => (
-                    <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4, alignItems: 'center' }}>
-                      <span className="muted" style={{ fontSize: '0.82rem' }}>{d.name}</span>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {d.signedUrl && (
-                          <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
-                        )}
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ fontSize: '0.75rem', color: '#b91c1c' }}
-                          disabled={visitDocBusy}
-                          onClick={async () => {
-                            if (!user || !visitId) return
-                            setVisitDocBusy(true)
-                            await deleteVisitDocument(user.id, visitId, d.name)
-                            await refreshVisitDocs()
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>←</button>
             <button type="button" className="btn btn-primary" style={{ flex: 2 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
@@ -574,11 +562,30 @@ export function VisitLogWizard ({
           ))}
           <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setDvTests((p) => [...p, { test_name: '', reason: '' }])}>+ Test</button>
 
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '12px 0 4px' }}>Medications</p>
+          {dvMeds.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
+              <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setDvMeds((p) => p.map((x, j) => j === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
+                {m.action === 'remove' ? 'Undo' : 'Remove'}
+              </button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
+            <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+            <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
+          </div>
+
+          <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%', marginTop: 10 }} />
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
+
           {visitId && (
-            <div className="form-group" style={{ marginTop: 14 }}>
+            <div className="form-group" style={{ marginTop: 12 }}>
               <label style={{ fontWeight: 600 }}>Documents / photos (optional)</label>
               <p style={{ margin: '4px 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
-                Add or remove files for this visit (same storage as Tests & orders). Queued files upload when you tap Save below.
+                Same storage as Tests & orders. Queued files upload when you tap Save visit or Save as pending below.
               </p>
               <input
                 type="file"
@@ -632,25 +639,6 @@ export function VisitLogWizard ({
               )}
             </div>
           )}
-
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '12px 0 4px' }}>Medications</p>
-          {dvMeds.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
-              <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setDvMeds((p) => p.map((x, j) => j === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
-                {m.action === 'remove' ? 'Undo' : 'Remove'}
-              </button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-            <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
-            <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
-            <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
-          </div>
-
-          <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%', marginTop: 10 }} />
-          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
 
           <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '10px 0 4px' }}>Next appointment</p>
           <div style={{ display: 'flex', gap: 8 }}>
