@@ -1262,8 +1262,8 @@ a.scrap-upcoming-hero-name:hover {
   gap: 14px;
   width: 100%;
   align-items: flex-start;
-  /* room above for tape (-8px) and below for lifted-bottom shadow */
-  padding: 12px 4px 18px;
+  /* room above for pin (-9px) and below for lifted-bottom shadow */
+  padding: 14px 4px 18px;
 }
 
 /* ── WRAPPER ─────────────────────────────────────────────── */
@@ -1280,29 +1280,30 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-sticker-wrapper:nth-child(2) { transform: rotate(0.8deg);  }
 .scrap-pending-sticker-wrapper:nth-child(3) { transform: rotate(-0.5deg); }
 
-/* ── TAPE STRIP ──────────────────────────────────────────── */
-/* Frosted-tape centered at the top with faint vertical lines */
+/* ── ROUND PUSH PIN ─ top center ─────────────────────────── */
 .scrap-pending-sticker-wrapper::before {
   content: '';
   position: absolute;
-  top: -8px;
+  top: -9px;
   left: 50%;
   transform: translateX(-50%);
-  width: 44px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   z-index: 5;
   pointer-events: none;
-  border-radius: 2px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(255,255,255,0.22) 0px,
-      rgba(255,255,255,0.22) 2px,
-      transparent 2px,
-      transparent 5px
-    ),
-    rgba(210, 240, 155, 0.52);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.14);
+  background: radial-gradient(
+    circle at 32% 28%,
+    #f4f6f3 0%,
+    #c9d0c6 35%,
+    #8a9387 72%,
+    #5c6459 100%
+  );
+  box-shadow:
+    0 2px 5px rgba(0,0,0,0.22),
+    0 3px 8px rgba(0,0,0,0.12),
+    inset 0 1px 1px rgba(255,255,255,0.45),
+    inset 0 -2px 4px rgba(0,0,0,0.12);
 }
 
 /* ── LIFTED-BOTTOM SHADOW ────────────────────────────────── */
@@ -1338,8 +1339,8 @@ a.scrap-upcoming-hero-name:hover {
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s;
   overflow: hidden;
-  /* Lime green matching reference image */
-  background: linear-gradient(170deg, #b8e04e 0%, #a2d038 55%, #96c42e 100%);
+  /* Soft sage paper */
+  background: linear-gradient(170deg, #dce5d8 0%, #c4d1bd 50%, #aab99f 100%);
   /* Soft transparent multi-layer shadow */
   box-shadow:
     0 1px 2px rgba(0,0,0,0.10),
@@ -1380,7 +1381,7 @@ a.scrap-upcoming-hero-name:hover {
 }
 
 .scrap-pending-sticker--pressed {
-  outline: 2px solid rgba(255,220,0,0.7);
+  outline: 2px solid rgba(90,110,85,0.45);
   outline-offset: 2px;
 }
 
@@ -1388,7 +1389,7 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
   font-size: 0.79rem;
-  color: #1c3800;
+  color: #2d3a28;
   line-height: 1.35;
   word-break: break-word;
   display: -webkit-box;
@@ -1400,7 +1401,7 @@ a.scrap-upcoming-hero-name:hover {
 /* Visit count */
 .scrap-pending-sticker__count {
   font-size: 0.60rem;
-  color: #2d5000;
+  color: #3d4a38;
   font-style: italic;
   margin-top: 3px;
 }
@@ -1411,7 +1412,7 @@ a.scrap-upcoming-hero-name:hover {
   bottom: 6px;
   left: 8px;
   font-size: 0.52rem;
-  color: #2d5000;
+  color: #4a5a44;
   letter-spacing: 0.02em;
 }
 
@@ -1426,10 +1427,10 @@ a.scrap-upcoming-hero-name:hover {
   align-items: center;
   gap: 5px;
   padding: 5px 18px;
-  background: rgba(100,160,0,0.09);
-  border: 1.5px solid rgba(100,160,0,0.28);
+  background: rgba(100,120,95,0.10);
+  border: 1.5px solid rgba(100,120,95,0.28);
   border-radius: 20px;
-  color: #2d5000;
+  color: #3d4a38;
   font-size: 0.74rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1438,7 +1439,7 @@ a.scrap-upcoming-hero-name:hover {
 
 .scrap-pending-more-btn:hover,
 .scrap-pending-more-btn:active {
-  background: rgba(100,160,0,0.20);
+  background: rgba(100,120,95,0.22);
 }
 
 /* Context menu for long-press dismiss */
