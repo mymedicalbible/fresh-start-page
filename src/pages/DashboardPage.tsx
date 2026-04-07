@@ -482,52 +482,55 @@ function PendingVisitStickers ({
   }
 
   return (
-    <div className="scrap-pending-sticker-row">
-      {visibleEntries.map(({ norm, count, label, resumeId }) => (
-        <div key={norm} className="scrap-pending-sticker-wrapper">
+    <div className="scrap-pending-section">
+      <div className="scrap-pending-sticker-row">
+        {visibleEntries.map(({ norm, count, label, resumeId }) => (
+          <div key={norm} className="scrap-pending-sticker-wrapper">
+            <button
+              type="button"
+              className={`scrap-pending-sticker${pressing === norm ? ' scrap-pending-sticker--pressed' : ''}`}
+              onPointerDown={() => startPress(norm)}
+              onPointerUp={() => { cancelPress(); if (openCtx !== norm) onNavigate(resumeId, label) }}
+              onPointerLeave={cancelPress}
+              onPointerCancel={cancelPress}
+              onClick={() => { if (openCtx === norm) setOpenCtx(null) }}
+            >
+              <div className="scrap-pending-sticker__doctor">{label}</div>
+              {count > 1 && (
+                <div className="scrap-pending-sticker__count">{count} unfinished</div>
+              )}
+              <span className="scrap-pending-sticker__hold">hold to dismiss</span>
+            </button>
+            {openCtx === norm && (
+              <div className="scrap-pending-ctx" role="menu">
+                <button type="button" className="scrap-pending-ctx__btn"
+                  onClick={() => { setOpenCtx(null); onNavigate(resumeId, label) }}>
+                  Continue this visit →
+                </button>
+                <button type="button" className="scrap-pending-ctx__btn scrap-pending-ctx__btn--danger"
+                  onClick={() => { setOpenCtx(null); onDismiss(norm) }}>
+                  Dismiss from dashboard
+                </button>
+                <button type="button" className="scrap-pending-ctx__btn"
+                  style={{ color: '#64748b' }}
+                  onClick={() => setOpenCtx(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {hiddenCount > 0 && (
+        <div className="scrap-pending-more-row">
           <button
             type="button"
-            className={`scrap-pending-sticker${pressing === norm ? ' scrap-pending-sticker--pressed' : ''}`}
-            onPointerDown={() => startPress(norm)}
-            onPointerUp={() => { cancelPress(); if (openCtx !== norm) onNavigate(resumeId, label) }}
-            onPointerLeave={cancelPress}
-            onPointerCancel={cancelPress}
-            onClick={() => { if (openCtx === norm) setOpenCtx(null) }}
+            className="scrap-pending-more-btn"
+            onClick={() => navigate('/app/visits')}
           >
-            <div className="scrap-pending-sticker__doctor">{label}</div>
-            {count > 1 && (
-              <div className="scrap-pending-sticker__count">{count} unfinished</div>
-            )}
-            <span className="scrap-pending-sticker__hold">hold to dismiss</span>
+            +{hiddenCount} more visit{hiddenCount > 1 ? 's' : ''} →
           </button>
-          {openCtx === norm && (
-            <div className="scrap-pending-ctx" role="menu">
-              <button type="button" className="scrap-pending-ctx__btn"
-                onClick={() => { setOpenCtx(null); onNavigate(resumeId, label) }}>
-                Continue this visit →
-              </button>
-              <button type="button" className="scrap-pending-ctx__btn scrap-pending-ctx__btn--danger"
-                onClick={() => { setOpenCtx(null); onDismiss(norm) }}>
-                Dismiss from dashboard
-              </button>
-              <button type="button" className="scrap-pending-ctx__btn"
-                style={{ color: '#64748b' }}
-                onClick={() => setOpenCtx(null)}>
-                Cancel
-              </button>
-            </div>
-          )}
         </div>
-      ))}
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          className="scrap-pending-more-btn"
-          title={`${hiddenCount} more unfinished visit${hiddenCount > 1 ? 's' : ''}`}
-          onClick={() => navigate('/app/visits')}
-        >
-          →
-        </button>
       )}
     </div>
   )

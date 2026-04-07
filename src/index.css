@@ -1241,78 +1241,174 @@ a.scrap-upcoming-hero-name:hover {
 }
 
 /* Pending-visit stickers shown under upcoming appt hero */
-/* ── Pending visit sticky-note row ───────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   PENDING VISIT STICKY NOTES — hyper-realistic
+   ═══════════════════════════════════════════════════════════ */
+
+/* Outer column: notes row + optional "more" link below */
+.scrap-pending-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 6px;
+}
+
+/* Notes sit side-by-side */
 .scrap-pending-sticker-row {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 10px;
-  margin: 14px 0 6px;
+  gap: 14px;
+  width: 100%;
   align-items: flex-start;
+  /* extra vertical room so the tape strip (-10px) doesn't clip */
+  padding: 12px 4px 6px;
 }
 
-/* Wrapper owns the fold ::after so it isn't clipped by the button's clip-path */
+/* ── wrapper: rotation + filter-shadow + tape + curl ───── */
 .scrap-pending-sticker-wrapper {
   flex: 1 1 0;
   min-width: 0;
   position: relative;
+  /* filter: drop-shadow traces the clipped polygon shape */
+  filter:
+    drop-shadow(0 1px 2px rgba(0,0,0,0.12))
+    drop-shadow(0 5px 10px rgba(0,0,0,0.16))
+    drop-shadow(0 14px 28px rgba(0,0,0,0.10));
 }
 
-/* Fold triangle at bottom-right corner */
+/* Per-note random tilt */
+.scrap-pending-sticker-wrapper:nth-child(1) { transform: rotate(-1.5deg); }
+.scrap-pending-sticker-wrapper:nth-child(2) { transform: rotate(0.8deg);  }
+.scrap-pending-sticker-wrapper:nth-child(3) { transform: rotate(-0.5deg); }
+
+/* ── TAPE: translucent strip at the top ─────────────────── */
+.scrap-pending-sticker-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 18px;
+  background: rgba(255, 248, 140, 0.55);
+  border-radius: 2px;
+  z-index: 5;
+  pointer-events: none;
+  /* Very faint lines across tape */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px, transparent 5px,
+    rgba(200,180,0,0.08) 5px, rgba(200,180,0,0.08) 6px
+  );
+}
+
+/* ── CURL: bottom-right corner fold ─────────────────────── */
+/*
+ * A 26×26px square sits in the cut corner.
+ * The diagonal gradient shows:
+ *   top-left  → transparent  (where the note's polygon already ends)
+ *   bottom-right → cream/back-of-paper color
+ * The box-shadow spreads upward-left, landing on the note surface to
+ * simulate the shadow cast by the lifted curl.
+ */
 .scrap-pending-sticker-wrapper::after {
   content: '';
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 0 22px 22px;
-  border-color: transparent transparent rgba(0,0,0,0.22) transparent;
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(
+    135deg,            /* top-left → bottom-right */
+    transparent 48%,   /* transparent triangle (upper-left half) */
+    #ddd09a 48%        /* back-of-paper cream (lower-right half) */
+  );
+  /* shadow falls UP-LEFT onto the note face */
+  box-shadow: -3px -3px 7px rgba(0,0,0,0.30);
+  z-index: 4;
   pointer-events: none;
-  z-index: 3;
 }
 
-/* The sticky note button */
+/* ── THE NOTE BUTTON ─────────────────────────────────────── */
 .scrap-pending-sticker {
   position: relative;
   display: block;
   width: 100%;
-  height: 90px;
-  padding: 10px 10px 10px;
-  background: #fef08a;
+  height: 100px;
+  padding: 10px 10px 8px;
   border: none;
-  border-radius: 1px;
-  /* cut the bottom-right corner so the fold shows through */
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
-  box-shadow:
-    4px 6px 18px rgba(0,0,0,0.20),
-    0 2px 5px rgba(0,0,0,0.10);
   cursor: pointer;
   text-align: left;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s, box-shadow 0.12s;
+  transition: transform 0.12s;
+  border-radius: 1px;
+  /* Paper gradient: brighter top-left, richer bottom */
+  background:
+    radial-gradient(ellipse at 30% 25%, rgba(255,254,230,0.70) 0%, transparent 65%),
+    linear-gradient(160deg, #fefce8 0%, #fef08a 45%, #fde047 100%);
+  /* Polygon cuts the bottom-right corner (matches wrapper ::after size) */
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 26px),
+    calc(100% - 26px) 100%,
+    0 100%
+  );
   overflow: hidden;
+}
+
+/* Paper grain texture overlay */
+.scrap-pending-sticker::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Fine horizontal lines + vertical lines = subtle weave */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 3px,
+      rgba(160,130,0,0.045) 3px, rgba(160,130,0,0.045) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 4px,
+      rgba(160,130,0,0.03) 4px, rgba(160,130,0,0.03) 5px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* All content floats above texture */
+.scrap-pending-sticker__doctor,
+.scrap-pending-sticker__count,
+.scrap-pending-sticker__hold {
+  position: relative;
+  z-index: 1;
 }
 
 .scrap-pending-sticker:active {
   transform: scale(0.96);
-  box-shadow: 1px 2px 5px rgba(0,0,0,0.1);
 }
 
-.scrap-pending-sticker--pressed {
-  outline: 2px solid #f59e0b;
-  outline-offset: 2px;
+.scrap-pending-sticker--pressed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(245,158,11,0.12);
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* Doctor name */
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
-  font-size: 0.82rem;
+  font-size: 0.80rem;
   color: #713f12;
-  line-height: 1.3;
+  line-height: 1.35;
   word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1320,48 +1416,48 @@ a.scrap-upcoming-hero-name:hover {
   overflow: hidden;
 }
 
-/* Count badge */
+/* Count */
 .scrap-pending-sticker__count {
-  font-size: 0.62rem;
+  font-size: 0.60rem;
   color: #92400e;
   font-style: italic;
   margin-top: 3px;
 }
 
-/* "hold to dismiss" ghost line */
+/* "hold to dismiss" bottom hint */
 .scrap-pending-sticker__hold {
   position: absolute;
   bottom: 6px;
   left: 8px;
-  font-size: 0.54rem;
+  font-size: 0.52rem;
   color: #a16207;
   letter-spacing: 0.02em;
 }
 
-/* "→ N more" overflow button */
-.scrap-pending-more-btn {
-  flex-shrink: 0;
-  align-self: center;
+/* ── "N more" row (centered below notes) ─────────────────── */
+.scrap-pending-more-row {
   display: flex;
-  align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: rgba(180,140,0,0.10);
-  border: 1.5px solid rgba(180,140,0,0.30);
-  border-radius: 50%;
+}
+
+.scrap-pending-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 18px;
+  background: rgba(180,140,0,0.09);
+  border: 1.5px solid rgba(180,140,0,0.28);
+  border-radius: 20px;
   color: #92400e;
-  font-size: 1rem;
-  line-height: 1;
+  font-size: 0.74rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s;
-  padding: 0;
 }
 
 .scrap-pending-more-btn:hover,
 .scrap-pending-more-btn:active {
-  background: rgba(180,140,0,0.22);
+  background: rgba(180,140,0,0.20);
 }
 
 /* Context menu for long-press dismiss */
