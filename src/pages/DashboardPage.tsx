@@ -53,6 +53,11 @@ function pendingVisitsForDoctor (byNorm: Record<string, number>, doc: string | n
   return byNorm[normDoctorName(d)] ?? 0
 }
 
+/** Matches Visits list: treat only explicit pending as pending (null/empty → complete). */
+function isDoctorVisitPendingStatus (status: string | null | undefined) {
+  return String(status ?? 'complete').trim().toLowerCase() === 'pending'
+}
+
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   const now = Date.now()
@@ -483,6 +488,8 @@ export function DashboardPage () {
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   /** Pending `doctor_visits` counts keyed by `normDoctorName(doctor)` */
   const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
+  /** First-seen display name per norm key (for links / copy when there is no upcoming row). */
+  const [pendingVisitLabelByNorm, setPendingVisitLabelByNorm] = useState<Record<string, string>>({})
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
@@ -558,19 +565,23 @@ export function DashboardPage () {
         }
       }
 
-      const { data: pendRows } = await supabase
+      const { data: pendRows, error: pendErr } = await supabase
         .from('doctor_visits')
-        .select('doctor')
+        .select('doctor, status')
         .eq('user_id', user!.id)
-        .eq('status', 'pending')
+      if (pendErr) console.warn('doctor_visits (pending load):', pendErr.message)
       const pendMap: Record<string, number> = {}
-      for (const row of (pendRows ?? []) as { doctor: string | null }[]) {
+      const pendLabels: Record<string, string> = {}
+      for (const row of (pendRows ?? []) as { doctor: string | null; status?: string | null }[]) {
+        if (!isDoctorVisitPendingStatus(row.status)) continue
         const d = row.doctor?.trim()
         if (!d) continue
         const k = normDoctorName(d)
         pendMap[k] = (pendMap[k] ?? 0) + 1
+        if (pendLabels[k] === undefined) pendLabels[k] = d
       }
       setPendingVisitsByNorm(pendMap)
+      setPendingVisitLabelByNorm(pendLabels)
 
       const { count: oq } = await supabase
         .from('doctor_questions')
@@ -828,6 +839,15 @@ export function DashboardPage () {
 
   if (!user) return <div>Loading...</div>
 
+  const pendingDockEntries = Object.entries(pendingVisitsByNorm)
+    .map(([norm, count]) => ({
+      norm,
+      count,
+      label: pendingVisitLabelByNorm[norm] ?? norm,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+  const hasAnyPendingVisits = pendingDockEntries.length > 0
+
   return (
     <>
       {/* SUMMARY MODAL */}
@@ -875,8 +895,30 @@ export function DashboardPage () {
               Enable visit reminders
             </button>
           )}
-          {upcoming.length === 0 && (
+          {upcoming.length === 0 && !hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
+          )}
+          {upcoming.length === 0 && hasAnyPendingVisits && (
+            <div className="scrap-upcoming-pending-docked">
+              <p className="scrap-body scrap-body--muted scrap-upcoming-pending-docked-intro">
+                No upcoming appointments. Visits still waiting to be finished:
+              </p>
+              <ul className="scrap-upcoming-pending-dock-list">
+                {pendingDockEntries.map(({ norm, count, label }) => (
+                  <li key={norm}>
+                    <button
+                      type="button"
+                      className="scrap-pending-line scrap-pending-line--in-hero"
+                      onClick={() => navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)}
+                    >
+                      {count === 1
+                        ? `1 visit with ${label} needs finishing — tap here`
+                        : `${count} visits with ${label} need finishing — tap here`}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {upcoming.length > 0 && (
             <>
