@@ -1417,6 +1417,19 @@ textarea { min-height: 88px; resize: vertical; }
   text-decoration: underline;
 }
 
+.scrap-dash-account-line {
+  text-align: center;
+  margin: 20px 0 8px;
+  font-family: var(--font-scrap);
+}
+
+.scrap-reminders-prompt {
+  font-size: 0.78rem !important;
+  padding: 4px 0 !important;
+  margin-bottom: 6px;
+  align-self: flex-start;
+}
+
 /* Clinical handoff modal: readable sans body */
 .summary-modal-sheet {
   font-family: var(--font-sans);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -19,6 +19,34 @@ import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNe
 type SummaryAiSource = 'app' | 'ollama'
 
 const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
+
+type UpcomingAppt = {
+  id: string
+  doctor: string
+  specialty: string | null
+  appointment_date: string
+  appointment_time: string | null
+}
+
+function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  const now = Date.now()
+  for (const appt of appts) {
+    const q = pendingQMap[appt.doctor] ?? 0
+    if (q === 0) continue
+    const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time ?? '09:00'}`)
+    const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
+    const delay = notifyAt - now
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+      setTimeout(() => {
+        new Notification('Medical Bible — Log your visit', {
+          body: `You had an appointment with ${appt.doctor} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
+          icon: '/icon-192.png',
+        })
+      }, delay)
+    }
+  }
+}
 
 type HealthSummary = {
   generatedAt: string
@@ -425,7 +453,12 @@ function SummaryModal ({
 // ────────────────────────────────────────────────────────────
 export function DashboardPage () {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
+  const [pendingCount, setPendingCount] = useState(0)
+  const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
+  const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
@@ -438,6 +471,62 @@ export function DashboardPage () {
     setSummaryOpen(true)
     setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (!user) return
+    async function load () {
+      const today = new Date().toISOString().slice(0, 10)
+
+      const { data: apptData, error: apptErr } = await supabase
+        .from('appointments')
+        .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
+        .eq('user_id', user!.id)
+        .gte('appointment_date', today)
+        .order('appointment_date', { ascending: true })
+        .limit(8)
+      if (apptErr) console.warn('appointments:', apptErr.message)
+      else {
+        const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
+        const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
+        setUpcoming(active)
+
+        if (active.length > 0) {
+          const doctorNames = [...new Set(active.map((a) => a.doctor))]
+          const { data: qRows } = await supabase
+            .from('doctor_questions')
+            .select('doctor')
+            .eq('user_id', user!.id)
+            .eq('status', 'Unanswered')
+            .in('doctor', doctorNames)
+          const qMap: Record<string, number> = {}
+          for (const row of (qRows ?? []) as { doctor: string | null }[]) {
+            if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
+          }
+          setApptPendingQ(qMap)
+          scheduleApptNotifications(active, qMap)
+        } else {
+          setApptPendingQ({})
+        }
+      }
+
+      try {
+        const { count } = await supabase
+          .from('doctor_visits')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user!.id)
+          .eq('status', 'pending')
+        setPendingCount(count ?? 0)
+      } catch { setPendingCount(0) }
+
+      const { count: oq } = await supabase
+        .from('doctor_questions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .eq('status', 'Unanswered')
+      setOpenQsCount(oq ?? 0)
+    }
+    void load()
+  }, [user])
 
   useEffect(() => {
     try {
@@ -716,6 +805,96 @@ export function DashboardPage () {
           </div>
         </header>
 
+        <section className="scrap-sticky scrap-sticky--upcoming">
+          <span className="scrap-tape scrap-tape--green" aria-hidden />
+          <div className="scrap-sticky-label">UPCOMING</div>
+          {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+            <button
+              type="button"
+              className="btn btn-ghost scrap-reminders-prompt"
+              onClick={() => {
+                void Notification.requestPermission().then((p) => {
+                  if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
+                })
+              }}
+            >
+              Enable visit reminders
+            </button>
+          )}
+          {pendingCount > 0 && (
+            <button
+              type="button"
+              className="scrap-pending-line"
+              onClick={() => navigate('/app/visits?tab=pending')}
+            >
+              {pendingCount} visit{pendingCount !== 1 ? 's' : ''} need finishing — tap here
+            </button>
+          )}
+          {upcoming.length === 0 && pendingCount === 0 && (
+            <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
+          )}
+          {upcoming.length > 0 && (
+            <ul className="scrap-sticky-list">
+              {upcoming.map((u) => {
+                const pendingQ = apptPendingQ[u.doctor] ?? 0
+                return (
+                  <li key={u.id} className="scrap-body">
+                    {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
+                    {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
+                    {' — '}
+                    {u.doctor}
+                    {u.specialty ? ` (${u.specialty})` : ''}
+                    {pendingQ > 0 && (
+                      <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+
+        <h2 className="scrap-heading scrap-heading--section">log today</h2>
+        <div className="scrap-log-grid">
+          <Link to="/app/log?tab=pain" className="scrap-log-tile scrap-log-tile--pink">
+            <span className="scrap-tape scrap-tape--pink" aria-hidden />
+            <span className="scrap-log-title">Pain</span>
+            <span className="scrap-log-sub">Log a pain entry</span>
+          </Link>
+          <Link to="/app/log?tab=symptoms" className="scrap-log-tile scrap-log-tile--green">
+            <span className="scrap-tape scrap-tape--mint" aria-hidden />
+            <span className="scrap-log-title">Episodes</span>
+            <span className="scrap-log-sub">Log an episode</span>
+          </Link>
+          <Link to="/app/questions" className="scrap-log-tile scrap-log-tile--blue">
+            <span className="scrap-tape scrap-tape--sky" aria-hidden />
+            {openQsCount != null && openQsCount > 0 && (
+              <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
+            )}
+            <span className="scrap-log-title">Questions</span>
+            <span className="scrap-log-sub">Add for your doctor</span>
+          </Link>
+          <Link to="/app/visits?new=1" className="scrap-log-tile scrap-log-tile--yellow">
+            <span className="scrap-tape scrap-tape--butter" aria-hidden />
+            <span className="scrap-log-title">Visit log</span>
+            <span className="scrap-log-sub">Record a visit</span>
+          </Link>
+        </div>
+
+        <section className="scrap-handoff">
+          <span className="scrap-tape scrap-tape--brown" aria-hidden />
+          <div className="scrap-handoff-row">
+            <span className="scrap-handoff-title">Doctor handoff summary</span>
+            <button
+              type="button"
+              className="scrap-handoff-open"
+              onClick={() => setSummaryOpen(true)}
+            >
+              open →
+            </button>
+          </div>
+        </section>
+
         <h2 className="scrap-heading scrap-heading--section">your records</h2>
         <div className="scrap-sticker-grid">
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
@@ -723,12 +902,9 @@ export function DashboardPage () {
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
         </div>
 
-        <footer className="scrap-dash-footer">
-          <button type="button" className="scrap-dash-footer-btn" onClick={() => setSummaryOpen(true)}>
-            Doctor summary
-          </button>
+        <p className="scrap-dash-account-line">
           <Link to="/app/profile" className="scrap-dash-footer-link">Account</Link>
-        </footer>
+        </p>
 
       </div>
     </>

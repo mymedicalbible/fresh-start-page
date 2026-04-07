@@ -39,6 +39,7 @@ test.describe('Medical Bible — authenticated smoke (optional)', () => {
   })
 
   test('should load the dashboard and show main sections', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /log today/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /your records/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /doctors/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /medications/i })).toBeVisible()
