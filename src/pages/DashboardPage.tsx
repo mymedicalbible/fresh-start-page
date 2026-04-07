@@ -452,6 +452,8 @@ function SummaryModal ({
 // ────────────────────────────────────────────────────────────
 type PendingEntry = { norm: string; count: number; label: string; resumeId: string | undefined }
 
+const STICKER_ROTATIONS = ['-1.2deg', '0.8deg', '-0.5deg', '1.4deg', '-0.9deg']
+
 function PendingVisitStickers ({
   entries,
   onNavigate,
@@ -472,62 +474,74 @@ function PendingVisitStickers ({
       setPressing(null)
     }, 600)
   }
-
   function cancelPress () {
     if (timerRef.current !== null) clearTimeout(timerRef.current)
     setPressing(null)
   }
 
   return (
-    <div className="scrap-pending-sticker-row">
-      {entries.map(({ norm, count, label, resumeId }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '2px 0 0' }}>
+      {entries.map(({ norm, count, label, resumeId }, i) => (
         <div key={norm} style={{ position: 'relative' }}>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={`Unfinished visit log for ${label}. Hold to dismiss.`}
-            className={`scrap-pending-sticker${pressing === norm ? ' scrap-pending-sticker--pressed' : ''}`}
-            onPointerDown={() => startPress(norm)}
-            onPointerUp={() => {
-              cancelPress()
-              if (openCtx !== norm) onNavigate(resumeId, label)
+          {/* Scrapbook tape strip */}
+          <span style={{
+            position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
+            width: 38, height: 14, background: 'rgba(255,220,80,0.55)',
+            borderRadius: 2, zIndex: 1, pointerEvents: 'none',
+          }} aria-hidden />
+          <button
+            type="button"
+            style={{
+              position: 'relative',
+              display: 'block',
+              width: '100%',
+              padding: '12px 14px 10px',
+              background: '#fffbea',
+              border: '1px solid rgba(180,140,20,0.25)',
+              borderRadius: '12px 10px 14px 8px',
+              boxShadow: '2px 3px 0 rgba(120,90,0,0.08), 0 4px 12px rgba(120,90,0,0.07)',
+              transform: `rotate(${STICKER_ROTATIONS[i % STICKER_ROTATIONS.length]})`,
+              textAlign: 'left',
+              cursor: 'pointer',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              transition: 'box-shadow 0.12s',
+              outline: pressing === norm ? '2px solid #f59e0b' : 'none',
             }}
+            onPointerDown={() => startPress(norm)}
+            onPointerUp={() => { cancelPress(); if (openCtx !== norm) onNavigate(resumeId, label) }}
             onPointerLeave={cancelPress}
             onPointerCancel={cancelPress}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate(resumeId, label) }}
             onClick={() => { if (openCtx === norm) setOpenCtx(null) }}
           >
-            <span className="scrap-pending-sticker__icon">📋</span>
-            <span className="scrap-pending-sticker__body">
-              <span className="scrap-pending-sticker__title">
-                {count === 1 ? `Finish visit — ${label}` : `${count} visits in progress — ${label}`}
-              </span>
-              <span className="scrap-pending-sticker__sub">Tap to continue →</span>
-              <span className="scrap-pending-sticker__hint">Hold to dismiss</span>
-            </span>
-          </div>
+            <div style={{
+              fontFamily: 'var(--font-scrap)',
+              fontSize: '1rem',
+              color: '#78350f',
+              lineHeight: 1.3,
+            }}>
+              {count === 1 ? `finish visit · ${label}` : `${count} visits · ${label}`}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#a16207', marginTop: 3, fontStyle: 'italic' }}>
+              hold to dismiss
+            </div>
+          </button>
           {openCtx === norm && (
-            <div className="scrap-pending-ctx" role="menu">
-              <button
-                type="button"
-                className="scrap-pending-ctx__btn"
-                onClick={() => { setOpenCtx(null); onNavigate(resumeId, label) }}
-              >
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
+              background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 12,
+              boxShadow: '0 8px 24px rgba(0,0,0,.12)', padding: 6,
+            }} role="menu">
+              <button type="button" style={{ display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'none', borderRadius: 8, textAlign: 'left', fontSize: '0.9rem', cursor: 'pointer', color: '#1e293b' }}
+                onClick={() => { setOpenCtx(null); onNavigate(resumeId, label) }}>
                 Continue this visit →
               </button>
-              <button
-                type="button"
-                className="scrap-pending-ctx__btn scrap-pending-ctx__btn--danger"
-                onClick={() => { setOpenCtx(null); onDismiss(norm) }}
-              >
+              <button type="button" style={{ display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'none', borderRadius: 8, textAlign: 'left', fontSize: '0.9rem', cursor: 'pointer', color: '#b91c1c' }}
+                onClick={() => { setOpenCtx(null); onDismiss(norm) }}>
                 Dismiss from dashboard
               </button>
-              <button
-                type="button"
-                className="scrap-pending-ctx__btn"
-                style={{ color: '#64748b' }}
-                onClick={() => setOpenCtx(null)}
-              >
+              <button type="button" style={{ display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'none', borderRadius: 8, textAlign: 'left', fontSize: '0.9rem', cursor: 'pointer', color: '#64748b' }}
+                onClick={() => setOpenCtx(null)}>
                 Cancel
               </button>
             </div>
