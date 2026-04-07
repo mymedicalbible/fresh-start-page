@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
+import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 
-type Tab = 'pain' | 'symptoms'
+type Tab = 'pain' | 'symptoms' | 'visits' | 'summaries'
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -19,18 +21,44 @@ type SymptomRow = {
   severity: string | null; relief: string | null; notes: string | null
 }
 
+type VisitRow = {
+  id: string
+  visit_date: string
+  visit_time: string | null
+  doctor: string | null
+  reason: string | null
+  findings: string | null
+  notes: string | null
+  status: string | null
+}
+
+function tabFromParams (sp: URLSearchParams): Tab {
+  const t = sp.get('tab')
+  if (t === 'pain' || t === 'symptoms' || t === 'visits' || t === 'summaries') return t
+  return 'pain'
+}
+
+function visitPending (status: string | null | undefined) {
+  return String(status ?? 'complete').trim().toLowerCase() === 'pending'
+}
+
 export function RecordsPage () {
   const { user } = useAuth()
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => {
-    const t = searchParams.get('tab')
-    return (t === 'pain' || t === 'symptoms') ? t : 'pain'
-  })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = tabFromParams(searchParams)
+
   const [q, setQ] = useState('')
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
+  const [visits, setVisits] = useState<VisitRow[]>([])
+  const [summaries, setSummaries] = useState<ArchivedHandoffSummary[]>([])
+  const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removingFeature, setRemovingFeature] = useState<string | null>(null)
+
+  function setTab (next: Tab) {
+    setSearchParams({ tab: next }, { replace: true })
+  }
 
   useEffect(() => {
     if (!user) return
@@ -52,15 +80,36 @@ export function RecordsPage () {
     load().catch((e) => setError(String(e)))
   }, [user])
 
+  useEffect(() => {
+    if (!user || tab !== 'visits') return
+    setError(null)
+    supabase.from('doctor_visits')
+      .select('id, visit_date, visit_time, doctor, reason, findings, notes, status')
+      .eq('user_id', user.id)
+      .order('visit_date', { ascending: false })
+      .limit(150)
+      .then(({ data, error: e }) => {
+        if (e) setError(e.message)
+        else setVisits((data ?? []) as VisitRow[])
+      })
+  }, [user, tab])
+
+  useEffect(() => {
+    if (tab === 'summaries') {
+      setSummaries(loadSummaryArchive())
+    }
+  }, [tab])
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return { pain, symptoms }
+    if (!term) return { pain, symptoms, visits }
     const f = (s: string | null) => (s ?? '').toLowerCase().includes(term)
     return {
       pain: pain.filter((r) => f(r.location) || f(String(r.intensity ?? '')) || f(r.pain_type) || f(r.notes) || f(r.relief_methods)),
       symptoms: symptoms.filter((r) => f(r.symptoms) || f(r.activity) || f(r.notes) || f(r.relief) || f(r.severity)),
+      visits: visits.filter((r) => f(r.doctor) || f(r.reason) || f(r.findings) || f(r.notes)),
     }
-  }, [q, pain, symptoms])
+  }, [q, pain, symptoms, visits])
 
   async function removeFeature (episodeId: string, sym: string) {
     const key = `${episodeId}::${sym}`
@@ -75,7 +124,20 @@ export function RecordsPage () {
     setSymptoms((prev) => prev.map((r) => r.id === episodeId ? { ...r, symptoms: updated } : r))
   }
 
+  function removeArchivedSummary (id: string) {
+    deleteSummaryArchiveItem(id)
+    setSummaries(loadSummaryArchive())
+    if (expandedSummaryId === id) setExpandedSummaryId(null)
+  }
+
   if (!user) return null
+
+  const tabLabels: [Tab, string][] = [
+    ['pain', 'Pain'],
+    ['symptoms', 'Episodes'],
+    ['visits', 'Visits'],
+    ['summaries', 'Summaries'],
+  ]
 
   return (
     <div>
@@ -84,11 +146,11 @@ export function RecordsPage () {
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <BackButton />
-          <h2 style={{ margin: 0 }}>Pain & episodes</h2>
+          <h2 style={{ margin: 0 }}>Records</h2>
         </div>
 
         <div className="tabs">
-          {([['pain', 'Pain'], ['symptoms', 'Episodes']] as [Tab, string][]).map(([id, label]) => (
+          {tabLabels.map(([id, label]) => (
             <button key={id} type="button"
               className={`tab ${tab === id ? 'active' : ''}`}
               onClick={() => setTab(id)}>
@@ -165,6 +227,114 @@ export function RecordsPage () {
               {r.notes && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}>Notes: {r.notes}</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* VISITS */}
+      {tab === 'visits' && (
+        <div className="card">
+          <h3>Visit archive</h3>
+          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
+            Doctor visits from your log. <Link to="/app/visits">Open visits</Link> to add or edit.
+          </p>
+          {filtered.visits.length === 0 ? <p className="muted">No visits yet.</p> : null}
+          {filtered.visits.map((v) => (
+            <div key={v.id} className="list-item">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <div>
+                  <strong>{v.visit_date}{v.visit_time ? ` · ${v.visit_time}` : ''}</strong>
+                  {v.doctor && <div className="muted" style={{ marginTop: 4 }}>{v.doctor}</div>}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: 20,
+                    ...(visitPending(v.status)
+                      ? { background: '#fef3c7', color: '#92400e' }
+                      : { background: '#ecfdf5', color: '#065f46' }),
+                  }}>
+                    {visitPending(v.status) ? 'Pending' : 'Complete'}
+                  </span>
+                  <Link to={`/app/visits?resume=${encodeURIComponent(v.id)}`} className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '4px 12px' }}>
+                    Open
+                  </Link>
+                </div>
+              </div>
+              {v.reason && <div className="muted" style={{ marginTop: 8, fontSize: '0.9rem' }}><strong>Reason:</strong> {v.reason}</div>}
+              {v.findings && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}><strong>Findings:</strong> {v.findings}</div>}
+              {v.notes && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}><strong>Notes:</strong> {v.notes}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* GENERATED SUMMARIES */}
+      {tab === 'summaries' && (
+        <div className="card">
+          <h3>Generated summary archive</h3>
+          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
+            Clinical handoff summaries from the dashboard (each <strong>Generate</strong> is kept here). This device only — same list as in the handoff modal.
+            {' '}
+            <Link to="/app?handoff=1">Open handoff</Link> to run a new one.
+          </p>
+          {summaries.length === 0 ? (
+            <p className="muted">
+              No summaries in this archive yet. Open <Link to="/app?handoff=1">Doctor handoff</Link> on the dashboard and tap <strong>Generate</strong> — each run is saved here automatically (this device).
+            </p>
+          ) : null}
+          {summaries.map((a) => {
+            const open = expandedSummaryId === a.id
+            return (
+              <div key={a.id} className="list-item">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <div>
+                    <strong style={{ fontSize: '0.92rem' }}>{new Date(a.savedAtIso).toLocaleString()}</strong>
+                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                      {a.generatedLabel}
+                      {a.sourceAi
+                        ? (a.aiKind === 'ollama' ? ' · Ollama' : ' · AI')
+                        : ' · App'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                      onClick={() => setExpandedSummaryId(open ? null : a.id)}>
+                      {open ? 'Collapse' : 'Read'}
+                    </button>
+                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                      onClick={() => downloadHealthSummaryPdf(a.text, a.generatedLabel)}>
+                      PDF
+                    </button>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
+                      onClick={() => removeArchivedSummary(a.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                {open && (
+                  <div
+                    className="summary-readable"
+                    style={{
+                      marginTop: 12,
+                      padding: '12px 14px',
+                      background: 'var(--bg)',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      fontSize: '0.88rem',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: 360,
+                      overflowY: 'auto',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {a.text}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

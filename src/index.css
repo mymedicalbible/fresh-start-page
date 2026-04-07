@@ -1477,6 +1477,16 @@ a.scrap-upcoming-hero-name:hover {
   margin-right: 6px;
 }
 
+.scrap-sticker:nth-child(4) {
+  transform: rotate(0.35deg);
+  margin-left: 4px;
+}
+
+.scrap-sticker:nth-child(5) {
+  transform: rotate(-0.55deg);
+  margin-right: 4px;
+}
+
 .scrap-sticker:active {
   transform: scale(0.98) rotate(-0.8deg);
 }
@@ -1491,6 +1501,14 @@ a.scrap-upcoming-hero-name:hover {
 
 .scrap-sticker--sky {
   background: linear-gradient(145deg, #eef8fd 0%, #c2e4f5 50%, #a8d4eb 100%);
+}
+
+.scrap-sticker--cream {
+  background: linear-gradient(145deg, #fffbeb 0%, #fde68a 50%, #fcd34d 100%);
+}
+
+.scrap-sticker--lavender {
+  background: linear-gradient(145deg, #f5f3ff 0%, #ddd6fe 50%, #c4b5fd 100%);
 }
 
 .scrap-sticker-title {

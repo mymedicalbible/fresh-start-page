@@ -136,7 +136,7 @@ function scrapDisplayName (user: User): string {
 
 function ScrapSticker ({
   to, title, sub, tone,
-}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' }) {
+}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
   return (
     <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
       <span className="scrap-sticker-title">{title}</span>
@@ -1053,6 +1053,8 @@ export function DashboardPage () {
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your conditions" tone="pink" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
+          <ScrapSticker to="/app/records?tab=visits" title="Visits" sub="Visit archive" tone="cream" />
+          <ScrapSticker to="/app/records?tab=summaries" title="Summaries" sub="Generated handoffs" tone="lavender" />
         </div>
 
         <p className="scrap-dash-account-line">
