@@ -1,7 +1,48 @@
 import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
-/** Download patient health handoff text as a PDF (Letter size, simple typography). */
-export function downloadHealthSummaryPdf (body: string, generatedAtLabel: string) {
+/** Result of rasterizing a chart (or any) DOM node for PDF embedding */
+export type CapturedChart = {
+  dataUrl: string
+  width: number
+  height: number
+}
+
+/** Optional charts to embed after the header and before the narrative body */
+export type SummaryPdfCharts = {
+  pain?: CapturedChart | null
+  episode?: CapturedChart | null
+}
+
+/**
+ * Rasterize a DOM subtree (e.g. a Recharts card) for use in jsPDF.
+ * Uses white background so grid/lines match print expectations.
+ */
+export async function captureElementAsPng (el: HTMLElement): Promise<CapturedChart | null> {
+  try {
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+    })
+    return {
+      dataUrl: canvas.toDataURL('image/png'),
+      width: canvas.width,
+      height: canvas.height,
+    }
+  } catch (err) {
+    console.warn('Chart capture for PDF failed:', err)
+    return null
+  }
+}
+
+/** Download patient health handoff as PDF (Letter). Charts are optional raster images. */
+export async function downloadHealthSummaryPdf (
+  body: string,
+  generatedAtLabel: string,
+  charts?: SummaryPdfCharts,
+) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const margin = 48
   const pageH = doc.internal.pageSize.getHeight()
@@ -23,10 +64,31 @@ export function downloadHealthSummaryPdf (body: string, generatedAtLabel: string
     }
   }
 
+  const addChartImage = (cap: CapturedChart) => {
+    const ratio = cap.height / cap.width
+    const w = maxW
+    const h = maxW * ratio
+    if (y + h > pageH - margin) {
+      doc.addPage()
+      y = margin
+    }
+    doc.addImage(cap.dataUrl, 'PNG', margin, y, w, h)
+    y += h + 14
+  }
+
   addRawLines('Clinical handoff summary', 16, [17, 24, 39], 20)
   y += 4
   addRawLines(`Prepared for discussion with a clinician · ${generatedAtLabel}`, 10, [75, 85, 99], 14)
   y += 12
+
+  const hasCharts = Boolean(charts?.pain || charts?.episode)
+  if (hasCharts) {
+    addRawLines('Charts (from your logs, same window as the summary)', 11, [17, 24, 39], 16)
+    y += 8
+    if (charts?.pain) addChartImage(charts.pain)
+    if (charts?.episode) addChartImage(charts.episode)
+    y += 4
+  }
 
   addRawLines(body, 11, [31, 41, 55], 15)
 

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
+import { captureElementAsPng, downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
 import { buildHandoffNarrative } from '../lib/handoffNarrative'
 import {
@@ -208,6 +208,8 @@ function SummaryModal ({
   mode,
   aiSource,
   focus,
+  painChartPdfRef,
+  episodeChartPdfRef,
   onFocusChange,
   onModeChange,
   onAiSourceChange,
@@ -220,6 +222,8 @@ function SummaryModal ({
   mode: 'fast' | 'thorough'
   aiSource: SummaryAiSource
   focus: string
+  painChartPdfRef: RefObject<HTMLDivElement>
+  episodeChartPdfRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
   onModeChange: (v: 'fast' | 'thorough') => void
   onAiSourceChange: (v: SummaryAiSource) => void
@@ -407,12 +411,12 @@ function SummaryModal ({
               )}
 
               {summary.painChart.length > 0 && (
-                <div className="card" style={{ padding: 12 }}>
+                <div ref={painChartPdfRef} className="card" style={{ padding: 12 }}>
                   <PainSummaryChart data={summary.painChart} />
                 </div>
               )}
               {summary.episodeChart.length > 0 && (
-                <div className="card" style={{ padding: 12 }}>
+                <div ref={episodeChartPdfRef} className="card" style={{ padding: 12 }}>
                   <EpisodeSummaryChart data={summary.episodeChart} />
                 </div>
               )}
@@ -558,6 +562,9 @@ export function DashboardPage () {
   const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
+  /** DOM roots for PDF chart capture (Recharts inside these cards) */
+  const painChartPdfRef = useRef<HTMLDivElement>(null)
+  const episodeChartPdfRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
@@ -889,9 +896,15 @@ export function DashboardPage () {
     return main
   }
 
-  function downloadPdf () {
+  async function downloadPdf () {
     if (!summary) return
-    downloadHealthSummaryPdf(handoffTextForPdf(summary), summary.generatedAt)
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    const pain = painChartPdfRef.current ? await captureElementAsPng(painChartPdfRef.current) : null
+    const episode = episodeChartPdfRef.current ? await captureElementAsPng(episodeChartPdfRef.current) : null
+    await downloadHealthSummaryPdf(handoffTextForPdf(summary), summary.generatedAt, {
+      pain: pain ?? undefined,
+      episode: episode ?? undefined,
+    })
   }
 
   if (!user) return <div>Loading...</div>
@@ -916,6 +929,8 @@ export function DashboardPage () {
           mode={summaryMode}
           aiSource={summaryAiSource}
           focus={patientFocus}
+          painChartPdfRef={painChartPdfRef}
+          episodeChartPdfRef={episodeChartPdfRef}
           onFocusChange={setPatientFocus}
           onModeChange={setSummaryMode}
           onAiSourceChange={persistAiSource}

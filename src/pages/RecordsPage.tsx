@@ -304,7 +304,7 @@ export function RecordsPage () {
                       {open ? 'Collapse' : 'Read'}
                     </button>
                     <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
-                      onClick={() => downloadHealthSummaryPdf(a.text, a.generatedLabel)}>
+                      onClick={() => { void downloadHealthSummaryPdf(a.text, a.generatedLabel) }}>
                       PDF
                     </button>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
