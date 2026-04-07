@@ -1328,8 +1328,8 @@ a.scrap-upcoming-hero-name:hover {
   position: relative;
   display: block;
   width: 100%;
-  height: 100px;
-  padding: 10px 10px 8px;
+  height: 118px;
+  padding: 11px 10px 9px;
   border: none;
   border-radius: 1px;
   cursor: pointer;
@@ -1388,7 +1388,7 @@ a.scrap-upcoming-hero-name:hover {
 /* Doctor name */
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
-  font-size: 0.79rem;
+  font-size: 0.95rem;
   color: #2d3a28;
   line-height: 1.35;
   word-break: break-word;
@@ -1400,7 +1400,7 @@ a.scrap-upcoming-hero-name:hover {
 
 /* Visit count */
 .scrap-pending-sticker__count {
-  font-size: 0.60rem;
+  font-size: 0.74rem;
   color: #3d4a38;
   font-style: italic;
   margin-top: 3px;
@@ -1411,7 +1411,7 @@ a.scrap-upcoming-hero-name:hover {
   position: absolute;
   bottom: 6px;
   left: 8px;
-  font-size: 0.52rem;
+  font-size: 0.62rem;
   color: #4a5a44;
   letter-spacing: 0.02em;
 }
@@ -1425,13 +1425,14 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-more-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 18px;
+  gap: 6px;
+  padding: 8px 22px;
   background: rgba(100,120,95,0.10);
   border: 1.5px solid rgba(100,120,95,0.28);
   border-radius: 20px;
-  color: #3d4a38;
-  font-size: 0.74rem;
+  color: #2a3626;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s;

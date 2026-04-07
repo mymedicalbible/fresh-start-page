@@ -210,6 +210,7 @@ function SummaryModal ({
   focus,
   painChartPdfRef,
   episodeChartPdfRef,
+  handoffPdfVisualRef,
   onFocusChange,
   onModeChange,
   onAiSourceChange,
@@ -224,6 +225,7 @@ function SummaryModal ({
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
   episodeChartPdfRef: RefObject<HTMLDivElement>
+  handoffPdfVisualRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
   onModeChange: (v: 'fast' | 'thorough') => void
   onAiSourceChange: (v: SummaryAiSource) => void
@@ -361,6 +363,17 @@ function SummaryModal ({
           {/* Results */}
           {summary && (
             <div style={{ display: 'grid', gap: 12 }}>
+              <div
+                ref={handoffPdfVisualRef}
+                className="handoff-pdf-capture-root"
+                style={{
+                  display: 'grid',
+                  gap: 12,
+                  background: 'var(--surface)',
+                  padding: 4,
+                  borderRadius: 8,
+                }}
+              >
               <div className="muted" style={{ fontSize: '0.73rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 Generated {summary.generatedAt} · ~90-day data window
                 {summary.aiText && summary.aiProvider === 'ollama' && (
@@ -422,6 +435,8 @@ function SummaryModal ({
               )}
 
               <NarrativeRenderer text={summary.aiText || summary.narrativeFallback} />
+
+              </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
                 <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; episodes</Link>
@@ -565,6 +580,7 @@ export function DashboardPage () {
   /** DOM roots for PDF chart capture (Recharts inside these cards) */
   const painChartPdfRef = useRef<HTMLDivElement>(null)
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
+  const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
@@ -898,10 +914,17 @@ export function DashboardPage () {
 
   async function downloadPdf () {
     if (!summary) return
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready
+    }
+    await new Promise<void>((r) => setTimeout(r, 500))
+    const visual = handoffPdfVisualRef.current
+      ? await captureElementAsPng(handoffPdfVisualRef.current)
+      : null
     const pain = painChartPdfRef.current ? await captureElementAsPng(painChartPdfRef.current) : null
     const episode = episodeChartPdfRef.current ? await captureElementAsPng(episodeChartPdfRef.current) : null
     await downloadHealthSummaryPdf(handoffTextForPdf(summary), summary.generatedAt, {
+      visual: visual ?? undefined,
       pain: pain ?? undefined,
       episode: episode ?? undefined,
     })
@@ -931,6 +954,7 @@ export function DashboardPage () {
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
           episodeChartPdfRef={episodeChartPdfRef}
+          handoffPdfVisualRef={handoffPdfVisualRef}
           onFocusChange={setPatientFocus}
           onModeChange={setSummaryMode}
           onAiSourceChange={persistAiSource}

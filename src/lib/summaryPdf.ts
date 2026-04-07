@@ -1,53 +1,240 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 
-/** Result of rasterizing a chart (or any) DOM node for PDF embedding */
+/** Result of rasterizing a DOM subtree for PDF embedding */
 export type CapturedChart = {
   dataUrl: string
   width: number
   height: number
 }
 
-/** Optional charts to embed after the header and before the narrative body */
 export type SummaryPdfCharts = {
   pain?: CapturedChart | null
   episode?: CapturedChart | null
 }
 
-/**
- * Rasterize a DOM subtree (e.g. a Recharts card) for use in jsPDF.
- * Uses white background so grid/lines match print expectations.
- */
-export async function captureElementAsPng (el: HTMLElement): Promise<CapturedChart | null> {
-  try {
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      logging: false,
-      useCORS: true,
-    })
-    return {
-      dataUrl: canvas.toDataURL('image/png'),
-      width: canvas.width,
-      height: canvas.height,
+export type SummaryPdfOptions = SummaryPdfCharts & {
+  /** Full handoff region as shown in the app (charts + narrative); paginated in the PDF */
+  visual?: CapturedChart | null
+}
+
+/** Match design tokens — rasterizers must not see unresolved `var(--*)` inside SVG. */
+const TOKEN_BORDER = '#d4eadc'
+const TOKEN_MUTED = '#6b7c72'
+const TOKEN_MINT_INK = '#1e4d34'
+
+async function isCaptureMostlyBlank (cap: CapturedChart): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const w = Math.min(320, img.naturalWidth || cap.width)
+      const h = Math.min(320, img.naturalHeight || cap.height)
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(true)
+        return
+      }
+      ctx.drawImage(img, 0, 0, w, h)
+      let nonWhite = 0
+      const step = 16
+      for (let x = 0; x < w; x += step) {
+        for (let y = 0; y < h; y += step) {
+          const d = ctx.getImageData(x, y, 1, 1).data
+          if (d[0] < 245 || d[1] < 245 || d[2] < 245) nonWhite++
+        }
+      }
+      resolve(nonWhite < 6)
     }
-  } catch (err) {
-    console.warn('Chart capture for PDF failed:', err)
+    img.onerror = () => resolve(true)
+    img.src = cap.dataUrl
+  })
+}
+
+async function captureSvgToPng (svg: SVGSVGElement, scale = 2): Promise<CapturedChart | null> {
+  try {
+    const rect = svg.getBoundingClientRect()
+    const w = Math.max(8, Math.round(rect.width))
+    const h = Math.max(8, Math.round(rect.height))
+    const clone = svg.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('width', String(w))
+    clone.setAttribute('height', String(h))
+    clone.removeAttribute('style')
+    let str = new XMLSerializer().serializeToString(clone)
+    str = str
+      .replace(/var\(--border\)/g, TOKEN_BORDER)
+      .replace(/var\(--muted\)/g, TOKEN_MUTED)
+      .replace(/var\(--mint-ink\)/g, TOKEN_MINT_INK)
+    const blob = new Blob([str], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    return await new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = w * scale
+        canvas.height = h * scale
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          URL.revokeObjectURL(url)
+          resolve(null)
+          return
+        }
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          width: canvas.width,
+          height: canvas.height,
+        })
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(null)
+      }
+      img.src = url
+    })
+  } catch (e) {
+    console.warn('SVG chart capture failed:', e)
     return null
   }
 }
 
-/** Download patient health handoff as PDF (Letter). Charts are optional raster images. */
+async function captureCardViaSvgFallback (card: HTMLElement): Promise<CapturedChart | null> {
+  const svg = card.querySelector(':scope svg')
+  if (svg instanceof SVGSVGElement) return captureSvgToPng(svg, 2)
+  return null
+}
+
+/**
+ * Rasterize DOM for PDF. Tries html2canvas; if the result is blank, exports the Recharts SVG directly.
+ */
+export async function captureElementAsPng (el: HTMLElement): Promise<CapturedChart | null> {
+  try {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready
+    }
+    await new Promise<void>((r) => setTimeout(r, 100))
+
+    const runHtml2 = (foreignObject: boolean) =>
+      html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: foreignObject,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.scrollWidth,
+        windowHeight: document.documentElement.scrollHeight,
+      })
+
+    let canvas = await runHtml2(true)
+    let cap: CapturedChart = {
+      dataUrl: canvas.toDataURL('image/png'),
+      width: canvas.width,
+      height: canvas.height,
+    }
+
+    if (await isCaptureMostlyBlank(cap)) {
+      canvas = await runHtml2(false)
+      cap = {
+        dataUrl: canvas.toDataURL('image/png'),
+        width: canvas.width,
+        height: canvas.height,
+      }
+    }
+
+    if (await isCaptureMostlyBlank(cap)) {
+      if (el.classList.contains('card')) {
+        const svgCap = await captureCardViaSvgFallback(el)
+        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+      }
+      const innerCard = el.querySelector('.card')
+      if (innerCard instanceof HTMLElement) {
+        const svgCap = await captureCardViaSvgFallback(innerCard)
+        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+      }
+      const anySvg = el.querySelector('svg')
+      if (anySvg instanceof SVGSVGElement) {
+        const svgCap = await captureSvgToPng(anySvg, 2)
+        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+      }
+    }
+
+    return cap
+  } catch (err) {
+    console.warn('captureElementAsPng failed:', err)
+    return null
+  }
+}
+
+/** Slice a tall bitmap across PDF pages */
+async function addImagePaginated (
+  doc: jsPDF,
+  cap: CapturedChart,
+  margin: number,
+  pageH: number,
+  maxW: number,
+  startY: number,
+): Promise<number> {
+  const fullW = cap.width
+  const fullH = cap.height
+  const imgW = maxW
+  const totalImgH = (fullH / fullW) * imgW
+
+  return await new Promise<number>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let y = startY
+      let srcYpx = 0
+      let remainingPt = totalImgH
+
+      while (remainingPt > 0.5) {
+        let room = pageH - margin - y
+        if (room < 40) {
+          doc.addPage()
+          y = margin
+          room = pageH - margin - y
+        }
+        const slicePt = Math.min(remainingPt, room)
+        const sliceSrcHpx = (slicePt / imgW) * fullW
+
+        const sc = document.createElement('canvas')
+        sc.width = fullW
+        sc.height = Math.max(1, Math.ceil(sliceSrcHpx))
+        const ctx = sc.getContext('2d')
+        if (ctx) {
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, sc.width, sc.height)
+          ctx.drawImage(img, 0, srcYpx, fullW, sliceSrcHpx, 0, 0, fullW, sliceSrcHpx)
+        }
+        doc.addImage(sc.toDataURL('image/png'), 'PNG', margin, y, imgW, slicePt)
+        y += slicePt + 8
+        srcYpx += sliceSrcHpx
+        remainingPt -= slicePt
+      }
+      resolve(y)
+    }
+    img.onerror = () => resolve(startY)
+    img.src = cap.dataUrl
+  })
+}
+
 export async function downloadHealthSummaryPdf (
   body: string,
   generatedAtLabel: string,
-  charts?: SummaryPdfCharts,
+  options?: SummaryPdfOptions,
 ) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const margin = 48
   const pageH = doc.internal.pageSize.getHeight()
-  const pageW = doc.internal.pageSize.getWidth()
-  const maxW = pageW - margin * 2
+  const maxW = doc.internal.pageSize.getWidth() - margin * 2
   let y = margin
 
   const addRawLines = (text: string, fontSize: number, color: [number, number, number], lineHeight: number) => {
@@ -81,16 +268,26 @@ export async function downloadHealthSummaryPdf (
   addRawLines(`Prepared for discussion with a clinician · ${generatedAtLabel}`, 10, [75, 85, 99], 14)
   y += 12
 
-  const hasCharts = Boolean(charts?.pain || charts?.episode)
-  if (hasCharts) {
-    addRawLines('Charts (from your logs, same window as the summary)', 11, [17, 24, 39], 16)
-    y += 8
-    if (charts?.pain) addChartImage(charts.pain)
-    if (charts?.episode) addChartImage(charts.episode)
-    y += 4
-  }
+  const visual = options?.visual
+  const visualOk = visual && !(await isCaptureMostlyBlank(visual))
 
-  addRawLines(body, 11, [31, 41, 55], 15)
+  if (visualOk && visual) {
+    addRawLines('Summary as shown in the app (charts and narrative)', 11, [17, 24, 39], 16)
+    y += 10
+    y = await addImagePaginated(doc, visual, margin, pageH, maxW, y)
+    y += 12
+  } else {
+    const hasCharts = Boolean(options?.pain || options?.episode)
+    if (hasCharts) {
+      addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
+      y += 8
+      if (options?.pain) addChartImage(options.pain)
+      if (options?.episode) addChartImage(options.episode)
+      y += 4
+    }
+
+    addRawLines(body, 11, [31, 41, 55], 15)
+  }
 
   y += 8
   addRawLines(
