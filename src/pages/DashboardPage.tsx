@@ -22,7 +22,7 @@ const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
 
 type UpcomingAppt = {
   id: string
-  doctor: string
+  doctor: string | null
   specialty: string | null
   appointment_date: string
   appointment_time: string | null
@@ -30,15 +30,28 @@ type UpcomingAppt = {
   doctorId?: string | null
 }
 
+/** Calendar date in the user's timezone (avoid UTC drift from `toISOString`). */
+function localISODate (d: Date = new Date()) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function normDoctorName (name: string) {
-  return name.trim().toLowerCase()
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/^dr\.?\s+/i, '')
+    .replace(/[.,]+$/g, '')
+    .replace(/\s+/g, ' ')
 }
 
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   const now = Date.now()
   for (const appt of appts) {
-    const q = pendingQMap[appt.doctor] ?? 0
+    const q = pendingQMap[appt.doctor ?? ''] ?? 0
     if (q === 0) continue
     const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time ?? '09:00'}`)
     const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
@@ -46,7 +59,7 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
       setTimeout(() => {
         new Notification('Medical Bible — Log your visit', {
-          body: `You had an appointment with ${appt.doctor} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
+          body: `You had an appointment with ${appt.doctor ?? 'your doctor'} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
           icon: '/icon-192.png',
         })
       }, delay)
@@ -481,7 +494,7 @@ export function DashboardPage () {
   useEffect(() => {
     if (!user) return
     async function load () {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localISODate()
 
       const { data: apptData, error: apptErr } = await supabase
         .from('appointments')
@@ -490,8 +503,10 @@ export function DashboardPage () {
         .gte('appointment_date', today)
         .order('appointment_date', { ascending: true })
         .limit(8)
-      if (apptErr) console.warn('appointments:', apptErr.message)
-      else {
+      if (apptErr) {
+        console.warn('appointments:', apptErr.message)
+        setUpcoming([])
+      } else {
         const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
         const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
 
@@ -505,10 +520,12 @@ export function DashboardPage () {
           byName.set(normDoctorName(r.name), { id: r.id, specialty: r.specialty })
         }
         const enriched: UpcomingAppt[] = active.map((a) => {
-          const hit = a.doctor ? byName.get(normDoctorName(a.doctor)) : undefined
+          const docLabel = a.doctor?.trim() || null
+          const hit = docLabel ? byName.get(normDoctorName(docLabel)) : undefined
           const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
           return {
             ...a,
+            doctor: docLabel,
             specialty: spec,
             doctorId: hit?.id ?? null,
           }
@@ -833,6 +850,25 @@ export function DashboardPage () {
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">UPCOMING</div>
+          {upcoming.length > 0 && (
+            <div className="scrap-upcoming-headline" aria-live="polite">
+              <span className="scrap-upcoming-headline-k">Doctor</span>
+              {' '}
+              {upcoming[0].doctorId ? (
+                <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-headline-name">
+                  {upcoming[0].doctor || '—'}
+                </Link>
+              ) : (
+                <span className="scrap-upcoming-headline-name">{upcoming[0].doctor || '—'}</span>
+              )}
+              <span className="scrap-upcoming-headline-sep"> · </span>
+              <span className="scrap-upcoming-headline-k">Specialty</span>
+              <span className="scrap-upcoming-headline-spec">
+                {' '}
+                {upcoming[0].specialty?.trim() || '—'}
+              </span>
+            </div>
+          )}
           {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
@@ -879,7 +915,7 @@ export function DashboardPage () {
                     ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
                     : ''}
                   {(() => {
-                    const pq = apptPendingQ[upcoming[0].doctor] ?? 0
+                    const pq = apptPendingQ[upcoming[0].doctor ?? ''] ?? 0
                     if (pq <= 0) return null
                     return (
                       <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
@@ -890,7 +926,7 @@ export function DashboardPage () {
               {upcoming.length > 1 && (
                 <ul className="scrap-sticky-list scrap-sticky-list--rest">
                   {upcoming.slice(1).map((u) => {
-                    const pendingQ = apptPendingQ[u.doctor] ?? 0
+                    const pendingQ = apptPendingQ[u.doctor ?? ''] ?? 0
                     return (
                       <li key={u.id} className="scrap-body">
                         {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
@@ -902,7 +938,7 @@ export function DashboardPage () {
                               {u.doctor}
                             </Link>
                             )
-                          : u.doctor}
+                          : (u.doctor || '—')}
                         {u.specialty?.trim() ? ` (${u.specialty.trim()})` : ''}
                         {pendingQ > 0 && (
                           <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>

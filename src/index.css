@@ -1092,6 +1092,47 @@ textarea { min-height: 88px; resize: vertical; }
   margin-bottom: 10px;
 }
 
+/* Primary banner: doctor + specialty directly under UPCOMING */
+.scrap-upcoming-headline {
+  font-family: var(--font-scrap);
+  font-size: 1.18rem;
+  line-height: 1.45;
+  color: var(--scrap-ink);
+  margin: -2px 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(74, 55, 40, 0.2);
+}
+
+.scrap-upcoming-headline-k {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--scrap-muted);
+  font-weight: 600;
+}
+
+.scrap-upcoming-headline-name {
+  font-size: 1.22rem;
+  font-weight: 600;
+  color: var(--scrap-ink);
+  text-decoration: none;
+}
+
+a.scrap-upcoming-headline-name:hover {
+  text-decoration: underline;
+}
+
+.scrap-upcoming-headline-sep {
+  color: var(--scrap-muted);
+  font-weight: 400;
+}
+
+.scrap-upcoming-headline-spec {
+  font-weight: 600;
+}
+
 .scrap-sticky-list {
   margin: 0;
   padding: 0;
