@@ -490,6 +490,8 @@ export function DashboardPage () {
   const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
   /** First-seen display name per norm key (for links / copy when there is no upcoming row). */
   const [pendingVisitLabelByNorm, setPendingVisitLabelByNorm] = useState<Record<string, string>>({})
+  /** Latest pending `doctor_visits.id` per doctor (norm key) — opens visit wizard to finish. */
+  const [pendingResumeIdByNorm, setPendingResumeIdByNorm] = useState<Record<string, string>>({})
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
@@ -516,7 +518,8 @@ export function DashboardPage () {
         .eq('user_id', user!.id)
         .gte('appointment_date', today)
         .order('appointment_date', { ascending: true })
-        .limit(8)
+        .order('appointment_time', { ascending: true, nullsFirst: false })
+        .limit(24)
       if (apptErr) {
         console.warn('appointments:', apptErr.message)
         setUpcoming([])
@@ -533,7 +536,7 @@ export function DashboardPage () {
           if (r.archived_at) continue
           byName.set(normDoctorName(r.name), { id: r.id, specialty: r.specialty })
         }
-        const enriched: UpcomingAppt[] = active.map((a) => {
+        const enrichedAll: UpcomingAppt[] = active.map((a) => {
           const docLabel = a.doctor?.trim() || null
           const hit = docLabel ? byName.get(normDoctorName(docLabel)) : undefined
           const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
@@ -544,6 +547,8 @@ export function DashboardPage () {
             doctorId: hit?.id ?? null,
           }
         })
+        /* Banner shows only the single closest upcoming visit */
+        const enriched = enrichedAll.slice(0, 1)
         setUpcoming(enriched)
 
         if (enriched.length > 0) {
@@ -567,21 +572,32 @@ export function DashboardPage () {
 
       const { data: pendRows, error: pendErr } = await supabase
         .from('doctor_visits')
-        .select('doctor, status')
+        .select('id, doctor, status, visit_date, created_at')
         .eq('user_id', user!.id)
       if (pendErr) console.warn('doctor_visits (pending load):', pendErr.message)
+      const pendingOnly = (pendRows ?? []).filter((row) =>
+        isDoctorVisitPendingStatus((row as { status?: string | null }).status),
+      ) as { id: string; doctor: string | null; visit_date: string; created_at: string | null }[]
+      pendingOnly.sort((a, b) => {
+        const da = a.visit_date || ''
+        const db = b.visit_date || ''
+        if (da !== db) return db.localeCompare(da)
+        return String(b.created_at || '').localeCompare(String(a.created_at || ''))
+      })
       const pendMap: Record<string, number> = {}
       const pendLabels: Record<string, string> = {}
-      for (const row of (pendRows ?? []) as { doctor: string | null; status?: string | null }[]) {
-        if (!isDoctorVisitPendingStatus(row.status)) continue
+      const resumeByNorm: Record<string, string> = {}
+      for (const row of pendingOnly) {
         const d = row.doctor?.trim()
         if (!d) continue
         const k = normDoctorName(d)
         pendMap[k] = (pendMap[k] ?? 0) + 1
         if (pendLabels[k] === undefined) pendLabels[k] = d
+        if (resumeByNorm[k] === undefined) resumeByNorm[k] = row.id
       }
       setPendingVisitsByNorm(pendMap)
       setPendingVisitLabelByNorm(pendLabels)
+      setPendingResumeIdByNorm(resumeByNorm)
 
       const { count: oq } = await supabase
         .from('doctor_questions')
@@ -844,6 +860,7 @@ export function DashboardPage () {
       norm,
       count,
       label: pendingVisitLabelByNorm[norm] ?? norm,
+      resumeId: pendingResumeIdByNorm[norm],
     }))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   const hasAnyPendingVisits = pendingDockEntries.length > 0
@@ -904,16 +921,19 @@ export function DashboardPage () {
                 No upcoming appointments. Visits still waiting to be finished:
               </p>
               <ul className="scrap-upcoming-pending-dock-list">
-                {pendingDockEntries.map(({ norm, count, label }) => (
+                {pendingDockEntries.map(({ norm, count, label, resumeId }) => (
                   <li key={norm}>
                     <button
                       type="button"
                       className="scrap-pending-line scrap-pending-line--in-hero"
-                      onClick={() => navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)}
+                      onClick={() => {
+                        if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
+                        else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+                      }}
                     >
                       {count === 1
-                        ? `1 visit with ${label} needs finishing — tap here`
-                        : `${count} visits with ${label} need finishing — tap here`}
+                        ? `Continue visit log — ${label} →`
+                        : `Continue latest visit — ${label} (${count} in progress) →`}
                     </button>
                   </li>
                 ))}
@@ -921,7 +941,6 @@ export function DashboardPage () {
             </div>
           )}
           {upcoming.length > 0 && (
-            <>
               <div className="scrap-upcoming-hero">
                 <div className="scrap-upcoming-hero-label">Next appointment</div>
                 {upcoming[0].doctorId ? (
@@ -949,65 +968,40 @@ export function DashboardPage () {
                   })()}
                 </div>
                 {(() => {
-                  const n = pendingVisitsForDoctor(pendingVisitsByNorm, upcoming[0].doctor)
-                  if (n <= 0) return null
-                  const docDisp = upcoming[0].doctor || 'this doctor'
-                  const q = `/app/visits?tab=pending&doctor=${encodeURIComponent(docDisp)}`
+                  const doc = upcoming[0].doctor?.trim()
+                  const norm = doc ? normDoctorName(doc) : ''
+                  const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
+                  const nPending = pendingVisitsForDoctor(pendingVisitsByNorm, upcoming[0].doctor)
+                  const newUrl = doc
+                    ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
+                    : '/app/visits?new=1'
                   return (
-                    <button
-                      type="button"
-                      className="scrap-pending-line scrap-pending-line--in-hero"
-                      onClick={() => navigate(q)}
-                    >
-                      {n === 1
-                        ? `1 visit with ${docDisp} needs finishing — tap here`
-                        : `${n} visits with ${docDisp} need finishing — tap here`}
-                    </button>
+                    <>
+                      {resumeId ? (
+                        <Link
+                          to={`/app/visits?resume=${resumeId}`}
+                          className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
+                        >
+                          Continue visit log — finish this appointment →
+                        </Link>
+                      ) : (
+                        <Link to={newUrl} className="scrap-upcoming-visit-log-link">
+                          Start visit log for this appointment →
+                        </Link>
+                      )}
+                      {nPending > 1 && doc && (
+                        <button
+                          type="button"
+                          className="scrap-upcoming-visit-secondary"
+                          onClick={() => navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(doc)}`)}
+                        >
+                          {nPending} visits in progress — see all for this doctor
+                        </button>
+                      )}
+                    </>
                   )
                 })()}
               </div>
-              {upcoming.length > 1 && (
-                <ul className="scrap-sticky-list scrap-sticky-list--rest">
-                  {upcoming.slice(1).map((u) => {
-                    const pendingQ = apptPendingQ[u.doctor ?? ''] ?? 0
-                    const pv = pendingVisitsForDoctor(pendingVisitsByNorm, u.doctor)
-                    const docDisp = u.doctor || 'this doctor'
-                    const pendingUrl = `/app/visits?tab=pending&doctor=${encodeURIComponent(docDisp)}`
-                    return (
-                      <li key={u.id} className="scrap-body scrap-upcoming-list-item">
-                        <div>
-                          {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
-                          {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
-                          {' — '}
-                          {u.doctorId
-                            ? (
-                              <Link to={`/app/doctors/${u.doctorId}`} className="scrap-upcoming-list-link">
-                                {u.doctor}
-                              </Link>
-                              )
-                            : (u.doctor || '—')}
-                          {u.specialty?.trim() ? ` (${u.specialty.trim()})` : ''}
-                          {pendingQ > 0 && (
-                            <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
-                          )}
-                        </div>
-                        {pv > 0 && (
-                          <button
-                            type="button"
-                            className="scrap-pending-line scrap-pending-line--in-list"
-                            onClick={() => navigate(pendingUrl)}
-                          >
-                            {pv === 1
-                              ? `1 visit with ${docDisp} needs finishing — tap here`
-                              : `${pv} visits with ${docDisp} need finishing — tap here`}
-                          </button>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </>
           )}
         </section>
 

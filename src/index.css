@@ -1102,12 +1102,6 @@ textarea { min-height: 88px; resize: vertical; }
   margin-top: 8px;
 }
 
-.scrap-sticky-list--rest {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed rgba(74, 55, 40, 0.18);
-}
-
 .scrap-upcoming-hero {
   margin-top: 6px;
   padding: 12px 12px 14px;
@@ -1159,10 +1153,42 @@ a.scrap-upcoming-hero-name:hover {
   margin-top: 8px;
 }
 
-.scrap-upcoming-list-link {
-  color: inherit;
+.scrap-upcoming-visit-log-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-family: var(--font-scrap);
+  font-size: 1.02rem;
   font-weight: 600;
+  color: var(--scrap-ink);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.scrap-upcoming-visit-log-link:hover {
+  color: #2f6b45;
+}
+
+.scrap-upcoming-visit-log-link--continue {
+  color: #b45309;
+}
+
+.scrap-upcoming-visit-log-link--continue:hover {
+  color: #92400e;
+}
+
+.scrap-upcoming-visit-secondary {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-scrap);
+  font-size: 0.9rem;
+  color: var(--scrap-muted);
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .scrap-appt-q {
@@ -1212,10 +1238,6 @@ a.scrap-upcoming-hero-name:hover {
 
 .scrap-upcoming-pending-dock-list li + li {
   margin-top: 6px;
-}
-
-.scrap-upcoming-list-item + .scrap-upcoming-list-item {
-  margin-top: 10px;
 }
 
 /* log today grid */
