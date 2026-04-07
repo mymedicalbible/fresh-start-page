@@ -1,4 +1,4 @@
-/** Pushpin icon — fill only (no background box). Color = urgency. */
+/** Thumbtack / pushpin — round head + needle + point. One fill color (urgency). */
 
 type Props = {
   color: string
@@ -20,10 +20,14 @@ export function PriorityTackIcon ({ color, size = 20, title, className }: Props)
       style={{ flexShrink: 0, display: 'block' }}
     >
       {title ? <title>{title}</title> : null}
-      <path
-        fill={color}
-        d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h12v-2c-1.66 0-3-1.34-3-3zm-2 12c0 .55-.45 1-1 1s-1-.45-1-1v-3h2v3z"
-      />
+      <g fill={color}>
+        {/* Domed head (the part you push) */}
+        <ellipse cx="12" cy="8.5" rx="7" ry="6" />
+        {/* Straight needle */}
+        <rect x="10.5" y="13.5" width="3" height="7" rx="0.6" />
+        {/* Sharp tip */}
+        <path d="M10.5 20.5 L12 23 L13.5 20.5 Z" />
+      </g>
     </svg>
   )
 }
