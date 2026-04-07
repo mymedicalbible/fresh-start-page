@@ -1,10 +1,16 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
+import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
+import {
+  clearQuickLogDraft,
+  loadQuickLogDraft,
+  saveQuickLogDraft,
+  type QuickLogDraftV1,
+} from '../lib/quickLogDraft'
 import {
   PAIN_AREA_LIST,
   MIDLINE_AREA_LIST,
@@ -23,6 +29,20 @@ function nowTime () {
 function parseSymptomTokens (text: string): string[] {
   if (!text) return []
   return text.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+function quickLogDraftMeaningful (d: QuickLogDraftV1): boolean {
+  if (d.screen === 'visit') return false
+  if (d.screen === 'pain') {
+    return d.painStep > 1 || d.form.intensity !== 5 || d.painSelections.length > 0 || d.painTypePicks.length > 0 || d.form.notes.trim().length > 0
+  }
+  if (d.screen === 'symptoms') {
+    return !!(d.form.activity.trim() || d.selectedSymptoms.length || d.newSymptomText.trim() || d.form.relief.trim() || d.form.severity !== 'Moderate')
+  }
+  if (d.screen === 'questions') {
+    return !!(d.form.question.trim() || d.form.doctor.trim() || d.form.doctor_specialty.trim() || d.form.priority !== 'Medium')
+  }
+  return false
 }
 
 export function QuickLogPage () {
@@ -66,6 +86,65 @@ export function QuickLogPage () {
   const [painSelections, setPainSelections] = useState<PainAreaSelection[]>([])
   const [painTypePicks, setPainTypePicks] = useState<string[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [resumePrompt, setResumePrompt] = useState(false)
+  const [leavePrompt, setLeavePrompt] = useState(false)
+  const leaveNavRef = useRef<'home' | 'back'>('home')
+  const resumeCheckedRef = useRef(false)
+
+  const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
+    setScreen(d.screen)
+    setPainStep(d.painStep)
+    setForm(d.form)
+    setSelectedSymptoms(d.selectedSymptoms)
+    setNewSymptomText(d.newSymptomText)
+    setPainSelections(d.painSelections.map((p) => ({ ...p })))
+    setPainTypePicks([...d.painTypePicks])
+  }, [])
+
+  const snapshotDraft = useCallback((): QuickLogDraftV1 | null => {
+    if (!user) return null
+    return {
+      v: 1,
+      userId: user.id,
+      screen,
+      painStep,
+      form: { ...form },
+      selectedSymptoms: [...selectedSymptoms],
+      newSymptomText,
+      painSelections: painSelections.map((p) => ({ ...p })),
+      painTypePicks: [...painTypePicks],
+    }
+  }, [user, screen, painStep, form, selectedSymptoms, newSymptomText, painSelections, painTypePicks])
+
+  const isQuickLogDirty = useCallback(() => {
+    const d = snapshotDraft()
+    return !!(d && quickLogDraftMeaningful(d))
+  }, [snapshotDraft])
+
+  const commitLeaveNavigation = useCallback(() => {
+    if (leaveNavRef.current === 'home') {
+      navigate('/app')
+      return
+    }
+    const idx = (history.state as { idx?: number } | null)?.idx
+    if (typeof idx === 'number' && idx > 0) navigate(-1)
+    else navigate('/app')
+  }, [navigate])
+
+  const attemptLeave = useCallback((nav: 'home' | 'back') => {
+    leaveNavRef.current = nav
+    if (!isQuickLogDirty()) {
+      clearQuickLogDraft()
+      if (nav === 'home') navigate('/app')
+      else {
+        const idx = (history.state as { idx?: number } | null)?.idx
+        if (typeof idx === 'number' && idx > 0) navigate(-1)
+        else navigate('/app')
+      }
+      return
+    }
+    setLeavePrompt(true)
+  }, [isQuickLogDirty, navigate])
 
   useEffect(() => {
     if (!user) return
@@ -91,6 +170,31 @@ export function QuickLogPage () {
     }
     loadInitialData()
   }, [user])
+
+  useEffect(() => {
+    if (!user || resumeCheckedRef.current) return
+    resumeCheckedRef.current = true
+    const d = loadQuickLogDraft(user.id)
+    if (d && quickLogDraftMeaningful(d)) setResumePrompt(true)
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const draft: QuickLogDraftV1 = {
+      v: 1,
+      userId: user.id,
+      screen,
+      painStep,
+      form: { ...form },
+      selectedSymptoms: [...selectedSymptoms],
+      newSymptomText,
+      painSelections: painSelections.map((p) => ({ ...p })),
+      painTypePicks: [...painTypePicks],
+    }
+    if (!quickLogDraftMeaningful(draft)) return
+    const t = window.setTimeout(() => saveQuickLogDraft(draft), 450)
+    return () => window.clearTimeout(t)
+  }, [user, screen, painStep, form, selectedSymptoms, newSymptomText, painSelections, painTypePicks])
 
   useEffect(() => {
     const t = searchParams.get('tab')
@@ -146,6 +250,7 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
+    clearQuickLogDraft()
     setPostSave({ archive: '/app/records?tab=pain', title: 'Pain log archive' })
   }
 
@@ -166,6 +271,7 @@ export function QuickLogPage () {
     })
     setBusy(false)
     if (e) { setError(e.message); return }
+    clearQuickLogDraft()
     setPostSave({ archive: '/app/records?tab=symptoms', title: 'Episode archive' })
   }
 
@@ -193,12 +299,52 @@ export function QuickLogPage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     if (form.doctor.trim()) void ensureDoctorProfile(user.id, form.doctor, form.doctor_specialty || null)
+    clearQuickLogDraft()
     setPostSave({ archive: '/app/questions', title: 'Questions archive' })
   }
 
   return (
     <div style={{ padding: '16px', maxWidth: '450px', margin: '0 auto' }}>
-      <BackButton />
+      {resumePrompt && user && (
+        <LeaveLaterDialog
+          variant="resume"
+          onResume={() => {
+            const d = loadQuickLogDraft(user.id)
+            if (d) applyQuickLogDraft(d)
+            setResumePrompt(false)
+          }}
+          onFresh={() => {
+            clearQuickLogDraft()
+            setResumePrompt(false)
+          }}
+        />
+      )}
+      {leavePrompt && (
+        <LeaveLaterDialog
+          variant="saveForLater"
+          onYes={() => {
+            const d = snapshotDraft()
+            if (d) saveQuickLogDraft(d)
+            setLeavePrompt(false)
+            commitLeaveNavigation()
+          }}
+          onNo={() => {
+            clearQuickLogDraft()
+            setLeavePrompt(false)
+            commitLeaveNavigation()
+          }}
+          onStay={() => setLeavePrompt(false)}
+        />
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <button type="button" className="btn btn-ghost" onClick={() => attemptLeave('home')}>
+          Return to home
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => attemptLeave('back')}>
+          Cancel
+        </button>
+      </div>
 
       {postSave && (
         <div style={{
@@ -274,7 +420,10 @@ export function QuickLogPage () {
                 <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} style={{ flex: 2 }} />
                 <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
               </div>
-              <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next →</button>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next →</button>
+                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')}>Cancel</button>
+              </div>
             </div>
           )}
           {painStep === 2 && (
@@ -299,7 +448,10 @@ export function QuickLogPage () {
                   )
                 })}
               </div>
-              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => setPainStep(3)}>Next →</button>
+              <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+                <button className="btn btn-primary btn-block" onClick={() => setPainStep(3)}>Next →</button>
+                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')}>Cancel</button>
+              </div>
             </div>
           )}
           {painStep === 3 && (
@@ -314,9 +466,12 @@ export function QuickLogPage () {
                 ))}
               </div>
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
-              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={handleSavePain} disabled={busy}>
-                {busy ? 'Saving…' : 'Finish ✓'}
-              </button>
+              <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+                <button className="btn btn-primary btn-block" onClick={handleSavePain} disabled={busy}>
+                  {busy ? 'Saving…' : 'Finish ✓'}
+                </button>
+                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>Cancel</button>
+              </div>
             </div>
           )}
         </div>
@@ -400,9 +555,14 @@ export function QuickLogPage () {
             />
           </div>
 
-          <button className="btn btn-primary btn-block" onClick={handleSaveSymptoms} disabled={busy}>
-            {busy ? 'Saving…' : 'Save episode'}
-          </button>
+          <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
+            <button className="btn btn-primary btn-block" onClick={handleSaveSymptoms} disabled={busy}>
+              {busy ? 'Saving…' : 'Save episode'}
+            </button>
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -437,9 +597,14 @@ export function QuickLogPage () {
             <label>Question</label>
             <textarea placeholder="What do you want to ask?" value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={4} />
           </div>
-          <button className="btn btn-primary btn-block" onClick={handleSaveQuestion} disabled={busy}>
-            {busy ? 'Saving…' : 'Save Question'}
-          </button>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <button className="btn btn-primary btn-block" onClick={handleSaveQuestion} disabled={busy}>
+              {busy ? 'Saving…' : 'Save Question'}
+            </button>
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

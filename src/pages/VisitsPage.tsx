@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { VisitLogWizard } from '../components/VisitLogWizard'
+import { VisitLogWizard, type VisitLogWizardRef } from '../components/VisitLogWizard'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import {
   deleteVisitDocument,
@@ -70,6 +70,7 @@ export function VisitsPage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [visitDocMap, setVisitDocMap] = useState<Record<string, VisitDocItem[]>>({})
   const [visitDocUploading, setVisitDocUploading] = useState<string | null>(null)
+  const visitWizardRef = useRef<VisitLogWizardRef>(null)
 
   const [selectedDoctor, setSelectedDoctor] = useState('')
   const [customDoctorName, setCustomDoctorName] = useState('')
@@ -233,11 +234,29 @@ export function VisitsPage () {
   if (wizardNew || resumeId) {
     return (
       <div style={{ paddingBottom: 40 }}>
-        <BackButton label="Visits" fallbackTo="/app/visits" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <Link
+            to="/app"
+            className="btn btn-ghost"
+            onClick={(e) => {
+              e.preventDefault()
+              visitWizardRef.current?.requestLeave('/app')
+            }}
+          >
+            Return to home
+          </Link>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => visitWizardRef.current?.requestLeave('/app/visits')}
+          >
+            Cancel
+          </button>
+        </div>
         <VisitLogWizard
+          ref={visitWizardRef}
           resumeVisitId={resumeId}
           initialDoctorName={prefillDoctor}
-          onCancel={() => navigate('/app/visits')}
           onDone={() => navigate('/app')}
         />
       </div>

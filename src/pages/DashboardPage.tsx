@@ -17,7 +17,13 @@ import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, 
 import { pushSummaryArchive } from '../lib/summaryArchive'
 import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
+import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
 import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
+import {
+  clearApptQsDraft,
+  loadApptQsDraft,
+  saveApptQsDraft,
+} from '../lib/apptQuestionsDraft'
 type SummaryAiSource = 'app' | 'ollama'
 
 const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
@@ -217,7 +223,8 @@ function SummaryModal ({
   onModeChange,
   onAiSourceChange,
   onGenerate,
-  onClose,
+  onDone,
+  onCancelRequest,
   onDownload,
 }: {
   summary: HealthSummary | null
@@ -232,7 +239,8 @@ function SummaryModal ({
   onModeChange: (v: 'fast' | 'thorough') => void
   onAiSourceChange: (v: SummaryAiSource) => void
   onGenerate: () => void
-  onClose: () => void
+  onDone: () => void
+  onCancelRequest: () => void
   onDownload: () => void
 }) {
   return (
@@ -244,7 +252,7 @@ function SummaryModal ({
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         padding: '0 0 0 0',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancelRequest() }}
     >
       <div className="summary-modal-sheet" style={{
         background: 'var(--surface)',
@@ -273,19 +281,6 @@ function SummaryModal ({
               Narrative for your next appointment
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'var(--bg)', border: '1.5px solid var(--border)',
-              borderRadius: 999, width: 32, height: 32,
-              cursor: 'pointer', fontWeight: 700, fontSize: '1rem',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--muted)',
-            }}
-          >
-            x
-          </button>
         </div>
 
         {/* Scrollable body */}
@@ -441,11 +436,11 @@ function SummaryModal ({
               </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Pain &amp; episodes</Link>
-                <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Meds</Link>
-                <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Tests</Link>
-                <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Diagnoses</Link>
-                <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }} onClick={onClose}>Charts</Link>
+                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Pain &amp; episodes</Link>
+                <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Meds</Link>
+                <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Tests</Link>
+                <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Diagnoses</Link>
+                <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Charts</Link>
               </div>
             </div>
           )}
@@ -456,12 +451,33 @@ function SummaryModal ({
             </div>
           )}
           {loading && (
-            <div className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '24px 0' }}>
-              {aiSource === 'ollama'
-                ? 'Pulling your data and sending to Ollama… this may take a minute.'
-                : 'Pulling your data and building the narrative…'}
+            <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+              <p className="muted" style={{ fontSize: '0.88rem', lineHeight: 1.55, margin: '0 0 8px' }}>
+                Pulling your last ~90 days of visits, medications, pain logs, episodes, and questions from the app…
+              </p>
+              <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.5, margin: 0, opacity: 0.9 }}>
+                {aiSource === 'ollama'
+                  ? 'Then sending that bundle to Ollama on your machine — often a minute or so.'
+                  : 'Then assembling your handoff narrative in the app.'}
+              </p>
             </div>
           )}
+        </div>
+
+        <div style={{
+          flexShrink: 0,
+          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '12px 20px 18px',
+          borderTop: '1.5px solid var(--border)',
+          background: 'var(--surface)',
+        }}>
+          <button type="button" className="btn btn-secondary" style={{ fontSize: '0.85rem' }} disabled={loading} onClick={onCancelRequest}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary" style={{ fontSize: '0.85rem' }} disabled={loading} onClick={onDone}>
+            Done
+          </button>
         </div>
       </div>
     </div>
@@ -579,6 +595,8 @@ export function DashboardPage () {
   const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [summaryLeavePrompt, setSummaryLeavePrompt] = useState(false)
+  const summaryFocusAtOpenRef = useRef('')
   /** DOM roots for PDF chart capture (Recharts inside these cards) */
   const painChartPdfRef = useRef<HTMLDivElement>(null)
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
@@ -602,6 +620,8 @@ export function DashboardPage () {
     savingId: string | null
   }>(null)
 
+  const [apptQsLeavePrompt, setApptQsLeavePrompt] = useState(false)
+
   async function openApptQuestionsPopup (doctor: string) {
     if (!user?.id) return
     setApptOpenQsPopup({ doctor, loading: true, loadError: null, rows: [], answerDrafts: {}, savedIds: new Set(), savingId: null })
@@ -618,7 +638,61 @@ export function DashboardPage () {
     const open = (data ?? []).filter((q: { answer?: string | null; status?: string | null }) =>
       !String(q.answer ?? '').trim() && (q.status === 'Unanswered' || !q.status),
     ) as { id: string; question: string; priority: string | null }[]
-    setApptOpenQsPopup((p) => p && ({ ...p, loading: false, rows: open }))
+    const stored = loadApptQsDraft(user.id, doctor)
+    const merged: Record<string, string> = {}
+    for (const r of open) {
+      const t = stored[r.id]?.trim()
+      if (t) merged[r.id] = stored[r.id]!
+    }
+    setApptOpenQsPopup((p) => p && ({ ...p, loading: false, rows: open, answerDrafts: merged }))
+  }
+
+  function apptQsHasUnsavedTyping () {
+    if (!apptOpenQsPopup) return false
+    const { rows, answerDrafts, savedIds } = apptOpenQsPopup
+    return rows.some((r) => !savedIds.has(r.id) && String(answerDrafts[r.id] ?? '').trim().length > 0)
+  }
+
+  function requestCloseApptQsPopup () {
+    if (!apptOpenQsPopup) return
+    if (apptQsHasUnsavedTyping()) {
+      setApptQsLeavePrompt(true)
+      return
+    }
+    setApptOpenQsPopup(null)
+  }
+
+  function persistApptQsDraftFromPopup () {
+    if (!apptOpenQsPopup || !user?.id) return
+    const { doctor, answerDrafts, rows } = apptOpenQsPopup
+    const prev = loadApptQsDraft(user.id, doctor)
+    const next: Record<string, string> = { ...prev }
+    for (const r of rows) {
+      const t = (answerDrafts[r.id] ?? '').trim()
+      if (t) next[r.id] = answerDrafts[r.id] ?? ''
+    }
+    saveApptQsDraft({ v: 1, userId: user.id, doctor, answerDrafts: next })
+  }
+
+  function finishApptQsDone () {
+    persistApptQsDraftFromPopup()
+    setApptOpenQsPopup(null)
+  }
+
+  function handleSummaryFooterDone () {
+    setSummaryLeavePrompt(false)
+    setSummaryOpen(false)
+  }
+
+  function handleSummaryCancelRequest () {
+    if (summaryLoading) return
+    const b = summaryFocusAtOpenRef.current
+    const focusDirty = patientFocus.trim() !== b.trim()
+    if (!focusDirty && summary === null) {
+      setSummaryOpen(false)
+      return
+    }
+    setSummaryLeavePrompt(true)
   }
 
   async function saveApptAnswer (id: string) {
@@ -659,6 +733,11 @@ export function DashboardPage () {
     setSummaryOpen(true)
     setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (!summaryOpen) return
+    summaryFocusAtOpenRef.current = patientFocus
+  }, [summaryOpen])
 
   useEffect(() => {
     if (!user) return
@@ -1017,6 +1096,41 @@ export function DashboardPage () {
   return (
     <>
       {/* SUMMARY MODAL */}
+      {apptQsLeavePrompt && apptOpenQsPopup && user?.id && (
+        <LeaveLaterDialog
+          variant="saveForLater"
+          onYes={() => {
+            persistApptQsDraftFromPopup()
+            setApptQsLeavePrompt(false)
+            setApptOpenQsPopup(null)
+          }}
+          onNo={() => {
+            clearApptQsDraft()
+            setApptQsLeavePrompt(false)
+            setApptOpenQsPopup(null)
+          }}
+          onStay={() => setApptQsLeavePrompt(false)}
+        />
+      )}
+
+      {summaryLeavePrompt && (
+        <LeaveLaterDialog
+          variant="saveForLater"
+          onYes={() => {
+            try { localStorage.setItem('mb-handoff-focus', patientFocus) } catch { /* ignore */ }
+            setSummaryLeavePrompt(false)
+            setSummaryOpen(false)
+          }}
+          onNo={() => {
+            setPatientFocus(summaryFocusAtOpenRef.current)
+            setSummary(null)
+            setSummaryLeavePrompt(false)
+            setSummaryOpen(false)
+          }}
+          onStay={() => setSummaryLeavePrompt(false)}
+        />
+      )}
+
       {apptOpenQsPopup && (
         <div
           role="dialog"
@@ -1024,8 +1138,8 @@ export function DashboardPage () {
           aria-labelledby="appt-open-qs-title"
           className="doctor-note-modal-backdrop"
           style={{ zIndex: 190, padding: '20px 16px' }}
-          onClick={() => setApptOpenQsPopup(null)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setApptOpenQsPopup(null) }}
+          onClick={() => requestCloseApptQsPopup()}
+          onKeyDown={(e) => { if (e.key === 'Escape') requestCloseApptQsPopup() }}
         >
           <div
             className="doctor-note-modal-panel"
@@ -1052,19 +1166,15 @@ export function DashboardPage () {
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="doctor-note-modal-close"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  onClick={() => setApptOpenQsPopup(null)}
-                >×</button>
               </div>
             </div>
 
             {/* Scrollable body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px', background: '#fffef8', display: 'grid', gap: 20 }}>
               {apptOpenQsPopup.loading && (
-                <p style={{ textAlign: 'center', color: 'var(--scrap-muted)', padding: '28px 0' }}>Loading…</p>
+                <p style={{ textAlign: 'center', color: 'var(--scrap-muted)', padding: '28px 0' }}>
+                  Loading your open questions for this doctor…
+                </p>
               )}
               {apptOpenQsPopup.loadError && (
                 <div className="banner error">{apptOpenQsPopup.loadError}</div>
@@ -1147,15 +1257,23 @@ export function DashboardPage () {
                 className="btn btn-secondary"
                 style={{ fontSize: '0.85rem' }}
                 to={`/app/questions?doctor=${encodeURIComponent(apptOpenQsPopup.doctor)}&tab=open`}
-                onClick={() => setApptOpenQsPopup(null)}
+                onClick={() => finishApptQsDone()}
               >
                 View all questions →
               </Link>
               <button
                 type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.88rem' }}
+                onClick={() => requestCloseApptQsPopup()}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
                 className="btn btn-primary"
                 style={{ marginLeft: 'auto', fontSize: '0.88rem' }}
-                onClick={() => setApptOpenQsPopup(null)}
+                onClick={() => finishApptQsDone()}
               >
                 Done
               </button>
@@ -1178,7 +1296,8 @@ export function DashboardPage () {
           onModeChange={setSummaryMode}
           onAiSourceChange={persistAiSource}
           onGenerate={generateSummary}
-          onClose={() => setSummaryOpen(false)}
+          onDone={handleSummaryFooterDone}
+          onCancelRequest={handleSummaryCancelRequest}
           onDownload={downloadPdf}
         />
       )}
@@ -1195,7 +1314,7 @@ export function DashboardPage () {
         </header>
 
         {(() => {
-          // Determine status of the closest appointment for label
+          // Single banner label: upcoming / in progress / just finished (see timing below)
           const a = upcoming[0]
           let bannerLabel = 'UPCOMING'
           if (a) {
@@ -1230,7 +1349,6 @@ export function DashboardPage () {
           )}
           {upcoming.length > 0 && (
             <div className="scrap-upcoming-hero">
-              <div className="scrap-upcoming-hero-label">Next appointment</div>
               {upcoming[0].doctorId ? (
                 <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
                   {upcoming[0].doctor?.trim() || 'Doctor'}

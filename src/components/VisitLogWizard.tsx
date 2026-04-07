@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback, forwardRef, useImperativeHandle, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,6 +10,13 @@ import {
   uploadVisitDocument,
   type VisitDocItem,
 } from '../lib/visitDocsStorage'
+import { LeaveLaterDialog } from './LeaveLaterDialog'
+import {
+  clearVisitWizardDraft,
+  loadVisitWizardDraft,
+  saveVisitWizardDraft,
+  type VisitWizardDraftV1,
+} from '../lib/visitWizardDraft'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -18,7 +25,28 @@ type Props = {
   initialDoctorName?: string
   initialSpecialty?: string
   onDone?: () => void
-  onCancel?: () => void
+}
+
+export type VisitLogWizardRef = {
+  requestLeave: (to: '/app' | '/app/visits') => void
+}
+
+function draftLooksMeaningful (d: VisitWizardDraftV1) {
+  if (d.visitId) return true
+  if (d.step >= 2) return true
+  return !!(
+    d.reason.trim() ||
+    d.newDoctorName.trim() ||
+    d.selectedName.trim() ||
+    d.specialty.trim() ||
+    d.findings.trim() ||
+    d.instructions.trim() ||
+    d.notes.trim() ||
+    d.nextApptDate.trim() ||
+    d.dvTests.some((t) => t.test_name.trim() || t.reason.trim()) ||
+    d.dvMeds.length > 0 ||
+    d.newMedEntry.medication.trim()
+  )
 }
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
@@ -38,13 +66,12 @@ function normPin (s: string) {
     .replace(/\s+/g, ' ')
 }
 
-export function VisitLogWizard ({
+export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function VisitLogWizard ({
   resumeVisitId,
   initialDoctorName = '',
   initialSpecialty = '',
   onDone,
-  onCancel,
-}: Props) {
+}, ref) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -82,7 +109,120 @@ export function VisitLogWizard ({
   const [nextApptTime, setNextApptTime] = useState('')
   const [nextApptEndTime, setNextApptEndTime] = useState('')
 
+  const [openTests, setOpenTests] = useState(false)
+  const [openMeds, setOpenMeds] = useState(false)
+  const [openClinical, setOpenClinical] = useState(false)
+  const [openDocs, setOpenDocs] = useState(false)
+  const [openNextAppt, setOpenNextAppt] = useState(false)
+
+  const [resumePrompt, setResumePrompt] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const leaveTargetRef = useRef<'/app' | '/app/visits'>('/app/visits')
+  const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
+
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
+
+  const buildDraftSnapshot = useCallback((): VisitWizardDraftV1 | null => {
+    if (!user) return null
+    return {
+      v: 1,
+      userId: user.id,
+      step,
+      visitId,
+      visitDate,
+      visitTime,
+      doctorMode,
+      selectedName,
+      newDoctorName,
+      specialty,
+      reason,
+      questionLines: questionLines.map((q) => ({ ...q })),
+      dvTests: dvTests.map((t) => ({ ...t })),
+      dvMeds: dvMeds.map((m) => ({ ...m })),
+      newMedEntry: { ...newMedEntry },
+      findings,
+      instructions,
+      notes,
+      nextApptDate,
+      nextApptTime,
+      nextApptEndTime,
+    }
+  }, [user, step, visitId, visitDate, visitTime, doctorMode, selectedName, newDoctorName, specialty, reason, questionLines, dvTests, dvMeds, newMedEntry, findings, instructions, notes, nextApptDate, nextApptTime, nextApptEndTime])
+
+  const isWizardDirty = useCallback(() => {
+    if (step >= 2) return true
+    if (visitId) return true
+    return !!(
+      reason.trim() ||
+      effectiveName ||
+      specialty.trim() ||
+      findings.trim() ||
+      instructions.trim() ||
+      notes.trim() ||
+      nextApptDate.trim() ||
+      dvTests.some((t) => t.test_name.trim() || t.reason.trim()) ||
+      dvMeds.length > 0 ||
+      newMedEntry.medication.trim() ||
+      questionLines.some((q) => q.text.trim())
+    )
+  }, [step, visitId, reason, effectiveName, specialty, findings, instructions, notes, nextApptDate, dvTests, dvMeds, newMedEntry, questionLines])
+
+  function applyDraft (d: VisitWizardDraftV1) {
+    setStep(d.step)
+    setVisitId(d.visitId)
+    setVisitDate(d.visitDate)
+    setVisitTime(d.visitTime)
+    setDoctorMode(d.doctorMode)
+    setSelectedName(d.selectedName)
+    setNewDoctorName(d.newDoctorName)
+    setSpecialty(d.specialty)
+    setReason(d.reason)
+    setQuestionLines(d.questionLines.length ? d.questionLines : [{ text: '', priority: 'Medium' }])
+    setDvTests(d.dvTests.length ? d.dvTests : [{ test_name: '', reason: '' }])
+    setDvMeds(d.dvMeds)
+    setNewMedEntry(d.newMedEntry)
+    setFindings(d.findings)
+    setInstructions(d.instructions)
+    setNotes(d.notes)
+    setNextApptDate(d.nextApptDate)
+    setNextApptTime(d.nextApptTime)
+    setNextApptEndTime(d.nextApptEndTime)
+    const hasTests = d.dvTests.some((t) => t.test_name.trim() || t.reason.trim()) || d.dvTests.length > 1
+    const hasMeds = d.dvMeds.length > 0 || !!d.newMedEntry.medication.trim()
+    const hasClinical = !!(d.findings.trim() || d.instructions.trim() || d.notes.trim())
+    const hasNext = !!(d.nextApptDate.trim() || d.nextApptTime.trim() || d.nextApptEndTime.trim())
+    setOpenTests(hasTests)
+    setOpenMeds(hasMeds)
+    setOpenClinical(hasClinical)
+    setOpenDocs(false)
+    setOpenNextAppt(hasNext)
+  }
+
+  useEffect(() => {
+    if (!user || resumeVisitId) return
+    const d = loadVisitWizardDraft(user.id)
+    if (d && draftLooksMeaningful(d)) {
+      resumeDraftRef.current = d
+      setResumePrompt(true)
+    }
+  }, [user, resumeVisitId])
+
+  function finishLeave (to: '/app' | '/app/visits') {
+    setLeaveOpen(false)
+    navigate(to)
+  }
+
+  const requestLeave = useCallback((to: '/app' | '/app/visits') => {
+    leaveTargetRef.current = to
+    if (!isWizardDirty()) {
+      clearVisitWizardDraft()
+      navigate(to)
+      return
+    }
+    setLeaveOpen(true)
+  }, [isWizardDirty, navigate])
+
+  useImperativeHandle(ref, () => ({ requestLeave }), [requestLeave])
 
   useEffect(() => {
     if (!user) return
@@ -319,6 +459,7 @@ export function VisitLogWizard ({
 
     void ensureDoctorProfile(user.id, effectiveName, specialty || null)
     setBusy(false)
+    clearVisitWizardDraft()
     if (onDone) {
       onDone()
       return
@@ -447,6 +588,36 @@ export function VisitLogWizard ({
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      {resumePrompt && resumeDraftRef.current && (
+        <LeaveLaterDialog
+          variant="resume"
+          onResume={() => {
+            applyDraft(resumeDraftRef.current!)
+            setResumePrompt(false)
+            resumeDraftRef.current = null
+          }}
+          onFresh={() => {
+            clearVisitWizardDraft()
+            setResumePrompt(false)
+            resumeDraftRef.current = null
+          }}
+        />
+      )}
+      {leaveOpen && (
+        <LeaveLaterDialog
+          variant="saveForLater"
+          onYes={() => {
+            const snap = buildDraftSnapshot()
+            if (snap) saveVisitWizardDraft(snap)
+            finishLeave(leaveTargetRef.current)
+          }}
+          onNo={() => {
+            clearVisitWizardDraft()
+            finishLeave(leaveTargetRef.current)
+          }}
+          onStay={() => setLeaveOpen(false)}
+        />
+      )}
       {error && (
         <div className="banner error" style={{ cursor: 'pointer' }} onClick={() => setError(null)}>
           {error} ✕
@@ -512,9 +683,9 @@ export function VisitLogWizard ({
           <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy} onClick={() => void saveStep1()}>
             Continue
           </button>
-          {onCancel && (
-            <button type="button" className="btn btn-ghost btn-block" onClick={onCancel}>Back</button>
-          )}
+          <button type="button" className="btn btn-ghost btn-block" onClick={() => requestLeave('/app/visits')}>
+            Cancel
+          </button>
         </div>
       )}
 
@@ -576,120 +747,196 @@ export function VisitLogWizard ({
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>←</button>
             <button type="button" className="btn btn-primary" style={{ flex: 2 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
           </div>
+          <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => requestLeave('/app/visits')}>
+            Cancel
+          </button>
         </div>
       )}
 
       {step === 3 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
           <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds & follow-up</p>
-          <p style={{ margin: '0 0 10px', fontSize: '0.78rem', color: '#94a3b8' }}>Fill now or save as pending and finish later from Doctor visits.</p>
+          <p style={{ margin: '0 0 14px', fontSize: '0.78rem', color: '#94a3b8' }}>
+            Open a section when you are ready. Fill now or save as pending and finish later from Doctor visits.
+          </p>
 
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Tests discussed</p>
-          {dvTests.map((t, i) => (
-            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-              <input style={{ flex: 2 }} placeholder="Test" value={t.test_name} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, test_name: e.target.value } : x))} />
-              <input style={{ flex: 2 }} placeholder="Why (optional)" value={t.reason} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, reason: e.target.value } : x))} />
-            </div>
-          ))}
-          <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setDvTests((p) => [...p, { test_name: '', reason: '' }])}>+ Test</button>
-
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '12px 0 4px' }}>Medications</p>
-          {dvMeds.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
-              <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setDvMeds((p) => p.map((x, j) => j === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
-                {m.action === 'remove' ? 'Undo' : 'Remove'}
-              </button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-            <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
-            <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
-            <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+              onClick={() => setOpenTests((o) => !o)}
+            >
+              <span>Tests discussed</span>
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openTests ? 'Hide' : '+ Add tests'}</span>
+            </button>
+            {openTests && (
+              <div style={{ padding: '0 12px 12px' }}>
+                {dvTests.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <input style={{ flex: 2 }} placeholder="Test" value={t.test_name} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, test_name: e.target.value } : x))} />
+                    <input style={{ flex: 2 }} placeholder="Why (optional)" value={t.reason} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, reason: e.target.value } : x))} />
+                  </div>
+                ))}
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setDvTests((p) => [...p, { test_name: '', reason: '' }])}>+ Another test row</button>
+              </div>
+            )}
           </div>
 
-          <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%', marginTop: 10 }} />
-          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ width: '100%', marginTop: 8 }} />
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+              onClick={() => setOpenMeds((o) => !o)}
+            >
+              <span>Medications</span>
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openMeds ? 'Hide' : '+ Review or add medications'}</span>
+            </button>
+            {openMeds && (
+              <div style={{ padding: '0 12px 12px' }}>
+                {dvMeds.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setDvMeds((p) => p.map((x, j) => j === i ? { ...x, action: x.action === 'remove' ? 'keep' : 'remove' } : x))}>
+                      {m.action === 'remove' ? 'Undo' : 'Remove'}
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
+                  <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+                  <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+              onClick={() => setOpenClinical((o) => !o)}
+            >
+              <span>Findings, instructions & notes</span>
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openClinical ? 'Hide' : '+ Add clinical notes'}</span>
+            </button>
+            {openClinical && (
+              <div style={{ padding: '0 12px 12px', display: 'grid', gap: 8 }}>
+                <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%' }} />
+                <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ width: '100%' }} />
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ width: '100%' }} />
+              </div>
+            )}
+          </div>
 
           {visitId && (
-            <div className="form-group" style={{ marginTop: 12 }}>
-              <label style={{ fontWeight: 600 }}>Documents / photos (optional)</label>
-              <p style={{ margin: '4px 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
-                Same storage as Tests & orders. Queued files upload when you tap Save visit or Save as pending below.
-              </p>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                ref={visitFileInputRef}
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? [])
-                  setPendingVisitFiles((prev) => [...prev, ...files])
-                  if (visitFileInputRef.current) visitFileInputRef.current.value = ''
-                }}
-              />
-              {pendingVisitFiles.length > 0 && (
-                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
-                  {pendingVisitFiles.map((f, idx) => (
-                    <div key={`p-${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="muted" style={{ fontSize: '0.85rem' }}>{f.name} (queued)</span>
-                      <button type="button" className="btn btn-ghost" style={{ fontSize: '0.75rem', color: 'red' }}
-                        onClick={() => setPendingVisitFiles((prev) => prev.filter((_, j) => j !== idx))}>✕</button>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+                onClick={() => setOpenDocs((o) => !o)}
+              >
+                <span>Documents / photos</span>
+                <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openDocs ? 'Hide' : '+ Add documents'}</span>
+              </button>
+              {openDocs && (
+                <div className="form-group" style={{ padding: '0 12px 12px', margin: 0 }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
+                    Queued files upload when you tap Save visit or Save as pending below.
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    ref={visitFileInputRef}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? [])
+                      setPendingVisitFiles((prev) => [...prev, ...files])
+                      if (visitFileInputRef.current) visitFileInputRef.current.value = ''
+                    }}
+                  />
+                  {pendingVisitFiles.length > 0 && (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                      {pendingVisitFiles.map((f, idx) => (
+                        <div key={`p-${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className="muted" style={{ fontSize: '0.85rem' }}>{f.name} (queued)</span>
+                          <button type="button" className="btn btn-ghost" style={{ fontSize: '0.75rem', color: '#b91c1c' }}
+                            onClick={() => setPendingVisitFiles((prev) => prev.filter((_, j) => j !== idx))}>Remove</button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-              {visitDocList.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Attached</div>
-                  {visitDocList.map((d) => (
-                    <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4, alignItems: 'center' }}>
-                      <span className="muted" style={{ fontSize: '0.82rem' }}>{d.name}</span>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {d.signedUrl && (
-                          <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
-                        )}
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ fontSize: '0.75rem', color: '#b91c1c' }}
-                          disabled={visitDocBusy}
-                          onClick={async () => {
-                            if (!user || !visitId) return
-                            setVisitDocBusy(true)
-                            await deleteVisitDocument(user.id, visitId, d.name)
-                            await refreshVisitDocs()
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                  )}
+                  {visitDocList.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Attached</div>
+                      {visitDocList.map((d) => (
+                        <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                          <span className="muted" style={{ fontSize: '0.82rem' }}>{d.name}</span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {d.signedUrl && (
+                              <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              style={{ fontSize: '0.75rem', color: '#b91c1c' }}
+                              disabled={visitDocBusy}
+                              onClick={async () => {
+                                if (!user || !visitId) return
+                                setVisitDocBusy(true)
+                                await deleteVisitDocument(user.id, visitId, d.name)
+                                await refreshVisitDocs()
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '10px 0 4px' }}>Next appointment</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ flex: '1 1 140px' }} />
-            <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="Start" title="Start time" />
-            <input type="time" value={nextApptEndTime} onChange={(e) => setNextApptEndTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="End" title="End time (optional)" />
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+              onClick={() => setOpenNextAppt((o) => !o)}
+            >
+              <span>Next appointment</span>
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openNextAppt ? 'Hide' : '+ Schedule follow-up'}</span>
+            </button>
+            {openNextAppt && (
+              <div style={{ padding: '0 12px 12px' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ flex: '1 1 140px' }} />
+                  <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="Start" title="Start time" />
+                  <input type="time" value={nextApptEndTime} onChange={(e) => setNextApptEndTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="End" title="End time (optional)" />
+                </div>
+                {nextApptTime && nextApptEndTime && (
+                  <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '4px 0 0' }}>
+                    {nextApptTime.slice(0, 5)} – {nextApptEndTime.slice(0, 5)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-          {nextApptTime && nextApptEndTime && (
-            <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '4px 0 0' }}>
-              {nextApptTime.slice(0, 5)} – {nextApptEndTime.slice(0, 5)}
-            </p>
-          )}
 
           <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
             <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>
             <button type="button" className="btn btn-secondary btn-block" disabled={busy} onClick={() => void finalizeVisit(true)}>Save as pending</button>
             <button type="button" className="btn btn-ghost btn-block" onClick={() => setStep(2)}>← Questions</button>
+            <button type="button" className="btn btn-ghost btn-block" onClick={() => requestLeave('/app/visits')}>Cancel</button>
           </div>
         </div>
       )}
     </div>
   )
-}
+})
+

@@ -1110,15 +1110,6 @@ textarea { min-height: 88px; resize: vertical; }
   border: 1px solid rgba(74, 55, 40, 0.12);
 }
 
-.scrap-upcoming-hero-label {
-  font-family: var(--font-scrap);
-  font-size: 0.82rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--scrap-muted);
-  margin-bottom: 8px;
-}
-
 .scrap-upcoming-hero-name {
   font-family: var(--font-scrap);
   font-size: 1.45rem;
