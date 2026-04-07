@@ -47,6 +47,12 @@ function normDoctorName (name: string) {
     .replace(/\s+/g, ' ')
 }
 
+function pendingVisitsForDoctor (byNorm: Record<string, number>, doc: string | null) {
+  const d = doc?.trim()
+  if (!d) return 0
+  return byNorm[normDoctorName(d)] ?? 0
+}
+
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   const now = Date.now()
@@ -475,7 +481,8 @@ export function DashboardPage () {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
-  const [pendingCount, setPendingCount] = useState(0)
+  /** Pending `doctor_visits` counts keyed by `normDoctorName(doctor)` */
+  const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
@@ -551,14 +558,19 @@ export function DashboardPage () {
         }
       }
 
-      try {
-        const { count } = await supabase
-          .from('doctor_visits')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id)
-          .eq('status', 'pending')
-        setPendingCount(count ?? 0)
-      } catch { setPendingCount(0) }
+      const { data: pendRows } = await supabase
+        .from('doctor_visits')
+        .select('doctor')
+        .eq('user_id', user!.id)
+        .eq('status', 'pending')
+      const pendMap: Record<string, number> = {}
+      for (const row of (pendRows ?? []) as { doctor: string | null }[]) {
+        const d = row.doctor?.trim()
+        if (!d) continue
+        const k = normDoctorName(d)
+        pendMap[k] = (pendMap[k] ?? 0) + 1
+      }
+      setPendingVisitsByNorm(pendMap)
 
       const { count: oq } = await supabase
         .from('doctor_questions')
@@ -863,16 +875,7 @@ export function DashboardPage () {
               Enable visit reminders
             </button>
           )}
-          {pendingCount > 0 && (
-            <button
-              type="button"
-              className="scrap-pending-line"
-              onClick={() => navigate('/app/visits?tab=pending')}
-            >
-              {pendingCount} visit{pendingCount !== 1 ? 's' : ''} need finishing — tap here
-            </button>
-          )}
-          {upcoming.length === 0 && pendingCount === 0 && (
+          {upcoming.length === 0 && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
           {upcoming.length > 0 && (
@@ -903,26 +906,59 @@ export function DashboardPage () {
                     )
                   })()}
                 </div>
+                {(() => {
+                  const n = pendingVisitsForDoctor(pendingVisitsByNorm, upcoming[0].doctor)
+                  if (n <= 0) return null
+                  const docDisp = upcoming[0].doctor || 'this doctor'
+                  const q = `/app/visits?tab=pending&doctor=${encodeURIComponent(docDisp)}`
+                  return (
+                    <button
+                      type="button"
+                      className="scrap-pending-line scrap-pending-line--in-hero"
+                      onClick={() => navigate(q)}
+                    >
+                      {n === 1
+                        ? `1 visit with ${docDisp} needs finishing — tap here`
+                        : `${n} visits with ${docDisp} need finishing — tap here`}
+                    </button>
+                  )
+                })()}
               </div>
               {upcoming.length > 1 && (
                 <ul className="scrap-sticky-list scrap-sticky-list--rest">
                   {upcoming.slice(1).map((u) => {
                     const pendingQ = apptPendingQ[u.doctor ?? ''] ?? 0
+                    const pv = pendingVisitsForDoctor(pendingVisitsByNorm, u.doctor)
+                    const docDisp = u.doctor || 'this doctor'
+                    const pendingUrl = `/app/visits?tab=pending&doctor=${encodeURIComponent(docDisp)}`
                     return (
-                      <li key={u.id} className="scrap-body">
-                        {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
-                        {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
-                        {' — '}
-                        {u.doctorId
-                          ? (
-                            <Link to={`/app/doctors/${u.doctorId}`} className="scrap-upcoming-list-link">
-                              {u.doctor}
-                            </Link>
-                            )
-                          : (u.doctor || '—')}
-                        {u.specialty?.trim() ? ` (${u.specialty.trim()})` : ''}
-                        {pendingQ > 0 && (
-                          <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
+                      <li key={u.id} className="scrap-body scrap-upcoming-list-item">
+                        <div>
+                          {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
+                          {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
+                          {' — '}
+                          {u.doctorId
+                            ? (
+                              <Link to={`/app/doctors/${u.doctorId}`} className="scrap-upcoming-list-link">
+                                {u.doctor}
+                              </Link>
+                              )
+                            : (u.doctor || '—')}
+                          {u.specialty?.trim() ? ` (${u.specialty.trim()})` : ''}
+                          {pendingQ > 0 && (
+                            <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
+                          )}
+                        </div>
+                        {pv > 0 && (
+                          <button
+                            type="button"
+                            className="scrap-pending-line scrap-pending-line--in-list"
+                            onClick={() => navigate(pendingUrl)}
+                          >
+                            {pv === 1
+                              ? `1 visit with ${docDisp} needs finishing — tap here`
+                              : `${pv} visits with ${docDisp} need finishing — tap here`}
+                          </button>
                         )}
                       </li>
                     )

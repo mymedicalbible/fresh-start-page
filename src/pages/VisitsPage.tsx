@@ -30,6 +30,16 @@ function nowTime () {
   return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`
 }
 
+/** Match dashboard doctor name normalization for pending-visit filters */
+function normDoctorName (name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/^dr\.?\s+/i, '')
+    .replace(/[.,]+$/g, '')
+    .replace(/\s+/g, ' ')
+}
+
 export function VisitsPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -37,6 +47,8 @@ export function VisitsPage () {
   const wizardNew = searchParams.get('new') === '1'
   const resumeId = searchParams.get('resume')
   const prefillDoctor = searchParams.get('doctor') ?? ''
+  /** With `tab=pending`, restricts the list to this doctor (dashboard upcoming card). */
+  const pendingDoctorFilter = prefillDoctor.trim()
   // FIX: read ?tab=pending from URL so dashboard badge works
   const tabParam = searchParams.get('tab')
 
@@ -345,13 +357,27 @@ export function VisitsPage () {
 
       {(() => {
         const listVisits = visits.filter((v) => {
-          if (listTab === 'pending') return (v.status ?? 'complete') === 'pending'
+          if (listTab === 'pending') {
+            if ((v.status ?? 'complete') !== 'pending') return false
+            if (pendingDoctorFilter) {
+              const vn = normDoctorName(v.doctor ?? '')
+              const fn = normDoctorName(pendingDoctorFilter)
+              if (vn !== fn) return false
+            }
+            return true
+          }
           return true
         })
         if (listVisits.length === 0 && !showForm) {
           return (
             <div className="card">
-              <p className="muted">{listTab === 'pending' ? 'No pending visits. All caught up!' : 'No visits logged yet.'}</p>
+              <p className="muted">
+                {listTab === 'pending'
+                  ? (pendingDoctorFilter
+                      ? `No pending visits for ${pendingDoctorFilter}.`
+                      : 'No pending visits. All caught up!')
+                  : 'No visits logged yet.'}
+              </p>
             </div>
           )
         }

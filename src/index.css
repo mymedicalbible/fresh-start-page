@@ -1185,6 +1185,19 @@ a.scrap-upcoming-hero-name:hover {
   cursor: pointer;
 }
 
+.scrap-pending-line--in-hero {
+  margin: 12px 0 0;
+}
+
+.scrap-pending-line--in-list {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+}
+
+.scrap-upcoming-list-item + .scrap-upcoming-list-item {
+  margin-top: 10px;
+}
+
 /* log today grid */
 .scrap-log-grid {
   display: grid;
@@ -1634,27 +1647,46 @@ a.scrap-upcoming-hero-name:hover {
   font: inherit;
 }
 
+/* Lined paper: line period, font size, and top/bottom padding must stay in sync so baselines sit on rules. */
 .doctor-note-lined {
+  --note-line: 28px;
+  --note-fs: 16px;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 200px;
-  padding: 12px 14px 12px 22px;
+  min-height: calc(8 * var(--note-line) + var(--note-line));
+  padding: 0 14px 14px 40px;
   border: 1px solid rgba(74, 55, 40, 0.22);
   border-radius: 12px;
-  font: inherit;
-  font-size: 1rem;
-  line-height: 28px;
+  /* Tuned for 16px/28px grid: first text baseline lands on first horizontal rule (WebKit/Blink/Firefox). */
+  padding-top: 7px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--note-fs);
+  line-height: var(--note-line);
+  letter-spacing: 0.01em;
   resize: vertical;
+  overflow: auto;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
   background-color: #fffef9;
   background-image:
-    linear-gradient(90deg, rgba(200, 120, 120, 0.28) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      transparent 31px,
+      rgba(200, 120, 120, 0.32) 31px,
+      rgba(200, 120, 120, 0.32) 32px,
+      transparent 32px
+    ),
     repeating-linear-gradient(
-      transparent,
-      transparent 27px,
-      rgba(180, 175, 168, 0.45) 27px,
-      rgba(180, 175, 168, 0.45) 28px
+      transparent 0,
+      transparent calc(var(--note-line) - 1px),
+      rgba(180, 175, 168, 0.42) calc(var(--note-line) - 1px),
+      rgba(180, 175, 168, 0.42) var(--note-line)
     );
-  background-size: 100% 28px, 100% 28px;
-  background-attachment: local;
+  /* Full-height margin stripe + horizontal rules tiled on the line grid */
+  background-size: 100% 100%, 100% var(--note-line);
+  background-repeat: no-repeat, repeat;
+  background-attachment: local, local;
 }
 
 .doctor-note-error {
