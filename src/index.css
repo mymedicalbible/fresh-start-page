@@ -1294,16 +1294,16 @@ a.scrap-upcoming-hero-name:hover {
   pointer-events: none;
   background: radial-gradient(
     circle at 32% 28%,
-    #f4f6f3 0%,
-    #c9d0c6 35%,
-    #8a9387 72%,
-    #5c6459 100%
+    #fff0f5 0%,
+    #f8a8c4 38%,
+    #e56b93 72%,
+    #b83d6a 100%
   );
   box-shadow:
-    0 2px 5px rgba(0,0,0,0.22),
-    0 3px 8px rgba(0,0,0,0.12),
-    inset 0 1px 1px rgba(255,255,255,0.45),
-    inset 0 -2px 4px rgba(0,0,0,0.12);
+    0 2px 5px rgba(120, 30, 60, 0.28),
+    0 3px 8px rgba(120, 30, 60, 0.14),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 4px rgba(90, 20, 45, 0.18);
 }
 
 /* ── LIFTED-BOTTOM SHADOW ────────────────────────────────── */
@@ -1339,8 +1339,8 @@ a.scrap-upcoming-hero-name:hover {
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s;
   overflow: hidden;
-  /* Soft sage paper */
-  background: linear-gradient(170deg, #dce5d8 0%, #c4d1bd 50%, #aab99f 100%);
+  /* Brighter, richer sage paper */
+  background: linear-gradient(170deg, #e8f2e4 0%, #cbe0c0 42%, #a8c995 100%);
   /* Soft transparent multi-layer shadow */
   box-shadow:
     0 1px 2px rgba(0,0,0,0.10),
