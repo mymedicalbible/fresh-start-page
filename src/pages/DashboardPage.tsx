@@ -15,6 +15,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { pushSummaryArchive } from '../lib/summaryArchive'
+import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
+import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
 type SummaryAiSource = 'app' | 'ollama'
 
@@ -582,17 +584,20 @@ export function DashboardPage () {
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
 
-  /** Popover: open questions for upcoming appt doctor */
+  /** Bottom sheet: open questions for upcoming appt doctor — with inline answering */
   const [apptOpenQsPopup, setApptOpenQsPopup] = useState<null | {
     doctor: string
     loading: boolean
     loadError: string | null
     rows: { id: string; question: string; priority: string | null }[]
+    answerDrafts: Record<string, string>
+    savedIds: Set<string>
+    savingId: string | null
   }>(null)
 
   async function openApptQuestionsPopup (doctor: string) {
     if (!user?.id) return
-    setApptOpenQsPopup({ doctor, loading: true, loadError: null, rows: [] })
+    setApptOpenQsPopup({ doctor, loading: true, loadError: null, rows: [], answerDrafts: {}, savedIds: new Set(), savingId: null })
     const { data, error } = await supabase
       .from('doctor_questions')
       .select('id, question, priority, answer, status')
@@ -600,13 +605,46 @@ export function DashboardPage () {
       .eq('doctor', doctor)
       .order('date_created', { ascending: false })
     if (error) {
-      setApptOpenQsPopup({ doctor, loading: false, loadError: error.message, rows: [] })
+      setApptOpenQsPopup((p) => p && ({ ...p, loading: false, loadError: error.message }))
       return
     }
     const open = (data ?? []).filter((q: { answer?: string | null; status?: string | null }) =>
       !String(q.answer ?? '').trim() && (q.status === 'Unanswered' || !q.status),
     ) as { id: string; question: string; priority: string | null }[]
-    setApptOpenQsPopup({ doctor, loading: false, loadError: null, rows: open })
+    setApptOpenQsPopup((p) => p && ({ ...p, loading: false, rows: open }))
+  }
+
+  async function saveApptAnswer (id: string) {
+    if (!apptOpenQsPopup || !user?.id) return
+    const text = (apptOpenQsPopup.answerDrafts[id] ?? '').trim()
+    if (!text) return
+    setApptOpenQsPopup((p) => p && ({ ...p, savingId: id }))
+    const { error } = await supabase
+      .from('doctor_questions')
+      .update({ answer: text, status: 'Answered' })
+      .eq('id', id)
+      .eq('user_id', user.id)
+    if (error) {
+      setApptOpenQsPopup((p) => p && ({ ...p, savingId: null }))
+      return
+    }
+    setApptOpenQsPopup((p) => {
+      if (!p) return p
+      const savedIds = new Set(p.savedIds)
+      savedIds.add(id)
+      return { ...p, savingId: null, savedIds }
+    })
+    // refresh banner count
+    setApptPendingQ((prev) => {
+      const doc = apptOpenQsPopup.doctor
+      const cur = prev[doc] ?? 0
+      if (cur <= 1) {
+        const next = { ...prev }
+        delete next[doc]
+        return next
+      }
+      return { ...prev, [doc]: cur - 1 }
+    })
   }
 
   useEffect(() => {
@@ -979,60 +1017,176 @@ export function DashboardPage () {
           aria-labelledby="appt-open-qs-title"
           style={{
             position: 'fixed', inset: 0, zIndex: 190,
-            background: 'rgba(30,77,52,0.18)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
+            background: 'rgba(10,30,20,0.40)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
           }}
           onClick={() => setApptOpenQsPopup(null)}
           onKeyDown={(e) => { if (e.key === 'Escape') setApptOpenQsPopup(null) }}
         >
+          {/* Bottom sheet */}
           <div
-            className="card"
-            style={{ maxWidth: 440, width: '100%', maxHeight: '82dvh', overflow: 'auto', padding: 20 }}
+            style={{
+              width: '100%',
+              maxWidth: 680,
+              maxHeight: '90dvh',
+              background: 'var(--surface)',
+              borderRadius: '22px 22px 0 0',
+              border: '1.5px solid var(--border)',
+              borderBottom: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 -10px 50px rgba(0,0,0,0.20)',
+              overflow: 'hidden',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <h3 id="appt-open-qs-title" style={{ margin: 0, fontSize: '1.1rem' }}>
-                Open questions
-                <span className="muted" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 400, marginTop: 4 }}>
-                  {apptOpenQsPopup.doctor}
-                </span>
-              </h3>
+            {/* Header */}
+            <div style={{
+              padding: '20px 22px 16px',
+              borderBottom: '1.5px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexShrink: 0,
+              gap: 16,
+            }}>
+              <div>
+                <div id="appt-open-qs-title" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>
+                  Questions for {apptOpenQsPopup.doctor}
+                </div>
+                <div className="muted" style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                  {apptOpenQsPopup.loading
+                    ? 'Loading…'
+                    : `${apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size} unanswered · tap to log a response`
+                  }
+                </div>
+              </div>
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ flexShrink: 0 }}
                 onClick={() => setApptOpenQsPopup(null)}
-              >
-                Close
-              </button>
+                style={{
+                  background: 'var(--bg)', border: '1.5px solid var(--border)',
+                  borderRadius: 999, width: 36, height: 36, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.1rem', color: 'var(--muted)', flexShrink: 0,
+                }}
+              >×</button>
             </div>
-            {apptOpenQsPopup.loading && <p className="muted" style={{ marginTop: 14 }}>Loading…</p>}
-            {apptOpenQsPopup.loadError && (
-              <p className="banner error" style={{ marginTop: 14, marginBottom: 0 }}>{apptOpenQsPopup.loadError}</p>
-            )}
-            {!apptOpenQsPopup.loading && !apptOpenQsPopup.loadError && apptOpenQsPopup.rows.length === 0 && (
-              <p className="muted" style={{ marginTop: 14 }}>No open questions for this doctor.</p>
-            )}
-            {apptOpenQsPopup.rows.length > 0 && (
-              <ul style={{ margin: '14px 0 0', paddingLeft: 18, display: 'grid', gap: 10 }}>
-                {apptOpenQsPopup.rows.map((r) => (
-                  <li key={r.id} style={{ fontSize: '0.92rem', lineHeight: 1.4 }}>
-                    <span style={{ fontWeight: 700, color: 'var(--mint-dark)' }}>{r.priority ?? 'Medium'}</span>
-                    {' — '}{r.question}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+
+            {/* Scrollable question list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px 24px', display: 'grid', gap: 16 }}>
+              {apptOpenQsPopup.loading && (
+                <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>Loading questions…</p>
+              )}
+              {apptOpenQsPopup.loadError && (
+                <div className="banner error">{apptOpenQsPopup.loadError}</div>
+              )}
+              {!apptOpenQsPopup.loading && !apptOpenQsPopup.loadError && apptOpenQsPopup.rows.length === 0 && (
+                <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>No open questions for this doctor.</p>
+              )}
+
+              {apptOpenQsPopup.rows.map((r) => {
+                const saved = apptOpenQsPopup.savedIds.has(r.id)
+                const saving = apptOpenQsPopup.savingId === r.id
+                const draft = apptOpenQsPopup.answerDrafts[r.id] ?? ''
+                const tackColor = priorityTackFill(r.priority)
+                const labelColor = priorityLabelColor(r.priority)
+                return (
+                  <div key={r.id} style={{
+                    border: `1.5px solid ${saved ? 'var(--mint)' : 'var(--border)'}`,
+                    borderRadius: 14,
+                    padding: '16px 18px',
+                    background: saved ? 'var(--mint-surface)' : 'var(--bg)',
+                    transition: 'background 0.2s, border-color 0.2s',
+                  }}>
+                    {/* Priority + question */}
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                      <span style={{ flexShrink: 0, marginTop: 2 }}><PriorityTackIcon color={tackColor} size={22} /></span>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.8rem', color: labelColor, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          {r.priority ?? 'Medium'} priority
+                        </span>
+                        <div style={{ fontSize: '1.05rem', lineHeight: 1.45, color: 'var(--text)' }}>
+                          {r.question}
+                        </div>
+                      </div>
+                    </div>
+
+                    {saved ? (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        color: 'var(--mint-dark)', fontWeight: 600, fontSize: '0.9rem',
+                        padding: '10px 14px',
+                        background: 'rgba(56,160,100,0.08)',
+                        borderRadius: 10,
+                      }}>
+                        <span>✓</span> Answer saved
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <textarea
+                          rows={3}
+                          placeholder="What did the doctor say? Log your answer here…"
+                          value={draft}
+                          onChange={(e) => setApptOpenQsPopup((p) => p && ({
+                            ...p,
+                            answerDrafts: { ...p.answerDrafts, [r.id]: e.target.value },
+                          }))}
+                          style={{
+                            width: '100%', resize: 'vertical',
+                            padding: '10px 12px', borderRadius: 10,
+                            border: '1.5px solid var(--border)',
+                            background: 'var(--surface)',
+                            fontSize: '0.98rem', lineHeight: 1.5,
+                            color: 'var(--text)',
+                            fontFamily: 'inherit',
+                            boxSizing: 'border-box',
+                          }}
+                          disabled={saving}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-mint"
+                          style={{ alignSelf: 'flex-end', fontSize: '0.9rem' }}
+                          disabled={!draft.trim() || saving}
+                          onClick={() => { void saveApptAnswer(r.id) }}
+                        >
+                          {saving ? 'Saving…' : 'Save answer'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '14px 22px',
+              borderTop: '1.5px solid var(--border)',
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}>
               <Link
-                className="btn btn-primary"
+                className="btn btn-secondary"
                 to={`/app/questions?doctor=${encodeURIComponent(apptOpenQsPopup.doctor)}&tab=open`}
                 onClick={() => setApptOpenQsPopup(null)}
+                style={{ fontSize: '0.9rem' }}
               >
-                Open Questions page
+                View all questions →
               </Link>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginLeft: 'auto', fontSize: '0.9rem' }}
+                onClick={() => setApptOpenQsPopup(null)}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
