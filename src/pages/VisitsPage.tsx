@@ -5,6 +5,12 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { VisitLogWizard } from '../components/VisitLogWizard'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
+import {
+  deleteVisitDocument,
+  listVisitDocuments,
+  uploadVisitDocument,
+  type VisitDocItem,
+} from '../lib/visitDocsStorage'
 
 type Doctor = { id: string; name: string; specialty: string | null }
 
@@ -62,6 +68,8 @@ export function VisitsPage () {
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [visitDocMap, setVisitDocMap] = useState<Record<string, VisitDocItem[]>>({})
+  const [visitDocUploading, setVisitDocUploading] = useState<string | null>(null)
 
   const [selectedDoctor, setSelectedDoctor] = useState('')
   const [customDoctorName, setCustomDoctorName] = useState('')
@@ -91,6 +99,12 @@ export function VisitsPage () {
       .limit(50)
     if (e) setError(e.message)
     else setVisits((data ?? []) as VisitRow[])
+  }
+
+  async function loadVisitDocsForVisit (visitId: string) {
+    if (!user) return
+    const { docs } = await listVisitDocuments(user.id, visitId)
+    setVisitDocMap((prev) => ({ ...prev, [visitId]: docs }))
   }
 
   async function loadDoctorMeds (doctorName: string) {
@@ -391,7 +405,13 @@ export function VisitsPage () {
             <div key={v.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div
                 style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onClick={() => setExpandedId(isOpen ? null : v.id)}>
+                onClick={() => {
+                  if (isOpen) setExpandedId(null)
+                  else {
+                    setExpandedId(v.id)
+                    void loadVisitDocsForVisit(v.id)
+                  }
+                }}>
                 <div>
                   <div style={{ fontWeight: 700 }}>
                     {v.visit_date}{v.visit_time ? ` · ${v.visit_time}` : ''}
@@ -432,6 +452,64 @@ export function VisitsPage () {
                   {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
                   {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Next appt: {v.follow_up}</div>}
                   {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
+
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>Documents / photos</div>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      disabled={visitDocUploading === v.id}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file || !user) return
+                        setVisitDocUploading(v.id)
+                        const { error: upErr } = await uploadVisitDocument(user.id, v.id, file, Date.now())
+                        if (upErr) setError(upErr.message)
+                        await loadVisitDocsForVisit(v.id)
+                        setVisitDocUploading(null)
+                        e.target.value = ''
+                      }}
+                    />
+                    {visitDocUploading === v.id && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Uploading…</div>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.8rem', marginTop: 6 }}
+                      onClick={() => void loadVisitDocsForVisit(v.id)}
+                    >
+                      Refresh list
+                    </button>
+                    {(visitDocMap[v.id] ?? []).length === 0 && visitDocMap[v.id] !== undefined && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>No documents yet.</div>
+                    )}
+                    {(visitDocMap[v.id] ?? []).map((d) => (
+                      <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 6, alignItems: 'center' }}>
+                        <span className="muted" style={{ fontSize: '0.85rem' }}>{d.name}</span>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {d.signedUrl && (
+                            <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ fontSize: '0.78rem', color: '#b91c1c' }}
+                            disabled={visitDocUploading === v.id}
+                            onClick={async () => {
+                              if (!user) return
+                              setVisitDocUploading(v.id)
+                              await deleteVisitDocument(user.id, v.id, d.name)
+                              await loadVisitDocsForVisit(v.id)
+                              setVisitDocUploading(null)
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

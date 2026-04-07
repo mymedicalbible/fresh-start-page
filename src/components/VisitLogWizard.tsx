@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
+import {
+  deleteVisitDocument,
+  listVisitDocuments,
+  uploadVisitDocument,
+  type VisitDocItem,
+} from '../lib/visitDocsStorage'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -19,6 +25,8 @@ function nowTime () {
   const n = new Date()
   return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`
 }
+
+type QuestionLine = { text: string; priority: string }
 
 export function VisitLogWizard ({
   resumeVisitId,
@@ -48,7 +56,11 @@ export function VisitLogWizard ({
   const [specialty, setSpecialty] = useState(initialSpecialty)
   const [reason, setReason] = useState('')
 
-  const [questionLines, setQuestionLines] = useState<string[]>([''])
+  const [questionLines, setQuestionLines] = useState<QuestionLine[]>([{ text: '', priority: 'Medium' }])
+  const [pendingVisitFiles, setPendingVisitFiles] = useState<File[]>([])
+  const [visitDocList, setVisitDocList] = useState<VisitDocItem[]>([])
+  const [visitDocBusy, setVisitDocBusy] = useState(false)
+  const visitFileInputRef = useRef<HTMLInputElement>(null)
 
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
@@ -127,6 +139,19 @@ export function VisitLogWizard ({
     }
   }, [doctorMode, selectedName, newDoctorName, doctors, user])
 
+  const refreshVisitDocs = useCallback(async () => {
+    if (!user || !visitId) return
+    setVisitDocBusy(true)
+    const { error, docs } = await listVisitDocuments(user.id, visitId)
+    setVisitDocBusy(false)
+    if (!error) setVisitDocList(docs)
+  }, [user, visitId])
+
+  useEffect(() => {
+    if (!user || !visitId || step < 2) return
+    void refreshVisitDocs()
+  }, [user, visitId, step, refreshVisitDocs])
+
   async function saveStep1 () {
     if (!user) return
     if (!effectiveName) { setError('Choose or add a doctor.'); return }
@@ -174,7 +199,7 @@ export function VisitLogWizard ({
   async function saveStep2AndGo () {
     if (!user || !visitId) return
     setError(null)
-    const lines = questionLines.map((s) => s.trim()).filter(Boolean)
+    const lines = questionLines.map((q) => ({ ...q, text: q.text.trim() })).filter((q) => q.text)
     setBusy(true)
     if (lines.length > 0) {
       const { error: e } = await supabase.from('doctor_questions').insert(
@@ -182,8 +207,8 @@ export function VisitLogWizard ({
           user_id: user.id,
           date_created: todayISO(),
           doctor: effectiveName,
-          question: q,
-          priority: 'Medium',
+          question: q.text,
+          priority: q.priority || 'Medium',
           status: 'Unanswered',
           answer: null,
         }))
@@ -222,6 +247,17 @@ export function VisitLogWizard ({
     }).eq('id', visitId)
 
     if (ue) { setError(ue.message); setBusy(false); return }
+
+    if (pendingVisitFiles.length > 0 && visitId) {
+      let salt = 0
+      for (const file of pendingVisitFiles) {
+        salt += 1
+        const { error: upErr } = await uploadVisitDocument(user.id, visitId, file, salt)
+        if (upErr) console.warn('visit document upload:', upErr.message)
+      }
+      setPendingVisitFiles([])
+      await refreshVisitDocs()
+    }
 
     if (!asPending && validTests.length > 0) {
       await supabase.from('tests_ordered').insert(
@@ -376,9 +412,17 @@ export function VisitLogWizard ({
             </button>
           )}
           {reason.trim() && pinnedReasons.includes(reason.trim()) && (
-            <span style={{ fontSize: '0.78rem', color: '#4a7a32', marginTop: 4, display: 'inline-block' }}>
-              📌 Saved as quick button
-            </span>
+            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: '#4a7a32' }}>📌 In your quick picks</span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: '0.78rem', padding: '3px 10px' }}
+                onClick={() => unpinReason(reason.trim())}
+              >
+                Unpin from quick picks
+              </button>
+            </div>
           )}
           <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy} onClick={() => void saveStep1()}>
             Continue
@@ -392,18 +436,123 @@ export function VisitLogWizard ({
       {step === 2 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
           <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#475569' }}>Questions for this visit</p>
-          <p style={{ margin: '0 0 10px', fontSize: '0.78rem', color: '#94a3b8' }}>Add any questions now, or skip.</p>
+          <p style={{ margin: '0 0 12px', fontSize: '0.78rem', color: '#94a3b8' }}>
+            Same layout as Questions quick log — priority + question text. Add any questions now, or skip.
+          </p>
           {questionLines.map((line, i) => (
-            <textarea
-              key={i}
-              value={line}
-              rows={2}
-              placeholder="Question…"
-              style={{ width: '100%', marginBottom: 8 }}
-              onChange={(e) => setQuestionLines((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
-            />
+            <div key={i} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+              <div className="form-group" style={{ marginBottom: 8 }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 600 }}>Priority</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['High', 'Medium', 'Low'] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`btn ${line.priority === p ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, fontSize: '0.82rem' }}
+                      onClick={() => setQuestionLines((prev) => prev.map((x, j) => (j === i ? { ...x, priority: p } : x)))}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 600 }}>Question</label>
+                <textarea
+                  value={line.text}
+                  rows={3}
+                  placeholder="What do you want to ask?"
+                  style={{ width: '100%' }}
+                  onChange={(e) => setQuestionLines((prev) => prev.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+                />
+              </div>
+              {questionLines.length > 1 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: 6 }}
+                  onClick={() => setQuestionLines((prev) => prev.filter((_, j) => j !== i))}
+                >
+                  Remove this question
+                </button>
+              )}
+            </div>
           ))}
-          <button type="button" className="btn btn-ghost" style={{ fontSize: '0.85rem' }} onClick={() => setQuestionLines((p) => [...p, ''])}>+ Another question</button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: '0.85rem', marginBottom: 12 }}
+            onClick={() => setQuestionLines((p) => [...p, { text: '', priority: 'Medium' }])}
+          >
+            + Add another question
+          </button>
+
+          {visitId && (
+            <div className="form-group" style={{ marginTop: 4 }}>
+              <label style={{ fontWeight: 600 }}>Documents / photos (optional)</label>
+              <p style={{ margin: '4px 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
+                Upload reports or photos for this visit. Files upload when you save the visit on the last step (or stay queued below until then).
+              </p>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                ref={visitFileInputRef}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  setPendingVisitFiles((prev) => [...prev, ...files])
+                  if (visitFileInputRef.current) visitFileInputRef.current.value = ''
+                }}
+              />
+              {pendingVisitFiles.length > 0 && (
+                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                  {pendingVisitFiles.map((f, idx) => (
+                    <div key={`${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="muted" style={{ fontSize: '0.85rem' }}>{f.name}</span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: '0.75rem', color: 'red' }}
+                        onClick={() => setPendingVisitFiles((prev) => prev.filter((_, j) => j !== idx))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {visitDocList.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Already attached</div>
+                  {visitDocList.map((d) => (
+                    <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                      <span className="muted" style={{ fontSize: '0.82rem' }}>{d.name}</span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {d.signedUrl && (
+                          <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ fontSize: '0.75rem', color: '#b91c1c' }}
+                          disabled={visitDocBusy}
+                          onClick={async () => {
+                            if (!user || !visitId) return
+                            setVisitDocBusy(true)
+                            await deleteVisitDocument(user.id, visitId, d.name)
+                            await refreshVisitDocs()
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>←</button>
             <button type="button" className="btn btn-primary" style={{ flex: 2 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
@@ -424,6 +573,65 @@ export function VisitLogWizard ({
             </div>
           ))}
           <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setDvTests((p) => [...p, { test_name: '', reason: '' }])}>+ Test</button>
+
+          {visitId && (
+            <div className="form-group" style={{ marginTop: 14 }}>
+              <label style={{ fontWeight: 600 }}>Documents / photos (optional)</label>
+              <p style={{ margin: '4px 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
+                Add or remove files for this visit (same storage as Tests & orders). Queued files upload when you tap Save below.
+              </p>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                ref={visitFileInputRef}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  setPendingVisitFiles((prev) => [...prev, ...files])
+                  if (visitFileInputRef.current) visitFileInputRef.current.value = ''
+                }}
+              />
+              {pendingVisitFiles.length > 0 && (
+                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                  {pendingVisitFiles.map((f, idx) => (
+                    <div key={`p-${f.name}-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="muted" style={{ fontSize: '0.85rem' }}>{f.name} (queued)</span>
+                      <button type="button" className="btn btn-ghost" style={{ fontSize: '0.75rem', color: 'red' }}
+                        onClick={() => setPendingVisitFiles((prev) => prev.filter((_, j) => j !== idx))}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {visitDocList.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Attached</div>
+                  {visitDocList.map((d) => (
+                    <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                      <span className="muted" style={{ fontSize: '0.82rem' }}>{d.name}</span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {d.signedUrl && (
+                          <a className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} href={d.signedUrl} target="_blank" rel="noreferrer">View</a>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ fontSize: '0.75rem', color: '#b91c1c' }}
+                          disabled={visitDocBusy}
+                          onClick={async () => {
+                            if (!user || !visitId) return
+                            setVisitDocBusy(true)
+                            await deleteVisitDocument(user.id, visitId, d.name)
+                            await refreshVisitDocs()
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '12px 0 4px' }}>Medications</p>
           {dvMeds.map((m, i) => (
