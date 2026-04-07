@@ -958,29 +958,7 @@ export function DashboardPage () {
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
           {upcoming.length === 0 && hasAnyPendingVisits && (
-            <div className="scrap-upcoming-pending-docked">
-              <p className="scrap-body scrap-body--muted scrap-upcoming-pending-docked-intro">
-                No upcoming appointments. Visits still waiting to be finished:
-              </p>
-              <ul className="scrap-upcoming-pending-dock-list">
-                {pendingDockEntries.map(({ norm, count, label, resumeId }) => (
-                  <li key={norm}>
-                    <button
-                      type="button"
-                      className="scrap-pending-line scrap-pending-line--in-hero"
-                      onClick={() => {
-                        if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
-                        else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
-                      }}
-                    >
-                      {count === 1
-                        ? `Continue visit log — ${label} →`
-                        : `Continue latest visit — ${label} (${count} in progress) →`}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <p className="scrap-body scrap-body--muted">No upcoming appointments — see unfinished logs below.</p>
           )}
           {upcoming.length > 0 && (
             <div className="scrap-upcoming-hero">
@@ -1016,48 +994,25 @@ export function DashboardPage () {
                 const newUrl = doc
                   ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
                   : '/app/visits?new=1'
-                return (
-                  <>
-                    {resumeId ? (
-                      <Link
-                        to={`/app/visits?resume=${resumeId}`}
-                        className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
-                      >
-                        Continue visit log — finish this appointment →
-                      </Link>
-                    ) : (
-                      <Link to={newUrl} className="scrap-upcoming-visit-log-link">
-                        Start visit log for this appointment →
-                      </Link>
-                    )}
-                    {pendingDockEntries.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        {pendingDockEntries.map(({ norm: pNorm, count, label, resumeId: pResume }) => (
-                          <button
-                            key={pNorm}
-                            type="button"
-                            className="scrap-pending-line scrap-pending-line--in-hero"
-                            onClick={() => {
-                              if (pResume) navigate(`/app/visits?resume=${pResume}`)
-                              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
-                            }}
-                          >
-                            {count === 1
-                              ? `Unfinished visit — ${label} →`
-                              : `${count} unfinished visits — ${label} →`}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                return resumeId ? (
+                  <Link
+                    to={`/app/visits?resume=${resumeId}`}
+                    className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
+                  >
+                    Continue visit log — finish this appointment →
+                  </Link>
+                ) : (
+                  <Link to={newUrl} className="scrap-upcoming-visit-log-link">
+                    Start visit log for this appointment →
+                  </Link>
                 )
               })()}
             </div>
           )}
         </section>
 
-        {/* Pending visit stickers — outside the banner, below it */}
-        {upcoming.length > 0 && hasAnyPendingVisits && (
+        {/* Pending visit stickers — always outside/below the banner */}
+        {hasAnyPendingVisits && (
           <PendingVisitStickers
             entries={pendingDockEntries}
             onNavigate={(resumeId, label) => {
