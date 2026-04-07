@@ -21,13 +21,13 @@ test.describe('Medical Bible Core Smoke Test', () => {
   })
 })
 
-test.describe('Medical Bible — authenticated smoke (optional)', () => {
+test.describe('Medical Bible — authenticated smoke', () => {
   test.beforeEach(async ({ page }) => {
     const email = process.env.PLAYWRIGHT_SMOKE_EMAIL?.trim()
     const password = process.env.PLAYWRIGHT_SMOKE_PASSWORD?.trim()
     test.skip(
       !email || !password,
-      'Set PLAYWRIGHT_SMOKE_EMAIL and PLAYWRIGHT_SMOKE_PASSWORD to run authenticated checks.',
+      'Add PLAYWRIGHT_SMOKE_EMAIL and PLAYWRIGHT_SMOKE_PASSWORD to `.env.playwright` (see .env.playwright.example) or export them before running tests.',
     )
 
     await page.goto('/login')
