@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
+import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { priorityButtonStyles, priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 
 
 type QuestionRow = {
@@ -24,25 +25,6 @@ type Doctor = { id: string; name: string; specialty: string | null }
 
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
-
-function archivePriorityColors (p: string | null) {
-  const x = (p || 'Medium').trim().toLowerCase()
-  if (x === 'high') return { bg: '#dc2626', border: '#991b1b' }
-  if (x === 'low') return { bg: '#16a34a', border: '#166534' }
-  return { bg: '#ca8a04', border: '#a16207' }
-}
-
-function formPriorityBtn (p: 'High' | 'Medium' | 'Low', active: boolean): CSSProperties {
-  const base: CSSProperties = { flex: 1, fontSize: '0.82rem', fontWeight: 600, borderWidth: 2, borderStyle: 'solid' }
-  if (p === 'Low') {
-    return { ...base, borderColor: active ? '#22c55e' : '#bbf7d0', background: active ? '#d1fae5' : '#f7fee7', color: active ? '#065f46' : '#64748b' }
-  }
-  if (p === 'Medium') {
-    return { ...base, borderColor: active ? '#eab308' : '#fde68a', background: active ? '#fef3c7' : '#fffbeb', color: active ? '#92400e' : '#64748b' }
-  }
-  return { ...base, borderColor: active ? '#ef4444' : '#fecaca', background: active ? '#fee2e2' : '#fef2f2', color: active ? '#991b1b' : '#64748b' }
-}
-
 
 export function QuestionsArchivePage () {
   const { user } = useAuth()
@@ -205,7 +187,7 @@ export function QuestionsArchivePage () {
                 <button
                   key={p}
                   type="button"
-                  style={formPriorityBtn(p, form.priority === p)}
+                  style={priorityButtonStyles(p, form.priority === p)}
                   onClick={() => setForm({ ...form, priority: p })}
                 >
                   {p}
@@ -232,15 +214,15 @@ export function QuestionsArchivePage () {
         <h3 style={{ margin: '0 0 10px' }}>❓ All Questions</h3>
         <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 10px', lineHeight: 1.5 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#16a34a' }} /> Low
+            <PriorityTackIcon color={priorityTackFill('Low')} size={16} /> Low
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#ca8a04' }} /> Medium
+            <PriorityTackIcon color={priorityTackFill('Medium')} size={16} /> Medium
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#dc2626' }} /> High
+            <PriorityTackIcon color={priorityTackFill('High')} size={16} /> High
           </span>
-          {' — '}Open questions show a 📌 on a colored pin by urgency.
+          {' — '}Open questions show a colored tack by urgency (same colors as visit quick log).
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button type="button"
@@ -268,7 +250,8 @@ export function QuestionsArchivePage () {
       {filtered.map((q) => {
         const isOpen = expandedId === q.id
         const open = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
-        const pinColors = archivePriorityColors(q.priority)
+        const tackFill = priorityTackFill(q.priority)
+        const labelColor = priorityLabelColor(q.priority)
         return (
           <div key={q.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
@@ -276,26 +259,11 @@ export function QuestionsArchivePage () {
               onClick={() => setExpandedId(isOpen ? null : q.id)}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
                 {open && (
-                  <span
+                  <PriorityTackIcon
+                    color={tackFill}
+                    size={22}
                     title={`${q.priority || 'Medium'} priority`}
-                    aria-label={`Priority: ${q.priority || 'Medium'}`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      background: pinColors.bg,
-                      flexShrink: 0,
-                      border: `2px solid ${pinColors.border}`,
-                      fontSize: '1.05rem',
-                      lineHeight: 1,
-                      boxShadow: '0 1px 3px rgba(0,0,0,.12)',
-                    }}
-                  >
-                    📌
-                  </span>
+                  />
                 )}
                 <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700 }}>{q.question}</div>
@@ -304,7 +272,7 @@ export function QuestionsArchivePage () {
                   {q.doctor ? ` · ${q.doctor}${q.doctor_specialty ? ` (${q.doctor_specialty})` : ''}` : ''}
                   {q.priority
                     ? (
-                      <span style={{ fontWeight: 600, color: pinColors.bg }}>
+                      <span style={{ fontWeight: 600, color: labelColor }}>
                         {` · ${q.priority} priority`}
                       </span>
                       )

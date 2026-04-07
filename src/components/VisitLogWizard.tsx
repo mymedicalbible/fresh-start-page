@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
+import { priorityButtonStyles } from '../lib/priorityQuickLog'
 import {
   deleteVisitDocument,
   listVisitDocuments,
@@ -36,38 +36,6 @@ function normPin (s: string) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
-}
-
-function priorityBtnLook (p: 'High' | 'Medium' | 'Low', active: boolean): CSSProperties {
-  const base: CSSProperties = {
-    flex: 1,
-    fontSize: '0.82rem',
-    fontWeight: 600,
-    borderWidth: 2,
-    borderStyle: 'solid',
-  }
-  if (p === 'Low') {
-    return {
-      ...base,
-      borderColor: active ? '#22c55e' : '#bbf7d0',
-      background: active ? '#d1fae5' : '#f7fee7',
-      color: active ? '#065f46' : '#64748b',
-    }
-  }
-  if (p === 'Medium') {
-    return {
-      ...base,
-      borderColor: active ? '#eab308' : '#fde68a',
-      background: active ? '#fef3c7' : '#fffbeb',
-      color: active ? '#92400e' : '#64748b',
-    }
-  }
-  return {
-    ...base,
-    borderColor: active ? '#ef4444' : '#fecaca',
-    background: active ? '#fee2e2' : '#fef2f2',
-    color: active ? '#991b1b' : '#64748b',
-  }
 }
 
 export function VisitLogWizard ({
@@ -502,7 +470,7 @@ export function VisitLogWizard ({
                     <button
                       key={p}
                       type="button"
-                      style={priorityBtnLook(p, line.priority === p)}
+                      style={priorityButtonStyles(p, line.priority === p)}
                       onClick={() => setQuestionLines((prev) => prev.map((x, j) => (j === i ? { ...x, priority: p } : x)))}
                     >
                       {p}
