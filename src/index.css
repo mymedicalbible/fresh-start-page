@@ -58,6 +58,13 @@
   --paper-margin-line: rgba(200, 120, 120, 0.25);
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
   --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-scrap: 'Patrick Hand', 'Indie Flower', cursive;
+
+  /* --- Scrapbook reference (home UI) --- */
+  --scrap-ink: #4a3728;
+  --scrap-muted: #7d6b5a;
+  --scrap-paper: #faf6ed;
+  --scrap-grid: rgba(188, 168, 140, 0.32);
 }
 
 /* ============================================================
@@ -69,10 +76,7 @@ html, body {
   margin: 0;
   min-height: 100%;
   font-family: var(--font-sans);
-  background:
-    radial-gradient(ellipse 120% 80% at 20% 0%, rgba(255, 218, 230, 0.35) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 100% 40%, rgba(189, 228, 244, 0.4) 0%, transparent 50%),
-    linear-gradient(165deg, var(--desk-deep) 0%, var(--desk) 45%, #c5c0b6 100%);
+  background: #e8e2d8;
   color: var(--text);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -97,83 +101,47 @@ button, input, select, textarea { font: inherit; }
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 8px);
 }
 
-/* --- Notebook column + spiral (outer frame) --- */
-.app-page {
+.app-shell--scrapbook {
+  font-family: var(--font-scrap);
+  font-size: 1.2rem;
+  color: var(--scrap-ink);
+  background-color: var(--scrap-paper);
+  background-image:
+    linear-gradient(var(--scrap-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--scrap-grid) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-attachment: fixed;
+}
+
+.scrap-layout-header {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 10px 16px 2px;
+  font-size: 1.15rem;
+  color: var(--scrap-ink);
+  letter-spacing: 0.06em;
+}
+
+.scrap-layout-brand {
+  opacity: 0.88;
+}
+
+.app-page--scrapbook {
   flex: 1;
   width: 100%;
-  max-width: 29rem;
+  max-width: 26rem;
   margin: 0 auto;
-  padding: 10px 12px 0;
+  padding: 0 16px 0;
   min-height: 0;
 }
 
-.notebook-outer {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: var(--shadow-notebook);
-  border: 2px solid rgba(140, 175, 215, 0.5);
-  background: var(--paper);
-}
-
-/* --- Spiral binding (left rail) --- */
-.spiral-binding {
-  flex-shrink: 0;
-  width: 34px;
-  position: relative;
-  background: linear-gradient(90deg, #6b7280 0%, #9ca3af 22%, #d1d5db 48%, #9ca3af 78%, #71717a 100%);
-  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.18);
-}
-
-.spiral-strip {
-  position: relative;
-  height: 100%;
-  min-height: calc(100dvh - var(--nav-height) - 36px);
-}
-
-.spiral-coil {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 11px;
-  border-radius: 50%;
-  border: 2px solid #52525b;
-  background: linear-gradient(180deg, #f4f4f5 0%, #a1a1aa 55%, #71717a 100%);
-  box-shadow:
-    1px 2px 3px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-.paper-sheet {
-  flex: 1;
-  min-width: 0;
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(90deg, transparent 0, transparent 22px, var(--paper-margin-line) 22px, var(--paper-margin-line) 23px, transparent 23px),
-    repeating-linear-gradient(
-      transparent,
-      transparent 26px,
-      var(--paper-line) 26px,
-      var(--paper-line) 27px
-    );
-  background-size: 100% 27px;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 14px 14px 18px;
-  min-height: calc(100dvh - var(--nav-height) - 36px);
-}
-
-.paper-sheet--spiral {
-  border-radius: 0 14px 14px 0;
+.scrapbook-sheet {
+  min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 24px);
+  padding: 4px 0 32px;
 }
 
 @media (min-width: 480px) {
-  .app-page { max-width: 33rem; padding: 12px 14px 0; }
-  .spiral-binding { width: 38px; }
+  .app-page--scrapbook { max-width: 28rem; }
 }
 
 /* ============================================================
@@ -620,6 +588,65 @@ textarea { min-height: 88px; resize: vertical; }
 .bottom-nav-icon { font-size: 1.2rem; line-height: 1; }
 .bottom-nav-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 
+.bottom-nav--scrapbook {
+  background: #f5efe4;
+  border-top: 1px solid rgba(74, 55, 40, 0.22);
+  box-shadow: 0 -4px 20px rgba(74, 55, 40, 0.06);
+  border-radius: 0;
+  backdrop-filter: none;
+}
+
+.bottom-nav-item--scrapbook {
+  max-width: none;
+  flex: 1;
+  gap: 4px;
+  padding: 6px 4px;
+  color: var(--scrap-muted);
+  border-radius: 10px;
+  position: relative;
+}
+
+.bottom-nav-item--scrapbook:hover {
+  color: var(--scrap-ink);
+  background: transparent;
+}
+
+.bottom-nav-item--scrapbook.active {
+  color: var(--scrap-ink);
+  background: transparent;
+}
+
+.bottom-nav-item--scrapbook.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--scrap-ink);
+}
+
+.bottom-nav-icon--scrapbook {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.bottom-nav-label--scrapbook {
+  font-family: var(--font-scrap);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.app-shell--scrapbook a {
+  color: var(--scrap-ink);
+}
+
 /* ============================================================
    DASHBOARD — calm section cards
    ============================================================ */
@@ -918,4 +945,374 @@ textarea { min-height: 88px; resize: vertical; }
   text-align: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   z-index: 2;
+}
+
+/* ============================================================
+   SCRAPBOOK HOME (reference layout)
+   ============================================================ */
+.scrapbook-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.scrap-dash-header {
+  text-align: center;
+  padding-top: 8px;
+}
+
+.scrap-greeting {
+  margin: 0;
+  font-family: var(--font-scrap);
+  font-size: 1.85rem;
+  font-weight: 400;
+  color: var(--scrap-ink);
+  line-height: 1.15;
+}
+
+.scrap-date-pill {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(74, 55, 40, 0.45);
+  background: rgba(245, 235, 216, 0.85);
+  font-family: var(--font-scrap);
+  font-size: 1.05rem;
+  color: var(--scrap-ink);
+}
+
+.scrap-heading--section {
+  margin: 0;
+  font-family: var(--font-scrap);
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--scrap-ink);
+  letter-spacing: 0.02em;
+}
+
+.scrap-body {
+  margin: 0;
+  font-family: var(--font-scrap);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--scrap-ink);
+}
+
+.scrap-body--muted {
+  color: var(--scrap-muted);
+}
+
+/* Washi tape pieces */
+.scrap-tape {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  opacity: 0.62;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.scrap-tape--green {
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1.5deg);
+  width: 52%;
+  height: 20px;
+  background: rgba(130, 168, 130, 0.65);
+}
+
+.scrap-tape--pink {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(1deg);
+  width: 48%;
+  height: 18px;
+  background: rgba(232, 160, 180, 0.6);
+}
+
+.scrap-tape--mint {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 48%;
+  height: 18px;
+  background: rgba(150, 200, 170, 0.58);
+}
+
+.scrap-tape--sky {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(1.5deg);
+  width: 48%;
+  height: 18px;
+  background: rgba(140, 190, 220, 0.58);
+}
+
+.scrap-tape--butter {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 48%;
+  height: 18px;
+  background: rgba(230, 210, 120, 0.62);
+}
+
+.scrap-tape--brown {
+  top: -8px;
+  right: 14px;
+  left: auto;
+  transform: rotate(4deg);
+  width: 32%;
+  height: 19px;
+  background: rgba(120, 90, 70, 0.5);
+}
+
+/* Upcoming sticky */
+.scrap-sticky--upcoming {
+  position: relative;
+  background: linear-gradient(180deg, #fff8dc 0%, #fffbeb 100%);
+  border-radius: 10px;
+  padding: 22px 16px 16px;
+  box-shadow: 0 6px 22px rgba(74, 55, 40, 0.12), 0 2px 6px rgba(74, 55, 40, 0.06);
+  border: 1px solid rgba(74, 55, 40, 0.12);
+}
+
+.scrap-sticky-label {
+  font-family: var(--font-scrap);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: var(--scrap-muted);
+  margin-bottom: 10px;
+}
+
+.scrap-sticky-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scrap-sticky-list li + li {
+  margin-top: 8px;
+}
+
+.scrap-appt-q {
+  color: #b45309;
+  font-weight: 400;
+}
+
+.scrap-pending-line {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-scrap);
+  font-size: 1rem;
+  color: #b45309;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* log today grid */
+.scrap-log-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.scrap-log-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 22px 14px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--scrap-ink);
+  border: 1px solid rgba(74, 55, 40, 0.14);
+  box-shadow: 0 5px 16px rgba(74, 55, 40, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+.scrap-log-tile:active {
+  transform: scale(0.98);
+}
+
+.scrap-log-tile::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 16px 16px;
+  border-color: transparent transparent rgba(74, 55, 40, 0.07) transparent;
+  pointer-events: none;
+}
+
+.scrap-log-tile--pink { background: linear-gradient(165deg, #fdeef2 0%, #f8d4e0 100%); }
+.scrap-log-tile--green { background: linear-gradient(165deg, #eef8f0 0%, #c8ead2 100%); }
+.scrap-log-tile--blue { background: linear-gradient(165deg, #eef6fc 0%, #c5e4f5 100%); }
+.scrap-log-tile--yellow { background: linear-gradient(165deg, #fffef5 0%, #f8eaa8 100%); }
+
+.scrap-log-title {
+  font-family: var(--font-scrap);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.scrap-log-sub {
+  font-family: var(--font-scrap);
+  font-size: 0.95rem;
+  color: var(--scrap-muted);
+  line-height: 1.3;
+}
+
+.scrap-log-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  z-index: 2;
+}
+
+/* Handoff strip */
+.scrap-handoff {
+  position: relative;
+  background: linear-gradient(180deg, #ebe0cc 0%, #e5d8c0 100%);
+  border-radius: 10px;
+  padding: 22px 16px 16px;
+  border: 1px solid rgba(74, 55, 40, 0.15);
+  box-shadow: 0 5px 18px rgba(74, 55, 40, 0.1);
+}
+
+.scrap-handoff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scrap-handoff-title {
+  font-family: var(--font-scrap);
+  font-size: 1.15rem;
+  color: var(--scrap-ink);
+}
+
+.scrap-handoff-open {
+  flex-shrink: 0;
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 252, 245, 0.95);
+  color: #5c4a3a;
+  font-family: var(--font-scrap);
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(74, 55, 40, 0.12);
+}
+
+.scrap-handoff-open:hover {
+  filter: brightness(1.03);
+}
+
+/* Records 2×3 */
+.scrap-records-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 400px) {
+  .scrap-records-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.scrap-record-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 12px;
+  background: #fffef8;
+  border: 1px solid rgba(74, 55, 40, 0.35);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--scrap-ink);
+  box-shadow: 0 3px 12px rgba(74, 55, 40, 0.07);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scrap-record-card:active {
+  transform: scale(0.98);
+}
+
+.scrap-record-icon {
+  color: var(--scrap-ink);
+  opacity: 0.9;
+}
+
+.scrap-record-title {
+  font-family: var(--font-scrap);
+  font-size: 1.1rem;
+}
+
+.scrap-record-hint {
+  font-family: var(--font-scrap);
+  font-size: 0.88rem;
+  color: var(--scrap-muted);
+  line-height: 1.25;
+}
+
+/* Profile & misc scrapbook pages */
+.scrapbook-inner {
+  padding: 4px 0 24px;
+}
+
+.scrap-back {
+  font-family: var(--font-scrap);
+  font-size: 1.05rem;
+  background: transparent;
+  border: none;
+  color: var(--scrap-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  margin-bottom: 0 !important;
+}
+
+.scrap-profile-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.scrap-profile-link {
+  font-family: var(--font-scrap);
+  font-size: 1.15rem;
+  color: var(--scrap-ink);
+  text-decoration: underline;
+}
+
+.scrap-mt {
+  margin-top: 24px;
 }

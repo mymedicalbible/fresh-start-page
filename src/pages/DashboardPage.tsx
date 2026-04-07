@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { buildCompactPatientData } from '../lib/summaryContext'
@@ -15,18 +16,6 @@ import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryChar
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
 import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
 import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
-import {
-  QuickLogCircle,
-  IconPain,
-  IconEpisode,
-  IconQuestion,
-  IconVisit,
-  IconDoctors,
-  IconMeds,
-  IconTests,
-  IconCharts,
-} from '../components/QuickLogCircle'
-
 type SummaryAiSource = 'app' | 'ollama'
 
 const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
@@ -37,23 +26,6 @@ type UpcomingAppt = {
   specialty: string | null
   appointment_date: string
   appointment_time: string | null
-}
-
-type RecentActivityItem = {
-  id: string
-  kind: 'pain' | 'episode' | 'visit'
-  title: string
-  sub: string
-  ts: number
-}
-
-function parseActivityDate (dateStr: string, timeStr: string | null): number {
-  const t = timeStr && String(timeStr).length >= 5
-    ? String(timeStr).slice(0, 5)
-    : '12:00'
-  const d = new Date(`${dateStr}T${t}:00`)
-  const n = d.getTime()
-  return Number.isFinite(n) ? n : Date.now()
 }
 
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
@@ -108,6 +80,38 @@ function topN<T extends string> (items: T[], n = 5): { value: T; count: number }
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
     .map(([value, count]) => ({ value, count }))
+}
+
+function scrapGreeting (): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function scrapDisplayName (user: User): string {
+  const raw = user.user_metadata?.full_name
+  if (typeof raw === 'string' && raw.trim()) {
+    const first = raw.trim().split(/\s+/)[0]
+    if (first) return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
+  }
+  const email = user.email ?? ''
+  const local = email.split('@')[0] ?? ''
+  if (local) {
+    const bit = local.split(/[._-]/)[0] ?? local
+    if (bit) return bit.charAt(0).toUpperCase() + bit.slice(1).toLowerCase()
+  }
+  return 'there'
+}
+
+function ScrapRecordCard ({ to, title, hint, children }: { to: string; title: string; hint: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="scrap-record-card">
+      <span className="scrap-record-icon" aria-hidden>{children}</span>
+      <span className="scrap-record-title">{title}</span>
+      <span className="scrap-record-hint">{hint}</span>
+    </Link>
+  )
 }
 
 // ────────────────────────────────────────────────────────────
@@ -454,7 +458,6 @@ export function DashboardPage () {
   const [pendingCount, setPendingCount] = useState(0)
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
-  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([])
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
@@ -500,6 +503,8 @@ export function DashboardPage () {
           }
           setApptPendingQ(qMap)
           scheduleApptNotifications(active, qMap)
+        } else {
+          setApptPendingQ({})
         }
       }
 
@@ -518,56 +523,6 @@ export function DashboardPage () {
         .eq('user_id', user!.id)
         .eq('status', 'Unanswered')
       setOpenQsCount(oq ?? 0)
-
-      const [painR, epR, visR] = await Promise.all([
-        supabase.from('pain_entries')
-          .select('id, entry_date, entry_time, location')
-          .eq('user_id', user!.id)
-          .order('entry_date', { ascending: false })
-          .limit(5),
-        supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, symptoms')
-          .eq('user_id', user!.id)
-          .order('episode_date', { ascending: false })
-          .limit(5),
-        supabase.from('doctor_visits')
-          .select('id, visit_date, visit_time, doctor, reason, status')
-          .eq('user_id', user!.id)
-          .order('visit_date', { ascending: false })
-          .limit(5),
-      ])
-
-      const merged: RecentActivityItem[] = []
-      for (const r of (painR.data ?? []) as { id: string; entry_date: string; entry_time: string | null; location: string | null }[]) {
-        merged.push({
-          id: `p-${r.id}`,
-          kind: 'pain',
-          title: 'Pain log',
-          sub: r.location?.trim() || 'Entry saved',
-          ts: parseActivityDate(r.entry_date, r.entry_time),
-        })
-      }
-      for (const r of (epR.data ?? []) as { id: string; episode_date: string; episode_time: string | null; symptoms: string | null }[]) {
-        const feat = (r.symptoms ?? '').split(',').map((s) => s.trim()).filter(Boolean)[0]
-        merged.push({
-          id: `e-${r.id}`,
-          kind: 'episode',
-          title: 'Episode',
-          sub: feat || 'Features logged',
-          ts: parseActivityDate(r.episode_date, r.episode_time),
-        })
-      }
-      for (const r of (visR.data ?? []) as { id: string; visit_date: string; visit_time: string | null; doctor: string | null; reason: string | null; status: string | null }[]) {
-        merged.push({
-          id: `v-${r.id}`,
-          kind: 'visit',
-          title: 'Visit',
-          sub: [r.doctor, r.reason].filter(Boolean).join(' — ') || 'Visit logged',
-          ts: parseActivityDate(r.visit_date, r.visit_time),
-        })
-      }
-      merged.sort((a, b) => b.ts - a.ts)
-      setRecentActivity(merged.slice(0, 5))
     }
     load()
   }, [user])
@@ -838,140 +793,135 @@ export function DashboardPage () {
         />
       )}
 
-      <div
-        className="dashboard-stack dashboard-stack--compact"
-        style={{ display: 'grid', gap: 10, padding: '0 0 24px' }}
-      >
+      <div className="scrapbook-dashboard">
 
-        {(upcoming.length > 0 || pendingCount > 0) && (
-          <section className="card card--scrapbook card--compact card--appts">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h2 className="dashboard-section-title" style={{ margin: 0, fontSize: '0.98rem' }}>Coming up</h2>
-              {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ fontSize: '0.72rem', padding: '2px 8px', whiteSpace: 'nowrap' }}
-                  onClick={() => Notification.requestPermission().then((p) => {
-                    if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
-                  })}
-                >
-                  Reminders
-                </button>
-              )}
-            </div>
-            {pendingCount > 0 && (
-              <button
-                type="button"
-                className="btn btn-butter"
-                onClick={() => navigate('/app/visits?tab=pending')}
-                style={{
-                  width: '100%',
-                  marginTop: 8,
-                  justifyContent: 'space-between',
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  fontSize: '0.82rem',
-                }}
-              >
-                <span>{pendingCount} pending visit{pendingCount !== 1 ? 's' : ''}</span>
-                <span style={{ fontWeight: 500 }}>Finish →</span>
-              </button>
-            )}
-            {upcoming.length > 0 && (
-              <ul style={{ margin: pendingCount > 0 ? 10 : 8, marginBottom: 0, paddingLeft: 16, fontSize: '0.82rem' }}>
-                {upcoming.slice(0, 4).map((u) => {
-                  const pendingQ = apptPendingQ[u.doctor] ?? 0
-                  return (
-                    <li key={u.id} style={{ marginBottom: 3 }}>
-                      <span className="muted">
-                        {u.appointment_date}
-                        {u.appointment_time ? ` · ${u.appointment_time}` : ''}
-                        {` · ${u.doctor}`}
-                      </span>
-                      {pendingQ > 0 && (
-                        <span style={{
-                          marginLeft: 6, fontSize: '0.65rem', fontWeight: 700,
-                          background: '#f59e0b', color: '#fff',
-                          padding: '0 6px', borderRadius: 20, display: 'inline-block', verticalAlign: 'middle',
-                        }}>
-                          {pendingQ} Q
-                        </span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-            {upcoming.length > 4 && (
-              <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.72rem' }}>
-                +{upcoming.length - 4} more — add or edit on a{' '}
-                <Link to="/app/doctors">doctor profile</Link>
-              </p>
-            )}
-          </section>
-        )}
-
-        <section className="card card--scrapbook card--home-hub">
-          <span className="washi-label">Your shortcuts</span>
-          <div className="quick-log-grid quick-log-grid--dense">
-            <QuickLogCircle to="/app/log?tab=pain" tone="blush" label="Pain" hint="Log pain">
-              <IconPain />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/log?tab=symptoms" tone="mint" label="Episode" hint="Log episode">
-              <IconEpisode />
-            </QuickLogCircle>
-            <QuickLogCircle
-              to="/app/questions"
-              tone="sky"
-              label="Question"
-              hint="Questions for visits"
-              badge={openQsCount ?? undefined}
-            >
-              <IconQuestion />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/visits?new=1" tone="butter" label="Visit" hint="Log a visit">
-              <IconVisit />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/doctors" tone="sky" label="Doctors" hint="Doctor profiles">
-              <IconDoctors />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/meds" tone="mint" label="Meds" hint="Medications">
-              <IconMeds />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/tests" tone="butter" label="Tests" hint="Tests & labs">
-              <IconTests />
-            </QuickLogCircle>
-            <QuickLogCircle to="/app/analytics" tone="blush" label="Charts" hint="Trends">
-              <IconCharts />
-            </QuickLogCircle>
+        <header className="scrap-dash-header">
+          <h1 className="scrap-greeting">
+            {scrapGreeting()}, {scrapDisplayName(user)}
+          </h1>
+          <div className="scrap-date-pill">
+            {format(new Date(), 'EEEE, MMMM d')}
           </div>
-          <p className="home-hub-links muted">
-            <Link to="/app/diagnoses">Diagnoses</Link>
-            {' · '}
-            <Link to="/app/records">Pain, episodes &amp; history</Link>
-          </p>
+        </header>
+
+        <section className="scrap-sticky scrap-sticky--upcoming">
+          <span className="scrap-tape scrap-tape--green" aria-hidden />
+          <div className="scrap-sticky-label">UPCOMING</div>
+          {pendingCount > 0 && (
+            <button
+              type="button"
+              className="scrap-pending-line"
+              onClick={() => navigate('/app/visits?tab=pending')}
+            >
+              {pendingCount} visit{pendingCount !== 1 ? 's' : ''} need finishing — tap here
+            </button>
+          )}
+          {upcoming.length === 0 && pendingCount === 0 && (
+            <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
+          )}
+          {upcoming.length > 0 && (
+            <ul className="scrap-sticky-list">
+              {upcoming.map((u) => {
+                const pendingQ = apptPendingQ[u.doctor] ?? 0
+                return (
+                  <li key={u.id} className="scrap-body">
+                    {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
+                    {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
+                    {' — '}
+                    {u.doctor}
+                    {u.specialty ? ` (${u.specialty})` : ''}
+                    {pendingQ > 0 && (
+                      <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
 
-        {recentActivity.length > 0 && (
-          <section className="card card--scrapbook card--compact">
-            <h2 className="dashboard-section-title" style={{ margin: '0 0 6px', fontSize: '0.95rem' }}>Latest</h2>
-            <ul className="recent-slim-list">
-              {recentActivity.slice(0, 2).map((row) => (
-                <li key={row.id}>
-                  <span className={`recent-dot recent-dot--${row.kind === 'pain' ? 'pain' : row.kind === 'episode' ? 'episode' : 'visit'}`} />
-                  <span style={{ fontWeight: 600 }}>{row.title}</span>
-                  <span className="recent-slim-meta">{formatDistanceToNow(row.ts, { addSuffix: true })}</span>
-                </li>
-              ))}
-            </ul>
-            {recentActivity.length > 2 && (
-              <p style={{ margin: '8px 0 0', fontSize: '0.74rem' }}>
-                <Link to="/app/records">See more in Records →</Link>
-              </p>
+        <h2 className="scrap-heading scrap-heading--section">log today</h2>
+        <div className="scrap-log-grid">
+          <Link to="/app/log?tab=pain" className="scrap-log-tile scrap-log-tile--pink">
+            <span className="scrap-tape scrap-tape--pink" aria-hidden />
+            <span className="scrap-log-title">Pain</span>
+            <span className="scrap-log-sub">Log a pain entry</span>
+          </Link>
+          <Link to="/app/log?tab=symptoms" className="scrap-log-tile scrap-log-tile--green">
+            <span className="scrap-tape scrap-tape--mint" aria-hidden />
+            <span className="scrap-log-title">Episodes</span>
+            <span className="scrap-log-sub">Log an episode</span>
+          </Link>
+          <Link to="/app/questions" className="scrap-log-tile scrap-log-tile--blue">
+            <span className="scrap-tape scrap-tape--sky" aria-hidden />
+            {openQsCount != null && openQsCount > 0 && (
+              <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
             )}
-          </section>
-        )}
+            <span className="scrap-log-title">Questions</span>
+            <span className="scrap-log-sub">Add for your doctor</span>
+          </Link>
+          <Link to="/app/visits?new=1" className="scrap-log-tile scrap-log-tile--yellow">
+            <span className="scrap-tape scrap-tape--butter" aria-hidden />
+            <span className="scrap-log-title">Visit log</span>
+            <span className="scrap-log-sub">Record a visit</span>
+          </Link>
+        </div>
+
+        <section className="scrap-handoff">
+          <span className="scrap-tape scrap-tape--brown" aria-hidden />
+          <div className="scrap-handoff-row">
+            <span className="scrap-handoff-title">Doctor handoff summary</span>
+            <button
+              type="button"
+              className="scrap-handoff-open"
+              onClick={() => setSummaryOpen(true)}
+            >
+              open →
+            </button>
+          </div>
+        </section>
+
+        <h2 className="scrap-heading scrap-heading--section">your records</h2>
+        <div className="scrap-records-grid">
+          <ScrapRecordCard to="/app/doctors" title="Doctors" hint="Profiles & visits">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="3.5" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </ScrapRecordCard>
+          <ScrapRecordCard to="/app/diagnoses" title="Diagnoses" hint="Your conditions">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+              <path d="M14 2v6h6M8 13h8M8 17h6" />
+            </svg>
+          </ScrapRecordCard>
+          <ScrapRecordCard to="/app/meds" title="Medications" hint="What you take">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <rect x="7" y="7" width="10" height="14" rx="2" />
+              <path d="M12 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
+              <path d="M10 12h4" />
+            </svg>
+          </ScrapRecordCard>
+          <ScrapRecordCard to="/app/tests" title="Tests" hint="Labs &amp; orders">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+              <path d="M14 2v6h6M10 13h4M10 17h4" />
+            </svg>
+          </ScrapRecordCard>
+          <ScrapRecordCard to="/app/analytics" title="Charts" hint="Trends">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <path d="M4 19V5M4 19h16M7 16l3-6 4 3 5-8" />
+            </svg>
+          </ScrapRecordCard>
+          <ScrapRecordCard to="/app/records" title="Records" hint="Pain &amp; episodes">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              <path d="M8 7h8M8 11h8M8 15h5" />
+            </svg>
+          </ScrapRecordCard>
+        </div>
 
       </div>
     </>
