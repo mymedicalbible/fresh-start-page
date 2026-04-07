@@ -1242,7 +1242,7 @@ a.scrap-upcoming-hero-name:hover {
 
 /* Pending-visit stickers shown under upcoming appt hero */
 /* ═══════════════════════════════════════════════════════════
-   PENDING VISIT STICKY NOTES — hyper-realistic
+   PENDING VISIT STICKY NOTES — lifted-bottom style
    ═══════════════════════════════════════════════════════════ */
 
 /* Outer column: notes row + optional "more" link below */
@@ -1262,20 +1262,17 @@ a.scrap-upcoming-hero-name:hover {
   gap: 14px;
   width: 100%;
   align-items: flex-start;
-  /* extra vertical room so the tape strip (-10px) doesn't clip */
-  padding: 12px 4px 6px;
+  /* room above for tape (-8px) and below for lifted-bottom shadow */
+  padding: 12px 4px 18px;
 }
 
-/* ── wrapper: rotation + filter-shadow + tape + curl ───── */
+/* ── WRAPPER ─────────────────────────────────────────────── */
 .scrap-pending-sticker-wrapper {
   flex: 1 1 0;
   min-width: 0;
   position: relative;
-  /* filter: drop-shadow traces the clipped polygon shape */
-  filter:
-    drop-shadow(0 1px 2px rgba(0,0,0,0.12))
-    drop-shadow(0 5px 10px rgba(0,0,0,0.16))
-    drop-shadow(0 14px 28px rgba(0,0,0,0.10));
+  /* transform creates a stacking context so ::after z-index:-1 sits
+     behind the note button but is still visible */
 }
 
 /* Per-note random tilt */
@@ -1283,55 +1280,49 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-sticker-wrapper:nth-child(2) { transform: rotate(0.8deg);  }
 .scrap-pending-sticker-wrapper:nth-child(3) { transform: rotate(-0.5deg); }
 
-/* ── TAPE: translucent strip at the top ─────────────────── */
+/* ── TAPE STRIP ──────────────────────────────────────────── */
+/* Frosted-tape centered at the top with faint vertical lines */
 .scrap-pending-sticker-wrapper::before {
   content: '';
   position: absolute;
-  top: -10px;
+  top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 48px;
-  height: 18px;
-  background: rgba(255, 248, 140, 0.55);
-  border-radius: 2px;
+  width: 44px;
+  height: 16px;
   z-index: 5;
   pointer-events: none;
-  /* Very faint lines across tape */
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0px, transparent 5px,
-    rgba(200,180,0,0.08) 5px, rgba(200,180,0,0.08) 6px
-  );
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.22) 0px,
+      rgba(255,255,255,0.22) 2px,
+      transparent 2px,
+      transparent 5px
+    ),
+    rgba(210, 240, 155, 0.52);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.14);
 }
 
-/* ── CURL: bottom-right corner fold ─────────────────────── */
-/*
- * A 26×26px square sits in the cut corner.
- * The diagonal gradient shows:
- *   top-left  → transparent  (where the note's polygon already ends)
- *   bottom-right → cream/back-of-paper color
- * The box-shadow spreads upward-left, landing on the note surface to
- * simulate the shadow cast by the lifted curl.
- */
+/* ── LIFTED-BOTTOM SHADOW ────────────────────────────────── */
+/* A blurred crescent below the bottom edge — makes the note look
+   like its bottom is peeling slightly off the surface. */
 .scrap-pending-sticker-wrapper::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 26px;
+  z-index: -1;
+  bottom: -5px;
+  left: 12%;
+  right: 12%;
   height: 26px;
-  background: linear-gradient(
-    135deg,            /* top-left → bottom-right */
-    transparent 48%,   /* transparent triangle (upper-left half) */
-    #ddd09a 48%        /* back-of-paper cream (lower-right half) */
-  );
-  /* shadow falls UP-LEFT onto the note face */
-  box-shadow: -3px -3px 7px rgba(0,0,0,0.30);
-  z-index: 4;
-  pointer-events: none;
+  background: rgba(0, 0, 0, 0.20);
+  filter: blur(10px);
+  border-radius: 50%;
+  transform: scaleY(0.45);
 }
 
-/* ── THE NOTE BUTTON ─────────────────────────────────────── */
+/* ── THE NOTE ────────────────────────────────────────────── */
 .scrap-pending-sticker {
   position: relative;
   display: block;
@@ -1339,50 +1330,44 @@ a.scrap-upcoming-hero-name:hover {
   height: 100px;
   padding: 10px 10px 8px;
   border: none;
+  border-radius: 1px;
   cursor: pointer;
   text-align: left;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s;
-  border-radius: 1px;
-  /* Paper gradient: brighter top-left, richer bottom */
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(255,254,230,0.70) 0%, transparent 65%),
-    linear-gradient(160deg, #fefce8 0%, #fef08a 45%, #fde047 100%);
-  /* Polygon cuts the bottom-right corner (matches wrapper ::after size) */
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% calc(100% - 26px),
-    calc(100% - 26px) 100%,
-    0 100%
-  );
   overflow: hidden;
+  /* Lime green matching reference image */
+  background: linear-gradient(170deg, #b8e04e 0%, #a2d038 55%, #96c42e 100%);
+  /* Soft transparent multi-layer shadow */
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.10),
+    0 3px 6px  rgba(0,0,0,0.09),
+    0 8px 14px rgba(0,0,0,0.07);
 }
 
-/* Paper grain texture overlay */
+/* Subtle paper-grain texture */
 .scrap-pending-sticker::before {
   content: '';
   position: absolute;
   inset: 0;
-  /* Fine horizontal lines + vertical lines = subtle weave */
   background-image:
     repeating-linear-gradient(
       0deg,
       transparent 0px, transparent 3px,
-      rgba(160,130,0,0.045) 3px, rgba(160,130,0,0.045) 4px
+      rgba(255,255,255,0.06) 3px, rgba(255,255,255,0.06) 4px
     ),
     repeating-linear-gradient(
       90deg,
       transparent 0px, transparent 4px,
-      rgba(160,130,0,0.03) 4px, rgba(160,130,0,0.03) 5px
+      rgba(255,255,255,0.04) 4px, rgba(255,255,255,0.04) 5px
     );
   pointer-events: none;
   z-index: 0;
 }
 
-/* All content floats above texture */
+/* Content above the texture */
 .scrap-pending-sticker__doctor,
 .scrap-pending-sticker__count,
 .scrap-pending-sticker__hold {
@@ -1391,23 +1376,19 @@ a.scrap-upcoming-hero-name:hover {
 }
 
 .scrap-pending-sticker:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
-.scrap-pending-sticker--pressed::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(245,158,11,0.12);
-  z-index: 2;
-  pointer-events: none;
+.scrap-pending-sticker--pressed {
+  outline: 2px solid rgba(255,220,0,0.7);
+  outline-offset: 2px;
 }
 
 /* Doctor name */
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
-  font-size: 0.80rem;
-  color: #713f12;
+  font-size: 0.79rem;
+  color: #1c3800;
   line-height: 1.35;
   word-break: break-word;
   display: -webkit-box;
@@ -1416,10 +1397,10 @@ a.scrap-upcoming-hero-name:hover {
   overflow: hidden;
 }
 
-/* Count */
+/* Visit count */
 .scrap-pending-sticker__count {
   font-size: 0.60rem;
-  color: #92400e;
+  color: #2d5000;
   font-style: italic;
   margin-top: 3px;
 }
@@ -1430,11 +1411,11 @@ a.scrap-upcoming-hero-name:hover {
   bottom: 6px;
   left: 8px;
   font-size: 0.52rem;
-  color: #a16207;
+  color: #2d5000;
   letter-spacing: 0.02em;
 }
 
-/* ── "N more" row (centered below notes) ─────────────────── */
+/* ── "N more" pill (centered below the row) ──────────────── */
 .scrap-pending-more-row {
   display: flex;
   justify-content: center;
@@ -1445,10 +1426,10 @@ a.scrap-upcoming-hero-name:hover {
   align-items: center;
   gap: 5px;
   padding: 5px 18px;
-  background: rgba(180,140,0,0.09);
-  border: 1.5px solid rgba(180,140,0,0.28);
+  background: rgba(100,160,0,0.09);
+  border: 1.5px solid rgba(100,160,0,0.28);
   border-radius: 20px;
-  color: #92400e;
+  color: #2d5000;
   font-size: 0.74rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1457,7 +1438,7 @@ a.scrap-upcoming-hero-name:hover {
 
 .scrap-pending-more-btn:hover,
 .scrap-pending-more-btn:active {
-  background: rgba(180,140,0,0.20);
+  background: rgba(100,160,0,0.20);
 }
 
 /* Context menu for long-press dismiss */
