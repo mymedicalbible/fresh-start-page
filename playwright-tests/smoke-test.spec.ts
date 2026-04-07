@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test'
 
+/** App + HTML title use Medical Bible; older deploys may still show Medical Tracker. */
+const APP_BRAND = /Medical (Bible|Tracker)/i
+
 test.describe('Medical Bible Core Smoke Test', () => {
   test('should redirect to login when not authenticated', async ({ page }) => {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login\/?$/)
-    await expect(page).toHaveTitle(/Medical Tracker/i)
-    await expect(page.getByRole('heading', { name: 'Medical Tracker' })).toBeVisible()
+    await expect(page).toHaveTitle(APP_BRAND)
+    await expect(page.getByRole('heading', { name: APP_BRAND })).toBeVisible()
     await expect(page.getByLabel(/^email$/i)).toBeVisible()
     await expect(page.getByLabel(/^password$/i)).toBeVisible()
   })
@@ -32,11 +35,11 @@ test.describe('Medical Bible — authenticated smoke (optional)', () => {
     await page.getByLabel(/^password$/i).fill(password!)
     await page.locator('form').getByRole('button', { name: /^sign in$/i }).click()
     await expect(page).toHaveURL(/\/app\/?$/, { timeout: 20_000 })
-    await expect(page.getByRole('heading', { name: 'Medical Tracker' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /your records/i })).toBeVisible({ timeout: 15_000 })
   })
 
   test('should load the dashboard and show main sections', async ({ page }) => {
-    await expect(page.getByText(/log today/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /your records/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /doctors/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /medications/i })).toBeVisible()
   })

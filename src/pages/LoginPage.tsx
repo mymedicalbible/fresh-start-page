@@ -58,7 +58,7 @@ export function LoginPage () {
       <div className="login-card card">
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: '2rem' }} aria-hidden>🌼</div>
-          <h2 style={{ margin: '8px 0 4px' }}>Medical Tracker</h2>
+          <h2 style={{ margin: '8px 0 4px' }}>Medical Bible</h2>
           <p className="muted" style={{ margin: 0 }}>Quick logs → organized history (multi-user)</p>
         </div>
 

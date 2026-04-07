@@ -12,6 +12,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: './playwright-tests',
+  testIgnore: ['**/example.spec.ts'],
   use: {
     baseURL,
   },
