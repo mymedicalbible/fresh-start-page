@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
@@ -47,11 +47,6 @@ function normDoctorName (name: string) {
     .replace(/\s+/g, ' ')
 }
 
-function pendingVisitsForDoctor (byNorm: Record<string, number>, doc: string | null) {
-  const d = doc?.trim()
-  if (!d) return 0
-  return byNorm[normDoctorName(d)] ?? 0
-}
 
 /** Matches Visits list: treat only explicit pending as pending (null/empty → complete). */
 function isDoctorVisitPendingStatus (status: string | null | undefined) {
@@ -448,6 +443,97 @@ function SummaryModal ({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────
+// PENDING VISIT STICKERS (long-press to dismiss)
+// ────────────────────────────────────────────────────────────
+type PendingEntry = { norm: string; count: number; label: string; resumeId: string | undefined }
+
+function PendingVisitStickers ({
+  entries,
+  onNavigate,
+  onDismiss,
+}: {
+  entries: PendingEntry[]
+  onNavigate: (resumeId: string | undefined, label: string) => void
+  onDismiss: (norm: string) => void
+}) {
+  const [openCtx, setOpenCtx] = useState<string | null>(null)
+  const [pressing, setPressing] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function startPress (norm: string) {
+    setPressing(norm)
+    timerRef.current = setTimeout(() => {
+      setOpenCtx(norm)
+      setPressing(null)
+    }, 600)
+  }
+
+  function cancelPress () {
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    setPressing(null)
+  }
+
+  return (
+    <div className="scrap-pending-sticker-row">
+      {entries.map(({ norm, count, label, resumeId }) => (
+        <div key={norm} style={{ position: 'relative' }}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Unfinished visit log for ${label}. Hold to dismiss.`}
+            className={`scrap-pending-sticker${pressing === norm ? ' scrap-pending-sticker--pressed' : ''}`}
+            onPointerDown={() => startPress(norm)}
+            onPointerUp={() => {
+              cancelPress()
+              if (openCtx !== norm) onNavigate(resumeId, label)
+            }}
+            onPointerLeave={cancelPress}
+            onPointerCancel={cancelPress}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigate(resumeId, label) }}
+            onClick={() => { if (openCtx === norm) setOpenCtx(null) }}
+          >
+            <span className="scrap-pending-sticker__icon">📋</span>
+            <span className="scrap-pending-sticker__body">
+              <span className="scrap-pending-sticker__title">
+                {count === 1 ? `Finish visit — ${label}` : `${count} visits in progress — ${label}`}
+              </span>
+              <span className="scrap-pending-sticker__sub">Tap to continue →</span>
+              <span className="scrap-pending-sticker__hint">Hold to dismiss</span>
+            </span>
+          </div>
+          {openCtx === norm && (
+            <div className="scrap-pending-ctx" role="menu">
+              <button
+                type="button"
+                className="scrap-pending-ctx__btn"
+                onClick={() => { setOpenCtx(null); onNavigate(resumeId, label) }}
+              >
+                Continue this visit →
+              </button>
+              <button
+                type="button"
+                className="scrap-pending-ctx__btn scrap-pending-ctx__btn--danger"
+                onClick={() => { setOpenCtx(null); onDismiss(norm) }}
+              >
+                Dismiss from dashboard
+              </button>
+              <button
+                type="button"
+                className="scrap-pending-ctx__btn"
+                style={{ color: '#64748b' }}
+                onClick={() => setOpenCtx(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -884,31 +970,6 @@ export function DashboardPage () {
           {liveUpcoming.length === 0 && !hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
-          {liveUpcoming.length === 0 && hasAnyPendingVisits && (
-            <div className="scrap-upcoming-pending-docked">
-              <p className="scrap-body scrap-body--muted scrap-upcoming-pending-docked-intro">
-                No upcoming appointments. Visits still waiting to be finished:
-              </p>
-              <ul className="scrap-upcoming-pending-dock-list">
-                {pendingDockEntries.map(({ norm, count, label, resumeId }) => (
-                  <li key={norm}>
-                    <button
-                      type="button"
-                      className="scrap-pending-line scrap-pending-line--in-hero"
-                      onClick={() => {
-                        if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
-                        else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
-                      }}
-                    >
-                      {count === 1
-                        ? `Continue visit log — ${label} →`
-                        : `Continue latest visit — ${label} (${count} in progress) →`}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           {liveUpcoming.length > 0 && (
               <div className="scrap-upcoming-hero">
                 <div className="scrap-upcoming-hero-label">Next appointment</div>
@@ -940,7 +1001,6 @@ export function DashboardPage () {
                   const doc = liveUpcoming[0].doctor?.trim()
                   const norm = doc ? normDoctorName(doc) : ''
                   const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
-                  const nPending = pendingVisitsForDoctor(pendingVisitsByNorm, liveUpcoming[0].doctor)
                   const newUrl = doc
                     ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
                     : '/app/visits?new=1'
@@ -958,19 +1018,27 @@ export function DashboardPage () {
                           Start visit log for this appointment →
                         </Link>
                       )}
-                      {nPending > 1 && doc && (
-                        <button
-                          type="button"
-                          className="scrap-upcoming-visit-secondary"
-                          onClick={() => navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(doc)}`)}
-                        >
-                          {nPending} visits in progress — see all for this doctor
-                        </button>
-                      )}
                     </>
                   )
                 })()}
               </div>
+          )}
+          {/* Pending visits shown as stickers — under appt hero if one exists, or alone if not */}
+          {hasAnyPendingVisits && (
+            <PendingVisitStickers
+              entries={pendingDockEntries}
+              onNavigate={(resumeId, label) => {
+                if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
+                else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+              }}
+              onDismiss={(norm) => {
+                setPendingVisitsByNorm((prev) => {
+                  const next = { ...prev }
+                  delete next[norm]
+                  return next
+                })
+              }}
+            />
           )}
         </section>
 
@@ -1020,7 +1088,6 @@ export function DashboardPage () {
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
           <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
-          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your conditions" tone="pink" />
         </div>
 
         <p className="scrap-dash-account-line">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -347,8 +347,33 @@ export function VisitLogWizard ({
     try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
   }
 
+  const [chipCtx, setChipCtx] = useState<string | null>(null)
+  const [chipPressing, setChipPressing] = useState<string | null>(null)
+  const chipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function startChipPress (r: string) {
+    setChipPressing(r)
+    chipTimerRef.current = setTimeout(() => {
+      setChipCtx(r)
+      setChipPressing(null)
+    }, 600)
+  }
+  function cancelChipPress () {
+    if (chipTimerRef.current) clearTimeout(chipTimerRef.current)
+    setChipPressing(null)
+  }
+  function deleteFromHistory (r: string) {
+    const next = pastReasons.filter((x) => normPin(x) !== normPin(r))
+    setPastReasons(next)
+    unpinReason(r)
+  }
+
   const chipRow = useMemo(() => {
     const unpinned = pastReasons.filter((r) => !pinnedReasons.some((p) => normPin(p) === normPin(r)))
+    const ctxBtnStyle: CSSProperties = {
+      display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: 'none',
+      textAlign: 'left', fontSize: '0.82rem', cursor: 'pointer', borderRadius: 6,
+    }
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
         {pinnedReasons.map((r) => (
@@ -374,19 +399,49 @@ export function VisitLogWizard ({
           </span>
         ))}
         {unpinned.map((r) => (
-          <button
-            key={r}
-            type="button"
-            className="pill"
-            style={{ fontSize: '0.78rem' }}
-            onClick={() => setReason(r)}
-          >
-            {r.length > 42 ? `${r.slice(0, 40)}…` : r}
-          </button>
+          <span key={r} style={{ position: 'relative', display: 'inline-block' }}>
+            <button
+              type="button"
+              className={`pill${chipPressing === r ? ' pill--pressing' : ''}`}
+              style={{ fontSize: '0.78rem', userSelect: 'none', WebkitUserSelect: 'none' }}
+              onPointerDown={() => startChipPress(r)}
+              onPointerUp={() => {
+                cancelChipPress()
+                if (chipCtx !== r) setReason(r)
+              }}
+              onPointerLeave={cancelChipPress}
+              onPointerCancel={cancelChipPress}
+              onClick={() => { if (chipCtx === r) setChipCtx(null) }}
+            >
+              {r.length > 42 ? `${r.slice(0, 40)}…` : r}
+            </button>
+            {chipCtx === r && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+                background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10,
+                boxShadow: '0 6px 20px rgba(0,0,0,.12)', padding: 4, minWidth: 160,
+              }}>
+                <button type="button" style={ctxBtnStyle}
+                  onClick={() => { setChipCtx(null); setReason(r) }}>
+                  Use this reason
+                </button>
+                <button type="button" style={{ ...ctxBtnStyle, color: '#b91c1c' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#fee2e2')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  onClick={() => { setChipCtx(null); deleteFromHistory(r) }}>
+                  Delete from history
+                </button>
+                <button type="button" style={{ ...ctxBtnStyle, color: '#64748b' }}
+                  onClick={() => setChipCtx(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </span>
         ))}
       </div>
     )
-  }, [pastReasons, pinnedReasons])
+  }, [pastReasons, pinnedReasons, chipCtx, chipPressing])
 
   if (!user) return null
 

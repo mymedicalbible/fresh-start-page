@@ -10,7 +10,7 @@ const NAV_ITEMS: NavItem[] = [
   { kind: 'path', path: '/app', label: 'home' },
   { kind: 'path', path: '/app/analytics', label: 'charts' },
   { kind: 'note', label: 'note' },
-  { kind: 'path', path: '/app/tests', label: 'tests' },
+  { kind: 'path', path: '/app/diagnoses', label: 'diagnoses' },
   { kind: 'path', path: '/app/records', label: 'records' },
 ]
 
@@ -38,11 +38,13 @@ function IconNote () {
   )
 }
 
-function IconTests () {
+function IconDiagnoses () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-      <path d="M14 2v6h6M10 13h4M10 17h4" />
+      {/* Stethoscope */}
+      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.3.3 0 1 0 .2.3" />
+      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
+      <circle cx="20" cy="10" r="2" />
     </svg>
   )
 }
@@ -57,7 +59,7 @@ function IconRecords () {
   )
 }
 
-const NAV_ICONS = [IconHome, IconCharts, IconNote, IconTests, IconRecords] as const
+const NAV_ICONS = [IconHome, IconCharts, IconNote, IconDiagnoses, IconRecords] as const
 
 export function AppLayout () {
   const { user } = useAuth()

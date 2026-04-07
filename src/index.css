@@ -1240,6 +1240,115 @@ a.scrap-upcoming-hero-name:hover {
   margin-top: 6px;
 }
 
+/* Pending-visit stickers shown under upcoming appt hero */
+.scrap-pending-sticker-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.scrap-pending-sticker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 14px 18px;
+  background: linear-gradient(145deg, #fff8e6 0%, #fde68a 60%, #fcd34d 100%);
+  border: 2px solid rgba(180, 83, 9, 0.22);
+  border-radius: 14px 10px 16px 8px;
+  box-shadow: 2px 3px 0 rgba(180, 83, 9, 0.1), 0 6px 16px rgba(180, 83, 9, 0.08);
+  transform: rotate(-0.5deg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: box-shadow 0.15s, transform 0.15s;
+  outline: none;
+}
+
+.scrap-pending-sticker:active {
+  transform: scale(0.97) rotate(-0.5deg);
+  box-shadow: 1px 1px 0 rgba(180, 83, 9, 0.1);
+}
+
+.scrap-pending-sticker--pressed {
+  box-shadow: 0 0 0 3px #f59e0b, 2px 3px 0 rgba(180, 83, 9, 0.1);
+}
+
+.scrap-pending-sticker__icon {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.scrap-pending-sticker__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.scrap-pending-sticker__title {
+  font-family: var(--font-scrap);
+  font-size: 1rem;
+  color: #78350f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scrap-pending-sticker__sub {
+  font-size: 0.78rem;
+  color: #92400e;
+  margin-top: 2px;
+}
+
+.scrap-pending-sticker__hint {
+  font-size: 0.65rem;
+  color: #b45309;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Context menu for long-press dismiss */
+.scrap-pending-ctx {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1.5px solid rgba(180, 83, 9, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scrap-pending-ctx__btn {
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #1e293b;
+}
+
+.scrap-pending-ctx__btn:hover,
+.scrap-pending-ctx__btn:active {
+  background: #fef3c7;
+}
+
+.scrap-pending-ctx__btn--danger {
+  color: #b91c1c;
+}
+
+.scrap-pending-ctx__btn--danger:hover {
+  background: #fee2e2;
+}
+
 /* log today grid */
 .scrap-log-grid {
   display: grid;
