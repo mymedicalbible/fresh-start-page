@@ -461,9 +461,13 @@ function PendingVisitStickers ({
   onNavigate: (resumeId: string | undefined, label: string) => void
   onDismiss: (norm: string) => void
 }) {
+  const navigate = useNavigate()
   const [openCtx, setOpenCtx] = useState<string | null>(null)
   const [pressing, setPressing] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const visibleEntries = entries.slice(0, 3)
+  const hiddenCount = entries.length - visibleEntries.length
 
   function startPress (norm: string) {
     setPressing(norm)
@@ -479,8 +483,8 @@ function PendingVisitStickers ({
 
   return (
     <div className="scrap-pending-sticker-row">
-      {entries.map(({ norm, count, label, resumeId }) => (
-        <div key={norm} style={{ position: 'relative' }}>
+      {visibleEntries.map(({ norm, count, label, resumeId }) => (
+        <div key={norm} className="scrap-pending-sticker-wrapper">
           <button
             type="button"
             className={`scrap-pending-sticker${pressing === norm ? ' scrap-pending-sticker--pressed' : ''}`}
@@ -515,6 +519,16 @@ function PendingVisitStickers ({
           )}
         </div>
       ))}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="scrap-pending-more-btn"
+          title={`${hiddenCount} more unfinished visit${hiddenCount > 1 ? 's' : ''}`}
+          onClick={() => navigate('/app/visits')}
+        >
+          →
+        </button>
+      )}
     </div>
   )
 }

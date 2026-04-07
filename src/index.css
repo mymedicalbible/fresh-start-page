@@ -1245,50 +1245,60 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-sticker-row {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 14px 0 4px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin: 14px 0 6px;
+  align-items: flex-start;
 }
 
-/* The sticky note itself */
+/* Wrapper owns the fold ::after so it isn't clipped by the button's clip-path */
+.scrap-pending-sticker-wrapper {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+/* Fold triangle at bottom-right corner */
+.scrap-pending-sticker-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 22px 22px;
+  border-color: transparent transparent rgba(0,0,0,0.22) transparent;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* The sticky note button */
 .scrap-pending-sticker {
   position: relative;
-  width: calc(33.333% - 8px);
-  min-width: 90px;
-  aspect-ratio: 1 / 1.05;
-  padding: 10px 10px 20px;
-  background: #fef08a;               /* classic sticky yellow */
+  display: block;
+  width: 100%;
+  height: 90px;
+  padding: 10px 10px 10px;
+  background: #fef08a;
   border: none;
-  border-radius: 2px 2px 2px 2px;
-  /* bottom-right upturned corner via clip + gradient */
-  background-image:
-    linear-gradient(
-      225deg,
-      transparent 16px,
-      #fef08a 16px
-    ),
-    linear-gradient(
-      315deg,
-      rgba(180,120,0,0.18) 16px,
-      transparent 16px
-    );
-  background-position: bottom right, bottom right;
-  background-size: 100% 100%, 28px 28px;
-  background-repeat: no-repeat, no-repeat;
+  border-radius: 1px;
+  /* cut the bottom-right corner so the fold shows through */
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
   box-shadow:
-    3px 4px 10px rgba(0,0,0,0.14),
-    0 1px 3px rgba(0,0,0,0.08);
+    4px 6px 18px rgba(0,0,0,0.20),
+    0 2px 5px rgba(0,0,0,0.10);
   cursor: pointer;
+  text-align: left;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s, box-shadow 0.12s;
-  text-align: left;
   overflow: hidden;
 }
 
 .scrap-pending-sticker:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
   box-shadow: 1px 2px 5px rgba(0,0,0,0.1);
 }
 
@@ -1297,12 +1307,12 @@ a.scrap-upcoming-hero-name:hover {
   outline-offset: 2px;
 }
 
-/* Doctor name line */
+/* Doctor name */
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
   font-size: 0.82rem;
   color: #713f12;
-  line-height: 1.25;
+  line-height: 1.3;
   word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1312,20 +1322,46 @@ a.scrap-upcoming-hero-name:hover {
 
 /* Count badge */
 .scrap-pending-sticker__count {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: #92400e;
   font-style: italic;
   margin-top: 3px;
 }
 
-/* "hold to dismiss" ghost line at bottom */
+/* "hold to dismiss" ghost line */
 .scrap-pending-sticker__hold {
   position: absolute;
-  bottom: 5px;
+  bottom: 6px;
   left: 8px;
-  font-size: 0.55rem;
+  font-size: 0.54rem;
   color: #a16207;
   letter-spacing: 0.02em;
+}
+
+/* "→ N more" overflow button */
+.scrap-pending-more-btn {
+  flex-shrink: 0;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: rgba(180,140,0,0.10);
+  border: 1.5px solid rgba(180,140,0,0.30);
+  border-radius: 50%;
+  color: #92400e;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+  padding: 0;
+}
+
+.scrap-pending-more-btn:hover,
+.scrap-pending-more-btn:active {
+  background: rgba(180,140,0,0.22);
 }
 
 /* Context menu for long-press dismiss */
