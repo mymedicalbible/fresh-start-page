@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -358,6 +358,9 @@ export function VisitsPage () {
         return listVisits.map((v) => {
           const isOpen = expandedId === v.id
           const isPending = (v.status ?? 'complete') === 'pending'
+          const doctorProfileId = v.doctor
+            ? doctors.find((d) => d.name === v.doctor)?.id
+            : undefined
           return (
             <div key={v.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div
@@ -373,7 +376,18 @@ export function VisitsPage () {
                     )}
                   </div>
                   <div className="muted" style={{ fontSize: '0.85rem' }}>
-                    {v.doctor ?? '—'}{v.specialty ? ` · ${v.specialty}` : ''}
+                    {doctorProfileId
+                      ? (
+                        <Link
+                          to={`/app/doctors/${doctorProfileId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: 'inherit', fontWeight: 600, textDecoration: 'underline' }}
+                        >
+                          {v.doctor}
+                        </Link>
+                        )
+                      : (v.doctor ?? '—')}
+                    {v.specialty ? ` · ${v.specialty}` : ''}
                   </div>
                   {v.reason && <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>{v.reason}</div>}
                   {isPending && (

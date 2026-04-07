@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -19,34 +19,6 @@ import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNe
 type SummaryAiSource = 'app' | 'ollama'
 
 const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
-
-type UpcomingAppt = {
-  id: string
-  doctor: string
-  specialty: string | null
-  appointment_date: string
-  appointment_time: string | null
-}
-
-function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return
-  const now = Date.now()
-  for (const appt of appts) {
-    const q = pendingQMap[appt.doctor] ?? 0
-    if (q === 0) continue
-    const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time ?? '09:00'}`)
-    const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
-    const delay = notifyAt - now
-    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-      setTimeout(() => {
-        new Notification('Medical Bible — Log your visit', {
-          body: `You had an appointment with ${appt.doctor} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
-          icon: '/icon-192.png',
-        })
-      }, delay)
-    }
-  }
-}
 
 type HealthSummary = {
   generatedAt: string
@@ -104,12 +76,13 @@ function scrapDisplayName (user: User): string {
   return 'there'
 }
 
-function ScrapRecordCard ({ to, title, hint, children }: { to: string; title: string; hint: string; children: ReactNode }) {
+function ScrapSticker ({
+  to, title, sub, tone,
+}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' }) {
   return (
-    <Link to={to} className="scrap-record-card">
-      <span className="scrap-record-icon" aria-hidden>{children}</span>
-      <span className="scrap-record-title">{title}</span>
-      <span className="scrap-record-hint">{hint}</span>
+    <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
+      <span className="scrap-sticker-title">{title}</span>
+      <span className="scrap-sticker-sub">{sub}</span>
     </Link>
   )
 }
@@ -150,17 +123,17 @@ function NarrativeRenderer ({ text }: { text: string }) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 4 }}>
+    <div className="summary-readable" style={{ display: 'grid', gap: 4 }}>
       {blocks.map((b, idx) => {
         if (b.type === 'title')
-          return <div key={idx} style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--mint-ink)', paddingBottom: 6, borderBottom: '2px solid var(--mint)', marginBottom: 4 }}>{b.content}</div>
+          return <div key={idx} className="summary-readable-title">{b.content}</div>
         if (b.type === 'heading')
-          return <div key={idx} style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', letterSpacing: '0.04em', marginTop: 12, paddingBottom: 2, borderBottom: '1px solid var(--border)' }}>{b.content}</div>
+          return <div key={idx} className="summary-readable-heading">{b.content}</div>
         if (b.type === 'snapshot')
-          return <div key={idx} style={{ fontSize: '0.9rem', lineHeight: 1.65, color: 'var(--text)', padding: '6px 12px', background: 'var(--mint-surface)', borderRadius: 8, borderLeft: '3px solid var(--accent)', marginBottom: 3 }}>{b.content}</div>
+          return <div key={idx} className="summary-readable-snapshot">{b.content}</div>
         if (b.type === 'bullet')
-          return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, paddingLeft: 8, whiteSpace: 'pre-wrap' }}>{b.content}</div>
-        return <div key={idx} style={{ fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{b.content}</div>
+          return <div key={idx} className="summary-readable-line">{b.content}</div>
+        return <div key={idx} className="summary-readable-line">{b.content}</div>
       })}
     </div>
   )
@@ -211,7 +184,7 @@ function SummaryModal ({
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{
+      <div className="summary-modal-sheet" style={{
         background: 'var(--surface)',
         borderRadius: '20px 20px 0 0',
         border: '1.5px solid var(--border)',
@@ -224,17 +197,17 @@ function SummaryModal ({
         boxShadow: '0 -8px 40px rgba(30,77,52,0.14)',
       }}>
         {/* Header */}
-        <div style={{
+        <div className="summary-modal-header" style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '18px 20px 14px',
           borderBottom: '1.5px solid var(--border)',
           flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--mint-ink)' }}>
+            <div className="summary-modal-header-title">
               Clinical handoff summary
             </div>
-            <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
+            <div className="summary-modal-header-sub muted">
               Narrative for your next appointment
             </div>
           </div>
@@ -254,7 +227,7 @@ function SummaryModal ({
         </div>
 
         {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px' }}>
+        <div className="summary-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px' }}>
 
           {/* Focus field */}
           <div className="form-group" style={{ marginBottom: 12 }}>
@@ -452,12 +425,7 @@ function SummaryModal ({
 // ────────────────────────────────────────────────────────────
 export function DashboardPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
-  const [pendingCount, setPendingCount] = useState(0)
-  const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
-  const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
@@ -470,62 +438,6 @@ export function DashboardPage () {
     setSummaryOpen(true)
     setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams])
-
-  useEffect(() => {
-    if (!user) return
-    async function load () {
-      const today = new Date().toISOString().slice(0, 10)
-
-      const { data: apptData, error: apptErr } = await supabase
-        .from('appointments')
-        .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
-        .eq('user_id', user!.id)
-        .gte('appointment_date', today)
-        .order('appointment_date', { ascending: true })
-        .limit(8)
-      if (apptErr) console.warn('appointments:', apptErr.message)
-      else {
-        const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
-        const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
-        setUpcoming(active)
-
-        if (active.length > 0) {
-          const doctors = [...new Set(active.map((a) => a.doctor))]
-          const { data: qRows } = await supabase
-            .from('doctor_questions')
-            .select('doctor')
-            .eq('user_id', user!.id)
-            .eq('status', 'Unanswered')
-            .in('doctor', doctors)
-          const qMap: Record<string, number> = {}
-          for (const row of (qRows ?? []) as { doctor: string | null }[]) {
-            if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
-          }
-          setApptPendingQ(qMap)
-          scheduleApptNotifications(active, qMap)
-        } else {
-          setApptPendingQ({})
-        }
-      }
-
-      try {
-        const { count } = await supabase
-          .from('doctor_visits')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id)
-          .eq('status', 'pending')
-        setPendingCount(count ?? 0)
-      } catch { setPendingCount(0) }
-
-      const { count: oq } = await supabase
-        .from('doctor_questions')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user!.id)
-        .eq('status', 'Unanswered')
-      setOpenQsCount(oq ?? 0)
-    }
-    load()
-  }, [user])
 
   useEffect(() => {
     try {
@@ -804,124 +716,19 @@ export function DashboardPage () {
           </div>
         </header>
 
-        <section className="scrap-sticky scrap-sticky--upcoming">
-          <span className="scrap-tape scrap-tape--green" aria-hidden />
-          <div className="scrap-sticky-label">UPCOMING</div>
-          {pendingCount > 0 && (
-            <button
-              type="button"
-              className="scrap-pending-line"
-              onClick={() => navigate('/app/visits?tab=pending')}
-            >
-              {pendingCount} visit{pendingCount !== 1 ? 's' : ''} need finishing — tap here
-            </button>
-          )}
-          {upcoming.length === 0 && pendingCount === 0 && (
-            <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
-          )}
-          {upcoming.length > 0 && (
-            <ul className="scrap-sticky-list">
-              {upcoming.map((u) => {
-                const pendingQ = apptPendingQ[u.doctor] ?? 0
-                return (
-                  <li key={u.id} className="scrap-body">
-                    {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
-                    {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
-                    {' — '}
-                    {u.doctor}
-                    {u.specialty ? ` (${u.specialty})` : ''}
-                    {pendingQ > 0 && (
-                      <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
-
-        <h2 className="scrap-heading scrap-heading--section">log today</h2>
-        <div className="scrap-log-grid">
-          <Link to="/app/log?tab=pain" className="scrap-log-tile scrap-log-tile--pink">
-            <span className="scrap-tape scrap-tape--pink" aria-hidden />
-            <span className="scrap-log-title">Pain</span>
-            <span className="scrap-log-sub">Log a pain entry</span>
-          </Link>
-          <Link to="/app/log?tab=symptoms" className="scrap-log-tile scrap-log-tile--green">
-            <span className="scrap-tape scrap-tape--mint" aria-hidden />
-            <span className="scrap-log-title">Episodes</span>
-            <span className="scrap-log-sub">Log an episode</span>
-          </Link>
-          <Link to="/app/questions" className="scrap-log-tile scrap-log-tile--blue">
-            <span className="scrap-tape scrap-tape--sky" aria-hidden />
-            {openQsCount != null && openQsCount > 0 && (
-              <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
-            )}
-            <span className="scrap-log-title">Questions</span>
-            <span className="scrap-log-sub">Add for your doctor</span>
-          </Link>
-          <Link to="/app/visits?new=1" className="scrap-log-tile scrap-log-tile--yellow">
-            <span className="scrap-tape scrap-tape--butter" aria-hidden />
-            <span className="scrap-log-title">Visit log</span>
-            <span className="scrap-log-sub">Record a visit</span>
-          </Link>
-        </div>
-
-        <section className="scrap-handoff">
-          <span className="scrap-tape scrap-tape--brown" aria-hidden />
-          <div className="scrap-handoff-row">
-            <span className="scrap-handoff-title">Doctor handoff summary</span>
-            <button
-              type="button"
-              className="scrap-handoff-open"
-              onClick={() => setSummaryOpen(true)}
-            >
-              open →
-            </button>
-          </div>
-        </section>
-
         <h2 className="scrap-heading scrap-heading--section">your records</h2>
-        <div className="scrap-records-grid">
-          <ScrapRecordCard to="/app/doctors" title="Doctors" hint="Profiles & visits">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="3.5" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-          </ScrapRecordCard>
-          <ScrapRecordCard to="/app/diagnoses" title="Diagnoses" hint="Your conditions">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <path d="M14 2v6h6M8 13h8M8 17h6" />
-            </svg>
-          </ScrapRecordCard>
-          <ScrapRecordCard to="/app/meds" title="Medications" hint="What you take">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <rect x="7" y="7" width="10" height="14" rx="2" />
-              <path d="M12 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
-              <path d="M10 12h4" />
-            </svg>
-          </ScrapRecordCard>
-          <ScrapRecordCard to="/app/tests" title="Tests" hint="Labs &amp; orders">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <path d="M14 2v6h6M10 13h4M10 17h4" />
-            </svg>
-          </ScrapRecordCard>
-          <ScrapRecordCard to="/app/analytics" title="Charts" hint="Trends">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M4 19V5M4 19h16M7 16l3-6 4 3 5-8" />
-            </svg>
-          </ScrapRecordCard>
-          <ScrapRecordCard to="/app/records" title="Records" hint="Pain &amp; episodes">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              <path d="M8 7h8M8 11h8M8 15h5" />
-            </svg>
-          </ScrapRecordCard>
+        <div className="scrap-sticker-grid">
+          <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your conditions" tone="pink" />
+          <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
         </div>
+
+        <footer className="scrap-dash-footer">
+          <button type="button" className="scrap-dash-footer-btn" onClick={() => setSummaryOpen(true)}>
+            Doctor summary
+          </button>
+          <Link to="/app/profile" className="scrap-dash-footer-link">Account</Link>
+        </footer>
 
       </div>
     </>

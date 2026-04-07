@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useDoctorNoteModal } from '../contexts/DoctorNoteModalContext'
 
 
 /* ──────────────── Types ──────────────── */
@@ -34,6 +35,7 @@ type MedRow = {
 type TestRow = {
   id: string; test_date: string; test_name: string; status: string; reason: string | null
 }
+type ProfileNoteRow = { id: string; body: string; created_at: string }
 
 
 /* ──────────────── Constants ──────────────── */
@@ -92,6 +94,7 @@ export function DoctorProfilePage () {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { openNoteModal } = useDoctorNoteModal()
 
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [visits, setVisits] = useState<VisitRow[]>([])
@@ -140,11 +143,33 @@ export function DoctorProfilePage () {
   const [colMeds, setColMeds] = useState(false)
   const [colTests, setColTests] = useState(false)
 
+  const [profileNotes, setProfileNotes] = useState<ProfileNoteRow[]>([])
 
   /* ──────────── Load ──────────── */
   useEffect(() => {
     if (!user || !id) return
     load()
+  }, [user, id])
+
+  useEffect(() => {
+    if (!user || !id) return
+    const uid = user.id
+    const doctorPk = id
+    async function refreshNotes () {
+      const { data: pn } = await supabase
+        .from('doctor_profile_notes')
+        .select('id, body, created_at')
+        .eq('user_id', uid)
+        .eq('doctor_id', doctorPk)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setProfileNotes((pn ?? []) as ProfileNoteRow[])
+    }
+    function onSaved () {
+      void refreshNotes()
+    }
+    window.addEventListener('mb-doctor-note-saved', onSaved)
+    return () => window.removeEventListener('mb-doctor-note-saved', onSaved)
   }, [user, id])
 
 
@@ -160,6 +185,14 @@ export function DoctorProfilePage () {
     setDoctor(doc)
     setEditForm(emptyEditForm(doc))
     await loadData(doc.name)
+    const { data: pn } = await supabase
+      .from('doctor_profile_notes')
+      .select('id, body, created_at')
+      .eq('user_id', user!.id)
+      .eq('doctor_id', doc.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setProfileNotes((pn ?? []) as ProfileNoteRow[])
     setLoading(false)
   }
 
@@ -453,11 +486,11 @@ export function DoctorProfilePage () {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: '1.15rem' }}>{doctor.name}</div>
-            {(doctor.specialty || doctor.clinic) && (
-              <div className="muted" style={{ fontSize: '0.88rem', marginTop: 2 }}>
-                {[doctor.specialty, doctor.clinic].filter(Boolean).join(' · ')}
-              </div>
-            )}
+            <div className="muted" style={{ fontSize: '0.88rem', marginTop: 2 }}>
+              <span style={{ fontWeight: 600 }}>Specialty:</span>{' '}
+              {doctor.specialty?.trim() || '—'}
+              {doctor.clinic ? ` · ${doctor.clinic}` : ''}
+            </div>
             {doctor.phone && (
               <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
                 <a href={`tel:${doctor.phone.replace(/\s/g, '')}`} style={{ color: 'inherit', textDecoration: 'none' }}>
@@ -480,11 +513,18 @@ export function DoctorProfilePage () {
               <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4, fontStyle: 'italic' }}>{doctor.notes}</div>
             )}
           </div>
-          <button type="button" className="btn btn-ghost"
-            style={{ fontSize: '0.8rem', padding: '4px 10px', flexShrink: 0 }}
-            onClick={() => setShowEdit((v) => !v)}>
-            {showEdit ? 'Cancel' : 'Edit'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+            <button type="button" className="btn btn-secondary"
+              style={{ fontSize: '0.8rem', padding: '4px 10px', whiteSpace: 'nowrap' }}
+              onClick={() => openNoteModal({ doctorId: doctor.id })}>
+              Log a note
+            </button>
+            <button type="button" className="btn btn-ghost"
+              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+              onClick={() => setShowEdit((v) => !v)}>
+              {showEdit ? 'Cancel' : 'Edit'}
+            </button>
+          </div>
         </div>
 
         {showEdit && (
@@ -515,6 +555,22 @@ export function DoctorProfilePage () {
           </div>
         )}
       </div>
+
+      {profileNotes.length > 0 && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>Notes you saved</div>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+            {profileNotes.map((n) => (
+              <li key={n.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+                <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
+                  {new Date(n.created_at).toLocaleString()}
+                </div>
+                <div style={{ fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>{n.body}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
 
       {/* ── VISITS ── */}
