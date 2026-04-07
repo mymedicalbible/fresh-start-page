@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
@@ -28,10 +29,19 @@ function todayISO () { return new Date().toISOString().slice(0, 10) }
 
 export function QuestionsArchivePage () {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  /** Doctor name from notification deep-link (?doctor=...) */
+  const urlDoctor = searchParams.get('doctor') ?? ''
+  /** When true (from ?tab=open) auto-set to unanswered view */
+  const urlTabOpen = searchParams.get('tab') === 'open'
+
   const [questions, setQuestions] = useState<QuestionRow[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [viewMode, setViewMode] = useState<'all' | 'unanswered' | 'answered'>('all')
-  const [showForm, setShowForm] = useState(true)
+  const [viewMode, setViewMode] = useState<'all' | 'unanswered' | 'answered'>(() =>
+    urlTabOpen ? 'unanswered' : 'all',
+  )
+  const [doctorFilter, setDoctorFilter] = useState(urlDoctor)
+  const [showForm, setShowForm] = useState(!urlDoctor)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
@@ -127,10 +137,16 @@ export function QuestionsArchivePage () {
   }
 
 
+  const normDoctor = (s: string) => s.trim().toLowerCase().replace(/^dr\.?\s+/i, '').replace(/\s+/g, ' ')
+
   const filtered = questions.filter((q) => {
     const unanswered = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
-    if (viewMode === 'unanswered') return unanswered
-    if (viewMode === 'answered') return !!q.answer?.trim() || q.status === 'Answered'
+    if (viewMode === 'unanswered' && !unanswered) return false
+    if (viewMode === 'answered' && !(!!q.answer?.trim() || q.status === 'Answered')) return false
+    if (doctorFilter.trim()) {
+      const needle = normDoctor(doctorFilter)
+      if (normDoctor(q.doctor ?? '') !== needle) return false
+    }
     return true
   })
 
@@ -143,6 +159,30 @@ export function QuestionsArchivePage () {
       <BackButton label="Back" />
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
+
+      {/* Deep-link from notification: doctor filter + visit log toggle */}
+      {urlDoctor && (
+        <div className="card" style={{ padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: '0.9rem', fontWeight: 600, flex: 1, minWidth: 0 }}>
+            Showing questions for <em>{urlDoctor}</em>
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: '0.78rem' }}
+            onClick={() => setDoctorFilter(doctorFilter ? '' : urlDoctor)}
+          >
+            {doctorFilter ? 'Show all doctors' : `Filter: ${urlDoctor}`}
+          </button>
+          <Link
+            to={`/app/visits?tab=all`}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.78rem' }}
+          >
+            View visit log →
+          </Link>
+        </div>
+      )}
 
       {/* ADD QUESTION FORM — visible at top by default */}
       <div className="card">

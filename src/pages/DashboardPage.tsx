@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
 import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
-import { deleteSummaryArchiveItem, loadSummaryArchive, pushSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
+import { pushSummaryArchive } from '../lib/summaryArchive'
 import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
 type SummaryAiSource = 'app' | 'ollama'
 
@@ -69,10 +69,17 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
     const delay = notifyAt - now
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
       setTimeout(() => {
-        new Notification('Medical Bible — Log your visit', {
-          body: `You had an appointment with ${appt.doctor ?? 'your doctor'} today. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to log your visit.`,
+        const doctorParam = appt.doctor ? encodeURIComponent(appt.doctor) : ''
+        const deepLink = `/app/questions?tab=open${doctorParam ? `&doctor=${doctorParam}` : ''}`
+        const n = new Notification('Medical Bible — Review your questions', {
+          body: `Appointment with ${appt.doctor ?? 'your doctor'} just finished. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to review.`,
           icon: '/icon-192.png',
+          tag: `appt-${appt.appointment_date}-${doctorParam}`,
         })
+        n.onclick = () => {
+          window.focus()
+          window.location.href = deepLink
+        }
       }, delay)
     }
   }
@@ -212,7 +219,6 @@ function SummaryModal ({
   onGenerate,
   onClose,
   onDownload,
-  onLoadArchived,
 }: {
   summary: HealthSummary | null
   loading: boolean
@@ -225,12 +231,7 @@ function SummaryModal ({
   onGenerate: () => void
   onClose: () => void
   onDownload: () => void
-  onLoadArchived: (entry: ArchivedHandoffSummary) => void
 }) {
-  const [archive, setArchive] = useState<ArchivedHandoffSummary[]>([])
-  useEffect(() => {
-    setArchive(loadSummaryArchive())
-  }, [summary?.generatedAt, loading])
   return (
     <div
       style={{
@@ -358,33 +359,6 @@ function SummaryModal ({
             )}
           </div>
 
-          {/* Past summaries (this device) */}
-          {archive.length > 0 && (
-            <div style={{ marginBottom: 16, padding: '12px', background: 'var(--bg)', borderRadius: 12, border: '1.5px solid var(--border)' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', marginBottom: 8, color: 'var(--mint-ink)' }}>Saved summaries (this device)</div>
-              <div style={{ display: 'grid', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
-                {archive.map((a) => (
-                  <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span className="muted" style={{ fontSize: '0.75rem', flex: 1, minWidth: 120 }}>
-                      {new Date(a.savedAtIso).toLocaleString()} · {a.generatedLabel}
-                      {a.sourceAi
-                        ? (a.aiKind === 'ollama' ? ' · Ollama' : ' · AI')
-                        : ' · App'}
-                    </span>
-                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
-                      onClick={() => onLoadArchived(a)}>
-                      Load
-                    </button>
-                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
-                      onClick={() => { deleteSummaryArchiveItem(a.id); setArchive(loadSummaryArchive()) }}>
-                      Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Results */}
           {summary && (
             <div style={{ display: 'grid', gap: 12 }}>
@@ -500,6 +474,12 @@ export function DashboardPage () {
   const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
@@ -823,25 +803,6 @@ export function DashboardPage () {
     setSummaryLoading(false)
   }
 
-  function applyArchivedSummary (entry: ArchivedHandoffSummary) {
-    setSummary({
-      generatedAt: entry.generatedLabel,
-      aiText: entry.sourceAi ? entry.text : null,
-      aiError: null,
-      aiProvider: entry.sourceAi && entry.aiKind === 'ollama' ? 'ollama' : null,
-      narrativeFallback: entry.sourceAi ? '' : entry.text,
-      medEventsLoadError: null,
-      medCorrelationBlock: '',
-      painCount: 0,
-      symptomCount: 0,
-      medCount: 0,
-      pendingTests: 0,
-      openQuestions: 0,
-      painChart: [],
-      episodeChart: [],
-    })
-  }
-
   function handoffTextForPdf (s: HealthSummary) {
     const main = s.aiText?.trim() || s.narrativeFallback
     if (s.medCorrelationBlock.trim() && !main.includes('MEDICATION CHANGES')) {
@@ -867,6 +828,13 @@ export function DashboardPage () {
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   const hasAnyPendingVisits = pendingDockEntries.length > 0
 
+  /** Filter out appointments that ended more than 2 hours ago (auto-expires banner). */
+  const liveUpcoming = upcoming.filter((a) => {
+    const apptMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '23:59'}`).getTime()
+    const expiresAt = apptMs + 2 * 60 * 60 * 1000
+    return nowMs < expiresAt
+  })
+
   return (
     <>
       {/* SUMMARY MODAL */}
@@ -883,7 +851,6 @@ export function DashboardPage () {
           onGenerate={generateSummary}
           onClose={() => setSummaryOpen(false)}
           onDownload={downloadPdf}
-          onLoadArchived={applyArchivedSummary}
         />
       )}
 
@@ -901,23 +868,23 @@ export function DashboardPage () {
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">UPCOMING</div>
-          {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+          {liveUpcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
               className="btn btn-ghost scrap-reminders-prompt"
               onClick={() => {
                 void Notification.requestPermission().then((p) => {
-                  if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
+                  if (p === 'granted') scheduleApptNotifications(liveUpcoming, apptPendingQ)
                 })
               }}
             >
               Enable visit reminders
             </button>
           )}
-          {upcoming.length === 0 && !hasAnyPendingVisits && (
+          {liveUpcoming.length === 0 && !hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
-          {upcoming.length === 0 && hasAnyPendingVisits && (
+          {liveUpcoming.length === 0 && hasAnyPendingVisits && (
             <div className="scrap-upcoming-pending-docked">
               <p className="scrap-body scrap-body--muted scrap-upcoming-pending-docked-intro">
                 No upcoming appointments. Visits still waiting to be finished:
@@ -942,27 +909,27 @@ export function DashboardPage () {
               </ul>
             </div>
           )}
-          {upcoming.length > 0 && (
+          {liveUpcoming.length > 0 && (
               <div className="scrap-upcoming-hero">
                 <div className="scrap-upcoming-hero-label">Next appointment</div>
-                {upcoming[0].doctorId ? (
-                  <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
-                    {upcoming[0].doctor?.trim() || 'Doctor'}
+                {liveUpcoming[0].doctorId ? (
+                  <Link to={`/app/doctors/${liveUpcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
+                    {liveUpcoming[0].doctor?.trim() || 'Doctor'}
                   </Link>
                 ) : (
-                  <div className="scrap-upcoming-hero-name">{upcoming[0].doctor?.trim() || 'Doctor'}</div>
+                  <div className="scrap-upcoming-hero-name">{liveUpcoming[0].doctor?.trim() || 'Doctor'}</div>
                 )}
                 <div className="scrap-upcoming-hero-spec">
                   <span className="scrap-upcoming-hero-spec-k">Specialty</span>
-                  {upcoming[0].specialty?.trim() ? ` · ${upcoming[0].specialty.trim()}` : ' · —'}
+                  {liveUpcoming[0].specialty?.trim() ? ` · ${liveUpcoming[0].specialty.trim()}` : ' · —'}
                 </div>
                 <div className="scrap-upcoming-hero-when">
-                  {format(new Date(`${upcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
-                  {upcoming[0].appointment_time
-                    ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
+                  {format(new Date(`${liveUpcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
+                  {liveUpcoming[0].appointment_time
+                    ? ` at ${String(liveUpcoming[0].appointment_time).slice(0, 5)}`
                     : ''}
                   {(() => {
-                    const pq = apptPendingQ[upcoming[0].doctor ?? ''] ?? 0
+                    const pq = apptPendingQ[liveUpcoming[0].doctor ?? ''] ?? 0
                     if (pq <= 0) return null
                     return (
                       <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
@@ -970,10 +937,10 @@ export function DashboardPage () {
                   })()}
                 </div>
                 {(() => {
-                  const doc = upcoming[0].doctor?.trim()
+                  const doc = liveUpcoming[0].doctor?.trim()
                   const norm = doc ? normDoctorName(doc) : ''
                   const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
-                  const nPending = pendingVisitsForDoctor(pendingVisitsByNorm, upcoming[0].doctor)
+                  const nPending = pendingVisitsForDoctor(pendingVisitsByNorm, liveUpcoming[0].doctor)
                   const newUrl = doc
                     ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
                     : '/app/visits?new=1'
@@ -1051,10 +1018,9 @@ export function DashboardPage () {
         <h2 className="scrap-heading scrap-heading--section">your records</h2>
         <div className="scrap-sticker-grid">
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
-          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your conditions" tone="pink" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
-          <ScrapSticker to="/app/records?tab=visits" title="Visits" sub="Visit archive" tone="cream" />
-          <ScrapSticker to="/app/records?tab=summaries" title="Summaries" sub="Generated handoffs" tone="lavender" />
+          <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your conditions" tone="pink" />
         </div>
 
         <p className="scrap-dash-account-line">

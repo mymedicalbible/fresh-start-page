@@ -80,6 +80,7 @@ export function VisitLogWizard ({
   const [notes, setNotes] = useState('')
   const [nextApptDate, setNextApptDate] = useState('')
   const [nextApptTime, setNextApptTime] = useState('')
+  const [nextApptEndTime, setNextApptEndTime] = useState('')
 
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
 
@@ -283,13 +284,20 @@ export function VisitLogWizard ({
     }
 
     if (!asPending && nextApptDate) {
-      const { error: apErr } = await supabase.from('appointments').insert({
+      const apptPayload: Record<string, unknown> = {
         user_id: user.id,
         doctor: effectiveName,
         specialty: specialty || null,
         appointment_date: nextApptDate,
         appointment_time: nextApptTime || null,
-      })
+        appointment_end_time: nextApptEndTime || null,
+      }
+      let { error: apErr } = await supabase.from('appointments').insert(apptPayload)
+      if (apErr?.message?.includes('appointment_end_time')) {
+        const { appointment_end_time: _drop, ...fallback } = apptPayload
+        const res2 = await supabase.from('appointments').insert(fallback)
+        apErr = res2.error
+      }
       if (apErr) console.warn('appointments insert:', apErr.message)
     }
 
@@ -609,10 +617,16 @@ export function VisitLogWizard ({
           )}
 
           <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', margin: '10px 0 4px' }}>Next appointment</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ flex: 1 }} />
-            <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ flex: 1 }} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ flex: '1 1 140px' }} />
+            <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="Start" title="Start time" />
+            <input type="time" value={nextApptEndTime} onChange={(e) => setNextApptEndTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="End" title="End time (optional)" />
           </div>
+          {nextApptTime && nextApptEndTime && (
+            <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '4px 0 0' }}>
+              {nextApptTime.slice(0, 5)} – {nextApptEndTime.slice(0, 5)}
+            </p>
+          )}
 
           <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
             <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>

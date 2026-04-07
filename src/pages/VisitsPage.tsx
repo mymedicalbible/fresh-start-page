@@ -77,7 +77,7 @@ export function VisitsPage () {
   const [form, setForm] = useState({
     visit_date: todayISO(), visit_time: nowTime(),
     specialty: '', reason: '', findings: '',
-    instructions: '', next_appt_date: '', next_appt_time: '', notes: '',
+    instructions: '', next_appt_date: '', next_appt_time: '', next_appt_end_time: '', notes: '',
   })
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
@@ -170,13 +170,20 @@ export function VisitsPage () {
     }
 
     if (form.next_appt_date) {
-      const { error: ae } = await supabase.from('appointments').insert({
+      const apptPayload: Record<string, unknown> = {
         user_id: user!.id,
         doctor: effectiveDoctorName,
         specialty: form.specialty || null,
         appointment_date: form.next_appt_date,
         appointment_time: form.next_appt_time || null,
-      })
+        appointment_end_time: form.next_appt_end_time || null,
+      }
+      let { error: ae } = await supabase.from('appointments').insert(apptPayload)
+      if (ae?.message?.includes('appointment_end_time')) {
+        const { appointment_end_time: _drop, ...fallback } = apptPayload
+        const res2 = await supabase.from('appointments').insert(fallback)
+        ae = res2.error
+      }
       if (ae) console.warn('appointments insert:', ae.message)
     }
 
@@ -214,7 +221,7 @@ export function VisitsPage () {
     setForm({
       visit_date: todayISO(), visit_time: nowTime(),
       specialty: '', reason: '', findings: '',
-      instructions: '', next_appt_date: '', next_appt_time: '', notes: '',
+      instructions: '', next_appt_date: '', next_appt_time: '', next_appt_end_time: '', notes: '',
     })
     setDvTests([{ test_name: '', reason: '' }])
     setDvMeds([])
@@ -360,10 +367,19 @@ export function VisitsPage () {
                 <input type="date" value={form.next_appt_date} onChange={(e) => setForm({ ...form, next_appt_date: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Time</label>
+                <label>Start time</label>
                 <input type="time" value={form.next_appt_time} onChange={(e) => setForm({ ...form, next_appt_time: e.target.value })} />
               </div>
+              <div className="form-group">
+                <label>End time <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span></label>
+                <input type="time" value={form.next_appt_end_time} onChange={(e) => setForm({ ...form, next_appt_end_time: e.target.value })} />
+              </div>
             </div>
+            {form.next_appt_time && form.next_appt_end_time && (
+              <p className="muted" style={{ fontSize: '0.78rem', margin: '4px 0 0' }}>
+                Appointment window: {form.next_appt_time.slice(0, 5)} – {form.next_appt_end_time.slice(0, 5)}
+              </p>
+            )}
           </div>
           <button type="button" className="btn btn-primary btn-block" onClick={saveVisit} disabled={busy}>Save visit</button>
         </div>
