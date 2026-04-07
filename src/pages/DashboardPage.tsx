@@ -582,6 +582,33 @@ export function DashboardPage () {
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
 
+  /** Popover: open questions for upcoming appt doctor */
+  const [apptOpenQsPopup, setApptOpenQsPopup] = useState<null | {
+    doctor: string
+    loading: boolean
+    loadError: string | null
+    rows: { id: string; question: string; priority: string | null }[]
+  }>(null)
+
+  async function openApptQuestionsPopup (doctor: string) {
+    if (!user?.id) return
+    setApptOpenQsPopup({ doctor, loading: true, loadError: null, rows: [] })
+    const { data, error } = await supabase
+      .from('doctor_questions')
+      .select('id, question, priority, answer, status')
+      .eq('user_id', user.id)
+      .eq('doctor', doctor)
+      .order('date_created', { ascending: false })
+    if (error) {
+      setApptOpenQsPopup({ doctor, loading: false, loadError: error.message, rows: [] })
+      return
+    }
+    const open = (data ?? []).filter((q: { answer?: string | null; status?: string | null }) =>
+      !String(q.answer ?? '').trim() && (q.status === 'Unanswered' || !q.status),
+    ) as { id: string; question: string; priority: string | null }[]
+    setApptOpenQsPopup({ doctor, loading: false, loadError: null, rows: open })
+  }
+
   useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
     setSummaryOpen(true)
@@ -945,6 +972,72 @@ export function DashboardPage () {
   return (
     <>
       {/* SUMMARY MODAL */}
+      {apptOpenQsPopup && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="appt-open-qs-title"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 190,
+            background: 'rgba(30,77,52,0.18)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setApptOpenQsPopup(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setApptOpenQsPopup(null) }}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 440, width: '100%', maxHeight: '82dvh', overflow: 'auto', padding: 20 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <h3 id="appt-open-qs-title" style={{ margin: 0, fontSize: '1.1rem' }}>
+                Open questions
+                <span className="muted" style={{ display: 'block', fontSize: '0.88rem', fontWeight: 400, marginTop: 4 }}>
+                  {apptOpenQsPopup.doctor}
+                </span>
+              </h3>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flexShrink: 0 }}
+                onClick={() => setApptOpenQsPopup(null)}
+              >
+                Close
+              </button>
+            </div>
+            {apptOpenQsPopup.loading && <p className="muted" style={{ marginTop: 14 }}>Loading…</p>}
+            {apptOpenQsPopup.loadError && (
+              <p className="banner error" style={{ marginTop: 14, marginBottom: 0 }}>{apptOpenQsPopup.loadError}</p>
+            )}
+            {!apptOpenQsPopup.loading && !apptOpenQsPopup.loadError && apptOpenQsPopup.rows.length === 0 && (
+              <p className="muted" style={{ marginTop: 14 }}>No open questions for this doctor.</p>
+            )}
+            {apptOpenQsPopup.rows.length > 0 && (
+              <ul style={{ margin: '14px 0 0', paddingLeft: 18, display: 'grid', gap: 10 }}>
+                {apptOpenQsPopup.rows.map((r) => (
+                  <li key={r.id} style={{ fontSize: '0.92rem', lineHeight: 1.4 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--mint-dark)' }}>{r.priority ?? 'Medium'}</span>
+                    {' — '}{r.question}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Link
+                className="btn btn-primary"
+                to={`/app/questions?doctor=${encodeURIComponent(apptOpenQsPopup.doctor)}&tab=open`}
+                onClick={() => setApptOpenQsPopup(null)}
+              >
+                Open Questions page
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {summaryOpen && (
         <SummaryModal
           summary={summary}
@@ -1017,10 +1110,20 @@ export function DashboardPage () {
                   ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
                   : ''}
                 {(() => {
-                  const pq = apptPendingQ[upcoming[0].doctor ?? ''] ?? 0
-                  if (pq <= 0) return null
+                  const docName = upcoming[0].doctor?.trim()
+                  const pq = apptPendingQ[docName ?? ''] ?? 0
+                  if (pq <= 0 || !docName) return null
                   return (
-                    <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="scrap-appt-q"
+                        onClick={() => { void openApptQuestionsPopup(docName) }}
+                      >
+                        {pq} open question{pq !== 1 ? 's' : ''}
+                      </button>
+                    </>
                   )
                 })()}
               </div>

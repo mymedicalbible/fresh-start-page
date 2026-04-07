@@ -1196,6 +1196,25 @@ a.scrap-upcoming-hero-name:hover {
   font-weight: 400;
 }
 
+button.scrap-appt-q {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+button.scrap-appt-q:hover,
+button.scrap-appt-q:focus-visible {
+  color: #92400e;
+}
+
 .scrap-pending-line {
   display: block;
   width: 100%;
@@ -1328,8 +1347,8 @@ a.scrap-upcoming-hero-name:hover {
   position: relative;
   display: block;
   width: 100%;
-  height: 118px;
-  padding: 11px 10px 9px;
+  height: 132px;
+  padding: 12px 11px 10px;
   border: none;
   border-radius: 1px;
   cursor: pointer;
@@ -1388,9 +1407,9 @@ a.scrap-upcoming-hero-name:hover {
 /* Doctor name */
 .scrap-pending-sticker__doctor {
   font-family: var(--font-scrap);
-  font-size: 0.95rem;
+  font-size: 1.08rem;
   color: #2d3a28;
-  line-height: 1.35;
+  line-height: 1.32;
   word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1400,19 +1419,19 @@ a.scrap-upcoming-hero-name:hover {
 
 /* Visit count */
 .scrap-pending-sticker__count {
-  font-size: 0.74rem;
+  font-size: 0.84rem;
   color: #3d4a38;
   font-style: italic;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 /* "hold to dismiss" bottom hint */
 .scrap-pending-sticker__hold {
   position: absolute;
-  bottom: 6px;
-  left: 8px;
-  font-size: 0.62rem;
-  color: #4a5a44;
+  bottom: 7px;
+  left: 9px;
+  font-size: 0.72rem;
+  color: #3d4a38;
   letter-spacing: 0.02em;
 }
 
@@ -1425,13 +1444,13 @@ a.scrap-upcoming-hero-name:hover {
 .scrap-pending-more-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 22px;
+  gap: 7px;
+  padding: 10px 26px;
   background: rgba(100,120,95,0.10);
   border: 1.5px solid rgba(100,120,95,0.28);
-  border-radius: 20px;
+  border-radius: 22px;
   color: #2a3626;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

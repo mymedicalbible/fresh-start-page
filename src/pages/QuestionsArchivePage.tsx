@@ -66,6 +66,11 @@ export function QuestionsArchivePage () {
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
 
+  useEffect(() => {
+    setDoctorFilter(urlDoctor)
+    if (urlTabOpen) setViewMode('unanswered')
+  }, [urlDoctor, urlTabOpen])
+
 
   async function loadQuestions () {
     const { data, error: e } = await supabase.from('doctor_questions')
@@ -262,7 +267,6 @@ export function QuestionsArchivePage () {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <PriorityTackIcon color={priorityTackFill('High')} size={16} /> High
           </span>
-          {' — '}Open questions show a colored tack by urgency (same colors as visit quick log).
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button type="button"
