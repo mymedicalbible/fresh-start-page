@@ -584,6 +584,13 @@ export function DashboardPage () {
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
 
+  /** Live clock for banner label (ticks every 30 s) */
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
   /** Bottom sheet: open questions for upcoming appt doctor — with inline answering */
   const [apptOpenQsPopup, setApptOpenQsPopup] = useState<null | {
     doctor: string
@@ -1015,75 +1022,55 @@ export function DashboardPage () {
           role="dialog"
           aria-modal="true"
           aria-labelledby="appt-open-qs-title"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 190,
-            background: 'rgba(10,30,20,0.40)',
-            backdropFilter: 'blur(5px)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          }}
+          className="doctor-note-modal-backdrop"
+          style={{ zIndex: 190, padding: '20px 16px' }}
           onClick={() => setApptOpenQsPopup(null)}
           onKeyDown={(e) => { if (e.key === 'Escape') setApptOpenQsPopup(null) }}
         >
-          {/* Bottom sheet */}
           <div
-            style={{
-              width: '100%',
-              maxWidth: 680,
-              maxHeight: '90dvh',
-              background: 'var(--surface)',
-              borderRadius: '22px 22px 0 0',
-              border: '1.5px solid var(--border)',
-              borderBottom: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 -10px 50px rgba(0,0,0,0.20)',
-              overflow: 'hidden',
-            }}
+            className="doctor-note-modal-panel"
+            style={{ maxWidth: 520, maxHeight: '88dvh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
+            {/* Header — looks like the top of a notepad */}
             <div style={{
-              padding: '20px 22px 16px',
-              borderBottom: '1.5px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
+              padding: '18px 20px 14px',
+              background: '#fffef8',
+              borderBottom: '2px solid rgba(74,55,40,0.12)',
               flexShrink: 0,
-              gap: 16,
             }}>
-              <div>
-                <div id="appt-open-qs-title" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)' }}>
-                  Questions for {apptOpenQsPopup.doctor}
+              <div className="doctor-note-modal-top" style={{ marginBottom: 0 }}>
+                <div>
+                  <h2 id="appt-open-qs-title" className="doctor-note-modal-title" style={{ fontSize: '1.18rem' }}>
+                    Questions for {apptOpenQsPopup.doctor}
+                  </h2>
+                  {!apptOpenQsPopup.loading && (
+                    <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--scrap-muted)' }}>
+                      {apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size > 0
+                        ? `${apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size} unanswered — type your answers below`
+                        : 'All answers logged ✓'}
+                    </p>
+                  )}
                 </div>
-                <div className="muted" style={{ fontSize: '0.9rem', marginTop: 4 }}>
-                  {apptOpenQsPopup.loading
-                    ? 'Loading…'
-                    : `${apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size} unanswered · tap to log a response`
-                  }
-                </div>
+                <button
+                  type="button"
+                  className="doctor-note-modal-close"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => setApptOpenQsPopup(null)}
+                >×</button>
               </div>
-              <button
-                type="button"
-                onClick={() => setApptOpenQsPopup(null)}
-                style={{
-                  background: 'var(--bg)', border: '1.5px solid var(--border)',
-                  borderRadius: 999, width: 36, height: 36, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.1rem', color: 'var(--muted)', flexShrink: 0,
-                }}
-              >×</button>
             </div>
 
-            {/* Scrollable question list */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px 24px', display: 'grid', gap: 16 }}>
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px', background: '#fffef8', display: 'grid', gap: 20 }}>
               {apptOpenQsPopup.loading && (
-                <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>Loading questions…</p>
+                <p style={{ textAlign: 'center', color: 'var(--scrap-muted)', padding: '28px 0' }}>Loading…</p>
               )}
               {apptOpenQsPopup.loadError && (
                 <div className="banner error">{apptOpenQsPopup.loadError}</div>
               )}
               {!apptOpenQsPopup.loading && !apptOpenQsPopup.loadError && apptOpenQsPopup.rows.length === 0 && (
-                <p className="muted" style={{ textAlign: 'center', padding: '32px 0' }}>No open questions for this doctor.</p>
+                <p style={{ textAlign: 'center', color: 'var(--scrap-muted)', padding: '28px 0' }}>No open questions for this doctor.</p>
               )}
 
               {apptOpenQsPopup.rows.map((r) => {
@@ -1093,62 +1080,49 @@ export function DashboardPage () {
                 const tackColor = priorityTackFill(r.priority)
                 const labelColor = priorityLabelColor(r.priority)
                 return (
-                  <div key={r.id} style={{
-                    border: `1.5px solid ${saved ? 'var(--mint)' : 'var(--border)'}`,
-                    borderRadius: 14,
-                    padding: '16px 18px',
-                    background: saved ? 'var(--mint-surface)' : 'var(--bg)',
-                    transition: 'background 0.2s, border-color 0.2s',
-                  }}>
-                    {/* Priority + question */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
-                      <span style={{ flexShrink: 0, marginTop: 2 }}><PriorityTackIcon color={tackColor} size={22} /></span>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.8rem', color: labelColor, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <div key={r.id}>
+                    {/* Question label */}
+                    <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 8 }}>
+                      <span style={{ flexShrink: 0, marginTop: 3 }}><PriorityTackIcon color={tackColor} size={18} /></span>
+                      <div>
+                        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 3 }}>
                           {r.priority ?? 'Medium'} priority
                         </span>
-                        <div style={{ fontSize: '1.05rem', lineHeight: 1.45, color: 'var(--text)' }}>
+                        <div style={{ fontSize: '1rem', lineHeight: 1.45, color: 'var(--text)', fontWeight: 600 }}>
                           {r.question}
                         </div>
                       </div>
                     </div>
 
+                    {/* Answer area */}
                     {saved ? (
                       <div style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         color: 'var(--mint-dark)', fontWeight: 600, fontSize: '0.9rem',
-                        padding: '10px 14px',
-                        background: 'rgba(56,160,100,0.08)',
-                        borderRadius: 10,
+                        padding: '9px 14px', borderRadius: 10,
+                        background: 'var(--mint-surface)',
+                        border: '1.5px solid var(--mint)',
                       }}>
-                        <span>✓</span> Answer saved
+                        ✓ Answer logged
                       </div>
                     ) : (
-                      <div style={{ display: 'grid', gap: 8 }}>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        <span className="doctor-note-field-label" style={{ marginBottom: 4 }}>What did they say?</span>
                         <textarea
-                          rows={3}
-                          placeholder="What did the doctor say? Log your answer here…"
+                          className="doctor-note-lined"
+                          rows={4}
+                          placeholder="Type your answer on the lines…"
                           value={draft}
                           onChange={(e) => setApptOpenQsPopup((p) => p && ({
                             ...p,
                             answerDrafts: { ...p.answerDrafts, [r.id]: e.target.value },
                           }))}
-                          style={{
-                            width: '100%', resize: 'vertical',
-                            padding: '10px 12px', borderRadius: 10,
-                            border: '1.5px solid var(--border)',
-                            background: 'var(--surface)',
-                            fontSize: '0.98rem', lineHeight: 1.5,
-                            color: 'var(--text)',
-                            fontFamily: 'inherit',
-                            boxSizing: 'border-box',
-                          }}
                           disabled={saving}
                         />
                         <button
                           type="button"
                           className="btn btn-mint"
-                          style={{ alignSelf: 'flex-end', fontSize: '0.9rem' }}
+                          style={{ alignSelf: 'flex-end', fontSize: '0.88rem', marginTop: 2 }}
                           disabled={!draft.trim() || saving}
                           onClick={() => { void saveApptAnswer(r.id) }}
                         >
@@ -1163,26 +1137,24 @@ export function DashboardPage () {
 
             {/* Footer */}
             <div style={{
-              padding: '14px 22px',
-              borderTop: '1.5px solid var(--border)',
-              display: 'flex',
-              gap: 10,
-              flexWrap: 'wrap',
-              alignItems: 'center',
+              padding: '12px 20px',
+              borderTop: '1.5px solid rgba(74,55,40,0.12)',
+              background: '#fffef8',
+              display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
               flexShrink: 0,
             }}>
               <Link
                 className="btn btn-secondary"
+                style={{ fontSize: '0.85rem' }}
                 to={`/app/questions?doctor=${encodeURIComponent(apptOpenQsPopup.doctor)}&tab=open`}
                 onClick={() => setApptOpenQsPopup(null)}
-                style={{ fontSize: '0.9rem' }}
               >
                 View all questions →
               </Link>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ marginLeft: 'auto', fontSize: '0.9rem' }}
+                style={{ marginLeft: 'auto', fontSize: '0.88rem' }}
                 onClick={() => setApptOpenQsPopup(null)}
               >
                 Done
@@ -1222,9 +1194,21 @@ export function DashboardPage () {
           </div>
         </header>
 
+        {(() => {
+          // Determine status of the closest appointment for label
+          const a = upcoming[0]
+          let bannerLabel = 'UPCOMING'
+          if (a) {
+            const startMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '00:00'}`).getTime()
+            // treat 90 min past start as "over" if no explicit end time
+            const endMs = startMs + 90 * 60 * 1000
+            if (nowMs >= endMs) bannerLabel = 'MOST RECENT APPOINTMENT'
+            else if (nowMs >= startMs) bannerLabel = 'CURRENT APPOINTMENT'
+          }
+          return (
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
-          <div className="scrap-sticky-label">UPCOMING</div>
+          <div className="scrap-sticky-label">{bannerLabel}</div>
           {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
@@ -1304,6 +1288,8 @@ export function DashboardPage () {
             </div>
           )}
         </section>
+          )
+        })()}
 
         {/* Pending visit stickers — always outside/below the banner */}
         {hasAnyPendingVisits && (
