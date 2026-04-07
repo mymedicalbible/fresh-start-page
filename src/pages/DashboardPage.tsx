@@ -531,18 +531,20 @@ export function DashboardPage () {
           .from('doctors')
           .select('id, name, specialty, archived_at')
           .eq('user_id', user!.id)
-        const byName = new Map<string, { id: string; specialty: string | null }>()
+        const byName = new Map<string, { id: string; name: string; specialty: string | null }>()
         for (const r of (docRows ?? []) as { id: string; name: string; specialty: string | null; archived_at?: string | null }[]) {
           if (r.archived_at) continue
-          byName.set(normDoctorName(r.name), { id: r.id, specialty: r.specialty })
+          byName.set(normDoctorName(r.name), { id: r.id, name: r.name, specialty: r.specialty })
         }
         const enrichedAll: UpcomingAppt[] = active.map((a) => {
-          const docLabel = a.doctor?.trim() || null
+          const raw = typeof a.doctor === 'string' ? a.doctor.trim() : ''
+          const docLabel = raw || null
           const hit = docLabel ? byName.get(normDoctorName(docLabel)) : undefined
           const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
+          const displayDoctor = (hit?.name ?? docLabel ?? '').trim() || null
           return {
             ...a,
-            doctor: docLabel,
+            doctor: displayDoctor,
             specialty: spec,
             doctorId: hit?.id ?? null,
           }
@@ -945,10 +947,10 @@ export function DashboardPage () {
                 <div className="scrap-upcoming-hero-label">Next appointment</div>
                 {upcoming[0].doctorId ? (
                   <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
-                    {upcoming[0].doctor}
+                    {upcoming[0].doctor?.trim() || 'Doctor'}
                   </Link>
                 ) : (
-                  <div className="scrap-upcoming-hero-name">{upcoming[0].doctor || 'Doctor'}</div>
+                  <div className="scrap-upcoming-hero-name">{upcoming[0].doctor?.trim() || 'Doctor'}</div>
                 )}
                 <div className="scrap-upcoming-hero-spec">
                   <span className="scrap-upcoming-hero-spec-k">Specialty</span>
