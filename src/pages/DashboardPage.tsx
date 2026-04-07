@@ -26,6 +26,12 @@ type UpcomingAppt = {
   specialty: string | null
   appointment_date: string
   appointment_time: string | null
+  /** Matched from `doctors` when name lines up, for profile link */
+  doctorId?: string | null
+}
+
+function normDoctorName (name: string) {
+  return name.trim().toLowerCase()
 }
 
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
@@ -488,10 +494,29 @@ export function DashboardPage () {
       else {
         const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
         const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
-        setUpcoming(active)
 
-        if (active.length > 0) {
-          const doctorNames = [...new Set(active.map((a) => a.doctor))]
+        const { data: docRows } = await supabase
+          .from('doctors')
+          .select('id, name, specialty, archived_at')
+          .eq('user_id', user!.id)
+        const byName = new Map<string, { id: string; specialty: string | null }>()
+        for (const r of (docRows ?? []) as { id: string; name: string; specialty: string | null; archived_at?: string | null }[]) {
+          if (r.archived_at) continue
+          byName.set(normDoctorName(r.name), { id: r.id, specialty: r.specialty })
+        }
+        const enriched: UpcomingAppt[] = active.map((a) => {
+          const hit = a.doctor ? byName.get(normDoctorName(a.doctor)) : undefined
+          const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
+          return {
+            ...a,
+            specialty: spec,
+            doctorId: hit?.id ?? null,
+          }
+        })
+        setUpcoming(enriched)
+
+        if (enriched.length > 0) {
+          const doctorNames = [...new Set(enriched.map((a) => a.doctor).filter(Boolean))]
           const { data: qRows } = await supabase
             .from('doctor_questions')
             .select('doctor')
@@ -503,7 +528,7 @@ export function DashboardPage () {
             if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
           }
           setApptPendingQ(qMap)
-          scheduleApptNotifications(active, qMap)
+          scheduleApptNotifications(enriched, qMap)
         } else {
           setApptPendingQ({})
         }
@@ -834,23 +859,60 @@ export function DashboardPage () {
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
           {upcoming.length > 0 && (
-            <ul className="scrap-sticky-list">
-              {upcoming.map((u) => {
-                const pendingQ = apptPendingQ[u.doctor] ?? 0
-                return (
-                  <li key={u.id} className="scrap-body">
-                    {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
-                    {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
-                    {' — '}
-                    {u.doctor}
-                    {u.specialty ? ` (${u.specialty})` : ''}
-                    {pendingQ > 0 && (
-                      <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <>
+              <div className="scrap-upcoming-hero">
+                <div className="scrap-upcoming-hero-label">Next appointment</div>
+                {upcoming[0].doctorId ? (
+                  <Link to={`/app/doctors/${upcoming[0].doctorId}`} className="scrap-upcoming-hero-name">
+                    {upcoming[0].doctor}
+                  </Link>
+                ) : (
+                  <div className="scrap-upcoming-hero-name">{upcoming[0].doctor || 'Doctor'}</div>
+                )}
+                <div className="scrap-upcoming-hero-spec">
+                  <span className="scrap-upcoming-hero-spec-k">Specialty</span>
+                  {upcoming[0].specialty?.trim() ? ` · ${upcoming[0].specialty.trim()}` : ' · —'}
+                </div>
+                <div className="scrap-upcoming-hero-when">
+                  {format(new Date(`${upcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
+                  {upcoming[0].appointment_time
+                    ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
+                    : ''}
+                  {(() => {
+                    const pq = apptPendingQ[upcoming[0].doctor] ?? 0
+                    if (pq <= 0) return null
+                    return (
+                      <span className="scrap-appt-q"> · {pq} open question{pq !== 1 ? 's' : ''}</span>
+                    )
+                  })()}
+                </div>
+              </div>
+              {upcoming.length > 1 && (
+                <ul className="scrap-sticky-list scrap-sticky-list--rest">
+                  {upcoming.slice(1).map((u) => {
+                    const pendingQ = apptPendingQ[u.doctor] ?? 0
+                    return (
+                      <li key={u.id} className="scrap-body">
+                        {format(new Date(`${u.appointment_date}T12:00:00`), 'MMM d')}
+                        {u.appointment_time ? ` at ${String(u.appointment_time).slice(0, 5)}` : ''}
+                        {' — '}
+                        {u.doctorId
+                          ? (
+                            <Link to={`/app/doctors/${u.doctorId}`} className="scrap-upcoming-list-link">
+                              {u.doctor}
+                            </Link>
+                            )
+                          : u.doctor}
+                        {u.specialty?.trim() ? ` (${u.specialty.trim()})` : ''}
+                        {pendingQ > 0 && (
+                          <span className="scrap-appt-q"> {pendingQ} question{pendingQ !== 1 ? 's' : ''}</span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </>
           )}
         </section>
 
