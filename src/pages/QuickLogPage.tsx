@@ -92,7 +92,6 @@ export function QuickLogPage () {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [resumePrompt, setResumePrompt] = useState(false)
   const [leavePrompt, setLeavePrompt] = useState(false)
-  const leaveNavRef = useRef<'home' | 'back'>('home')
   const resumeCheckedRef = useRef(false)
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
@@ -126,19 +125,13 @@ export function QuickLogPage () {
   }, [snapshotDraft])
 
   const commitLeaveNavigation = useCallback(() => {
-    if (leaveNavRef.current === 'home') {
-      navigate('/app')
-      return
-    }
     navigate(leaveBackPath)
   }, [leaveBackPath, navigate])
 
-  const attemptLeave = useCallback((nav: 'home' | 'back') => {
-    leaveNavRef.current = nav
+  const attemptLeave = useCallback(() => {
     if (!isQuickLogDirty()) {
       clearQuickLogDraft()
-      if (nav === 'home') navigate('/app')
-      else navigate(leaveBackPath)
+      navigate(leaveBackPath)
       return
     }
     setLeavePrompt(true)
@@ -344,7 +337,7 @@ export function QuickLogPage () {
           <div className="card" style={{ maxWidth: 360, width: '100%', borderRadius: 20 }}>
             <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--mint-ink)' }}>Saved</div>
             <p className="muted" style={{ fontSize: '0.88rem', marginTop: 0 }}>
-              Go to the archive for this entry, or back to the home screen?
+              Open the archive for this list, tap <strong>Done</strong> to exit quick log and return where you started, or <strong>Stay here</strong> to log something else.
             </p>
             <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
               <button type="button" className="btn btn-mint btn-block"
@@ -352,8 +345,8 @@ export function QuickLogPage () {
                 Open {postSave.title}
               </button>
               <button type="button" className="btn btn-primary btn-block"
-                onClick={() => { navigate('/app'); setPostSave(null) }}>
-                Home
+                onClick={() => { navigate(leaveBackPath); setPostSave(null) }}>
+                Done
               </button>
               <button type="button" className="btn btn-ghost btn-block"
                 onClick={() => setPostSave(null)}>
@@ -584,8 +577,6 @@ export function QuickLogPage () {
 
       <div
         style={{
-          display: 'flex',
-          gap: 12,
           marginTop: 24,
           paddingTop: 20,
           borderTop: '1.5px solid var(--border)',
@@ -593,19 +584,11 @@ export function QuickLogPage () {
       >
         <button
           type="button"
-          className="btn btn-secondary"
-          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
-          onClick={() => attemptLeave('back')}
+          className="btn btn-secondary btn-block"
+          style={{ minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => attemptLeave()}
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
-          onClick={() => attemptLeave('home')}
-        >
-          Home
         </button>
       </div>
     </div>

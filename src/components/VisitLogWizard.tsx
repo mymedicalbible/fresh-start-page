@@ -24,13 +24,13 @@ type Props = {
   resumeVisitId?: string | null
   initialDoctorName?: string
   initialSpecialty?: string
-  /** Where Cancel / dirty-exit "back" should land (e.g. /app or /app/meds). */
+  /** Where Cancel / leave should land (e.g. /app or /app/meds). */
   backPath?: string
   onDone?: () => void
 }
 
 export type VisitLogWizardRef = {
-  requestLeave: (to: 'home' | 'back') => void
+  requestLeave: () => void
 }
 
 function draftLooksMeaningful (d: VisitWizardDraftV1) {
@@ -120,7 +120,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
   const [resumePrompt, setResumePrompt] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
-  const leaveTargetRef = useRef<'home' | 'back'>('back')
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
 
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
@@ -210,16 +209,15 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     }
   }, [user, resumeVisitId])
 
-  function finishLeave (target: 'home' | 'back') {
+  function finishLeave () {
     setLeaveOpen(false)
-    navigate(target === 'home' ? '/app' : backPath)
+    navigate(backPath)
   }
 
-  const requestLeave = useCallback((target: 'home' | 'back') => {
-    leaveTargetRef.current = target
+  const requestLeave = useCallback(() => {
     if (!isWizardDirty()) {
       clearVisitWizardDraft()
-      navigate(target === 'home' ? '/app' : backPath)
+      navigate(backPath)
       return
     }
     setLeaveOpen(true)
@@ -652,11 +650,11 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           onYes={() => {
             const snap = buildDraftSnapshot()
             if (snap) saveVisitWizardDraft(snap)
-            finishLeave(leaveTargetRef.current)
+            finishLeave()
           }}
           onNo={() => {
             clearVisitWizardDraft()
-            finishLeave(leaveTargetRef.current)
+            finishLeave()
           }}
           onStay={() => setLeaveOpen(false)}
         />
@@ -961,8 +959,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
       <div
         style={{
-          display: 'flex',
-          gap: 12,
           marginTop: 20,
           paddingTop: 16,
           borderTop: '1.5px solid var(--border)',
@@ -970,19 +966,11 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       >
         <button
           type="button"
-          className="btn btn-secondary"
-          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
-          onClick={() => requestLeave('back')}
+          className="btn btn-secondary btn-block"
+          style={{ minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => requestLeave()}
         >
           Cancel
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
-          onClick={() => requestLeave('home')}
-        >
-          Home
         </button>
       </div>
     </div>
