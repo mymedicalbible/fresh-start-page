@@ -237,7 +237,7 @@ export function RecordsPage () {
         <div className="card">
           <h3>Visit archive</h3>
           <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
-            Doctor visits from your log. <Link to="/app/visits">Open visits</Link> to add or edit.
+            Doctor visits from your log. <Link to={`/app/visits?returnTo=${recordsReturnTo}`}>Open visits</Link> to add or edit.
           </p>
           {filtered.visits.length === 0 ? <p className="muted">No visits yet.</p> : null}
           {filtered.visits.map((v) => (

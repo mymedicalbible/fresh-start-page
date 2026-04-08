@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
@@ -28,6 +28,8 @@ type Doctor = { id: string; name: string; specialty: string | null }
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 
 export function QuestionsArchivePage () {
+  const { pathname, search } = useLocation()
+  const questionsReturnTo = encodeURIComponent(`${pathname}${search}`)
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   /** Doctor name from notification deep-link (?doctor=...) */
@@ -180,7 +182,7 @@ export function QuestionsArchivePage () {
             {doctorFilter ? 'Show all doctors' : `Filter: ${urlDoctor}`}
           </button>
           <Link
-            to={`/app/visits?tab=all`}
+            to={`/app/visits?tab=all&returnTo=${questionsReturnTo}`}
             className="btn btn-secondary"
             style={{ fontSize: '0.78rem' }}
           >

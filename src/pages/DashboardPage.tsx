@@ -1300,7 +1300,7 @@ export function DashboardPage () {
             entries={pendingDockEntries}
             onNavigate={(resumeId, label) => {
               if (resumeId) navigate(`/app/visits?resume=${resumeId}&returnTo=${dashReturnTo}`)
-              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
+              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}&returnTo=${dashReturnTo}`)
             }}
             onDismiss={(norm) => {
               setPendingVisitsByNorm((prev) => {

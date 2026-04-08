@@ -207,8 +207,15 @@ export function VisitsPage () {
                   </div>
                   {v.reason && <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>{v.reason}</div>}
                   {isPending && (
-                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.78rem', marginTop: 8 }}
-                      onClick={(e) => { e.stopPropagation(); navigate(`/app/visits?resume=${v.id}`) }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', marginTop: 8 }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/app/visits?resume=${v.id}&returnTo=${encodeURIComponent(`${pathname}${locSearch}`)}`)
+                      }}
+                    >
                       Continue visit
                     </button>
                   )}

@@ -18,7 +18,7 @@ export function ProfilePage () {
         <Link className="scrap-profile-link" to="/app/records">records</Link>
         <Link className="scrap-profile-link" to="/app/doctors">doctors</Link>
         <Link className="scrap-profile-link" to="/app/questions">questions</Link>
-        <Link className="scrap-profile-link" to="/app/visits">visits</Link>
+        <Link className="scrap-profile-link" to={`/app/visits?returnTo=${encodeURIComponent('/app/profile')}`}>visits</Link>
         <Link className="scrap-profile-link" to="/app?handoff=1">summary</Link>
       </nav>
 
