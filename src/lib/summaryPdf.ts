@@ -491,15 +491,20 @@ export async function downloadHealthSummaryPdf (
     y += 12
   }
 
-  /** Chart cards use direct SVG rasterization; keep section for clarity + fallback if visual failed. */
-  const painOk = options?.pain && !(await isCaptureMostlyBlank(options.pain))
-  const epOk = options?.episode && !(await isCaptureMostlyBlank(options.episode))
-  if (painOk || epOk) {
-    addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
-    y += 8
-    if (painOk) addChartImage(options.pain!)
-    if (epOk) addChartImage(options.episode!)
-    y += 4
+  /**
+   * Separate chart PNGs only when there is no handoff screenshot — otherwise charts already appear
+   * in "Summary as shown in the app" at the top and duplicating them looks like top + bottom charts.
+   */
+  if (!visualOk) {
+    const painOk = options?.pain && !(await isCaptureMostlyBlank(options.pain))
+    const epOk = options?.episode && !(await isCaptureMostlyBlank(options.episode))
+    if (painOk || epOk) {
+      addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
+      y += 8
+      if (painOk) addChartImage(options.pain!)
+      if (epOk) addChartImage(options.episode!)
+      y += 4
+    }
   }
 
   if (!visualOk) {
