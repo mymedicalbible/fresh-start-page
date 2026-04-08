@@ -103,7 +103,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const visitFileInputRef = useRef<HTMLInputElement>(null)
 
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
-  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
+  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '', prn: false })
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [findings, setFindings] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -182,7 +182,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setQuestionLines(d.questionLines.length ? d.questionLines : [{ text: '', priority: 'Medium' }])
     setDvTests(d.dvTests.length ? d.dvTests : [{ test_name: '', reason: '' }])
     setDvMeds(d.dvMeds)
-    setNewMedEntry(d.newMedEntry)
+    setNewMedEntry({
+      medication: d.newMedEntry.medication,
+      dose: d.newMedEntry.dose,
+      frequency: d.newMedEntry.frequency,
+      prn: d.newMedEntry.prn === true,
+    })
     setFindings(d.findings)
     setInstructions(d.instructions)
     setNotes(d.notes)
@@ -422,7 +427,13 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     const testsStr = validTests.map((t) => t.test_name.trim()).join(', ') || null
     const medsStr = [
       ...dvMeds.filter((m) => m.action === 'keep').map((m) => `${m.medication}${m.dose ? ` (${m.dose})` : ''}`),
-      ...(newMedEntry.medication.trim() ? [`${newMedEntry.medication.trim()} (${newMedEntry.dose || 'dose ?'})`] : []),
+      ...(newMedEntry.medication.trim()
+        ? (() => {
+          const sched = newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || '')
+          const tail = [newMedEntry.dose, sched].filter(Boolean).join(' · ')
+          return [`${newMedEntry.medication.trim()}${tail ? ` (${tail})` : ''}`]
+        })()
+        : []),
     ].join('; ') || null
 
     const { error: ue } = await supabase.from('doctor_visits').update({
@@ -492,7 +503,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         user_id: user.id,
         medication: newMedEntry.medication.trim(),
         dose: newMedEntry.dose || null,
-        frequency: newMedEntry.frequency || null,
+        frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
         notes: `Prescribed by: ${effectiveName}`,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,medication' })
@@ -841,7 +852,39 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
                   <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
-                  <input style={{ flex: '1 1 110px' }} placeholder="How often (e.g. twice daily)" value={newMedEntry.frequency} onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
+                </div>
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Schedule</span>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={`btn ${!newMedEntry.prn ? 'btn-mint' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                      onClick={() => setNewMedEntry((p) => ({
+                        ...p,
+                        prn: false,
+                        frequency: p.frequency === 'As needed' ? '' : p.frequency,
+                      }))}
+                    >
+                      Scheduled
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${newMedEntry.prn ? 'btn-sky' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                      onClick={() => setNewMedEntry((p) => ({ ...p, prn: true, frequency: 'As needed' }))}
+                    >
+                      PRN / as needed
+                    </button>
+                  </div>
+                  {!newMedEntry.prn && (
+                    <input
+                      style={{ width: '100%' }}
+                      placeholder="e.g. Twice daily, at bedtime"
+                      value={newMedEntry.frequency}
+                      onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))}
+                    />
+                  )}
                 </div>
               </div>
             )}

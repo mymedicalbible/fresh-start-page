@@ -120,7 +120,7 @@ export function DoctorProfilePage () {
   const [visitForm, setVisitForm] = useState<Record<string, string>>({})
   const [visitTests, setVisitTests] = useState([{ test_name: '', reason: '' }])
   const [visitMeds, setVisitMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
-  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '' })
+  const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '', prn: false })
   const [visitMedsIncludeAll, setVisitMedsIncludeAll] = useState(false)
 
   // Inline question form
@@ -320,7 +320,7 @@ export function DoctorProfilePage () {
       await supabase.from('current_medications').upsert({
         user_id: user!.id, medication: newMedEntry.medication.trim(),
         dose: newMedEntry.dose || null,
-        frequency: newMedEntry.frequency || null,
+        frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
         notes: `Prescribed by: ${doctor.name}`,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,medication' })
@@ -329,7 +329,7 @@ export function DoctorProfilePage () {
     setShowVisitForm(false)
     setVisitForm({})
     setVisitTests([{ test_name: '', reason: '' }])
-    setNewMedEntry({ medication: '', dose: '', frequency: '' })
+    setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
     flash('Visit saved.')
     await loadData(doctor.name)
   }
@@ -646,13 +646,44 @@ export function DoctorProfilePage () {
                   </button>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                 <input style={{ flex: '2 1 130px' }} value={newMedEntry.medication} placeholder="New medication name"
                   onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
                 <input style={{ flex: '1 1 80px' }} value={newMedEntry.dose} placeholder="Dose"
                   onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
-                <input style={{ flex: '1 1 120px' }} value={newMedEntry.frequency} placeholder="How often"
-                  onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))} />
+              </div>
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Schedule</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className={`btn ${!newMedEntry.prn ? 'btn-mint' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                    onClick={() => setNewMedEntry((p) => ({
+                      ...p,
+                      prn: false,
+                      frequency: p.frequency === 'As needed' ? '' : p.frequency,
+                    }))}
+                  >
+                    Scheduled
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${newMedEntry.prn ? 'btn-sky' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                    onClick={() => setNewMedEntry((p) => ({ ...p, prn: true, frequency: 'As needed' }))}
+                  >
+                    PRN / as needed
+                  </button>
+                </div>
+                {!newMedEntry.prn && (
+                  <input
+                    style={{ width: '100%' }}
+                    placeholder="e.g. Twice daily, at bedtime"
+                    value={newMedEntry.frequency}
+                    onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))}
+                  />
+                )}
               </div>
             </div>
             <div className="form-group"><label>Notes</label>

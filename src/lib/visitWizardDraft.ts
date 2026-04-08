@@ -15,7 +15,7 @@ export type VisitWizardDraftV1 = {
   questionLines: { text: string; priority: string }[]
   dvTests: { test_name: string; reason: string }[]
   dvMeds: { medication: string; dose: string; action: 'keep' | 'remove' }[]
-  newMedEntry: { medication: string; dose: string; frequency: string }
+  newMedEntry: { medication: string; dose: string; frequency: string; prn?: boolean }
   findings: string
   instructions: string
   notes: string
