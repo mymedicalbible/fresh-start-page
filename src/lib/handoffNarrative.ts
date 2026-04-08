@@ -17,6 +17,8 @@ import {
 
 export type HandoffNarrativeInput = {
   todayIso: string
+  /** Optional: patient-entered priority for the next appointment (handoff modal). */
+  patientFocus?: string | null
   painRows: Record<string, unknown>[]
   sympRows: Record<string, unknown>[]
   medList: Record<string, unknown>[]
@@ -135,6 +137,13 @@ export function buildHandoffNarrative (d: HandoffNarrativeInput): string {
   parts.push('')
   parts.push('CLINICAL SNAPSHOT')
   parts.push(buildSnapshot(d, dx, pain30, symp30, avgPain, flares, areas, sympTop, pendingTests))
+
+  const focus = typeof d.patientFocus === 'string' ? d.patientFocus.trim() : ''
+  if (focus) {
+    parts.push('')
+    parts.push('PRIORITY FOR NEXT VISIT')
+    parts.push(`  • ${focus}`)
+  }
 
   // ─── ACTIVE CONDITIONS ───
   if (dx.length > 0) {

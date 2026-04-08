@@ -101,7 +101,7 @@ export function TestsOrderedPage () {
     const insertedIds = (insertedRows ?? []).map((r) => r.id as string).filter(Boolean)
     if (insertedIds.length !== valid.length) {
       setError(
-        `Only ${insertedIds.length} of ${valid.length} test id(s) returned after save. Check Supabase RLS on tests_ordered allows INSERT … SELECT id.`,
+        `We could not confirm all ${valid.length} test(s) were saved (${insertedIds.length} saved). Refresh the list or try again; if it keeps happening, contact support.`,
       )
       setBusy(false)
       loadTests()

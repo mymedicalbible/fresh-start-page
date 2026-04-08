@@ -353,20 +353,60 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     const lines = questionLines.map((q) => ({ ...q, text: q.text.trim() })).filter((q) => q.text)
     setBusy(true)
     if (lines.length > 0) {
-      const { error: e } = await supabase.from('doctor_questions').insert(
-        lines.map((q) => ({
-          user_id: user.id,
-          date_created: todayISO(),
-          doctor: effectiveName,
-          question: q.text,
-          priority: q.priority || 'Medium',
-          status: 'Unanswered',
-          answer: null,
-        }))
+      const { error: delE } = await supabase
+        .from('doctor_questions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('doctor_visit_id', visitId)
+      if (delE && !String(delE.message).toLowerCase().includes('doctor_visit_id')) {
+        setBusy(false)
+        setError(delE.message)
+        return
+      }
+
+      const baseRows = lines.map((q) => ({
+        user_id: user.id,
+        date_created: visitDate,
+        appointment_date: visitDate,
+        doctor_visit_id: visitId,
+        doctor: effectiveName,
+        question: q.text,
+        priority: q.priority || 'Medium',
+        status: 'Unanswered' as const,
+        answer: null as string | null,
+      }))
+
+      let { error: e } = await supabase.from('doctor_questions').insert(
+        baseRows.map((r) => ({ ...r, doctor_specialty: specialty.trim() || null }))
       )
+      if (e?.message?.toLowerCase().includes('doctor_specialty')) {
+        const res2 = await supabase.from('doctor_questions').insert(baseRows)
+        e = res2.error
+      }
+      if (e?.message?.toLowerCase().includes('doctor_visit_id')) {
+        const rowsNoVisit = baseRows.map(({ doctor_visit_id: _v, ...rest }) => rest)
+        const res3 = await supabase.from('doctor_questions').insert(
+          rowsNoVisit.map((r) => ({ ...r, doctor_specialty: specialty.trim() || null }))
+        )
+        e = res3.error
+        if (e?.message?.toLowerCase().includes('doctor_specialty')) {
+          const res4 = await supabase.from('doctor_questions').insert(rowsNoVisit)
+          e = res4.error
+        }
+      }
       setBusy(false)
       if (e) { setError(e.message); return }
     } else {
+      const { error: delEmpty } = await supabase
+        .from('doctor_questions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('doctor_visit_id', visitId)
+      if (delEmpty && !String(delEmpty.message).toLowerCase().includes('doctor_visit_id')) {
+        setBusy(false)
+        setError(delEmpty.message)
+        return
+      }
       setBusy(false)
     }
     setStep(3)
@@ -931,7 +971,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
           onClick={() => requestLeave('/app/visits')}
         >
-          Cancel
+          Visit list
         </button>
         <button
           type="button"
@@ -939,7 +979,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
           onClick={() => requestLeave('/app')}
         >
-          Done
+          Home
         </button>
       </div>
     </div>

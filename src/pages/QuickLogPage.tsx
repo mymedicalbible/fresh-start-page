@@ -592,7 +592,7 @@ export function QuickLogPage () {
           style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
           onClick={() => attemptLeave('back')}
         >
-          Cancel
+          Go back
         </button>
         <button
           type="button"
@@ -600,7 +600,7 @@ export function QuickLogPage () {
           style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
           onClick={() => attemptLeave('home')}
         >
-          Done
+          Home
         </button>
       </div>
     </div>

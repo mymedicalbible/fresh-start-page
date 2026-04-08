@@ -127,7 +127,7 @@ export function LoginPage () {
 
 
         <p className="muted" style={{ marginTop: 16, fontSize: '0.8rem' }}>
-          Health data is stored under your account in Supabase. Use a strong password and enable RLS as deployed in the included migration.
+          Your health notes are saved to your private account. Use a strong password and only sign in on devices you trust.
         </p>
       </div>
     </div>

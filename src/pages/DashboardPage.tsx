@@ -4,7 +4,6 @@ import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { captureElementAsPng, downloadHealthSummaryPdf } from '../lib/summaryPdf'
-import { buildCompactPatientData } from '../lib/summaryContext'
 import { buildHandoffNarrative } from '../lib/handoffNarrative'
 import {
   type MedChangeEvent,
@@ -18,15 +17,11 @@ import { pushSummaryArchive } from '../lib/summaryArchive'
 import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
-import { generateOllamaHandoffSummary, handoffOllamaModelLabel, isOllamaCorsOrNetworkError, ollamaOriginsPowerShellSnippet } from '../lib/ollamaSummary'
 import {
   clearApptQsDraft,
   loadApptQsDraft,
   saveApptQsDraft,
 } from '../lib/apptQuestionsDraft'
-type SummaryAiSource = 'app' | 'ollama'
-
-const AI_SOURCE_STORAGE = 'mb-handoff-ai-source'
 
 type UpcomingAppt = {
   id: string
@@ -90,10 +85,6 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
 
 type HealthSummary = {
   generatedAt: string
-  aiText: string | null
-  aiError: string | null
-  /** When AI text is shown (Ollama only in this app) */
-  aiProvider: 'ollama' | null
   narrativeFallback: string
   /** Supabase error when loading medication_change_events (if any) */
   medEventsLoadError: string | null
@@ -214,14 +205,12 @@ function SummaryModal ({
   summary,
   loading,
   mode,
-  aiSource,
   focus,
   painChartPdfRef,
   episodeChartPdfRef,
   handoffPdfVisualRef,
   onFocusChange,
   onModeChange,
-  onAiSourceChange,
   onGenerate,
   onDone,
   onCancelRequest,
@@ -230,14 +219,12 @@ function SummaryModal ({
   summary: HealthSummary | null
   loading: boolean
   mode: 'fast' | 'thorough'
-  aiSource: SummaryAiSource
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
   episodeChartPdfRef: RefObject<HTMLDivElement>
   handoffPdfVisualRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
   onModeChange: (v: 'fast' | 'thorough') => void
-  onAiSourceChange: (v: SummaryAiSource) => void
   onGenerate: () => void
   onDone: () => void
   onCancelRequest: () => void
@@ -298,34 +285,6 @@ function SummaryModal ({
             />
           </div>
 
-          <div className="form-group" style={{ marginBottom: 12 }}>
-            <label>Summary style</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {([
-                { id: 'app' as const, label: 'App only' },
-                { id: 'ollama' as const, label: 'Ollama (local)' },
-              ]).map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`btn ${aiSource === id ? 'btn-mint' : 'btn-secondary'}`}
-                  style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-                  disabled={loading}
-                  onClick={() => onAiSourceChange(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {aiSource === 'ollama' && (
-              <p className="muted" style={{ fontSize: '0.72rem', marginTop: 8, marginBottom: 0 }}>
-                Run Ollama locally (default model: <code style={{ fontSize: '0.85em' }}>{handoffOllamaModelLabel()}</code>
-                ). Dev server proxies to <code style={{ fontSize: '0.85em' }}>127.0.0.1:11434</code>
-                ; for production builds set <code style={{ fontSize: '0.85em' }}>VITE_OLLAMA_URL</code> or Ollama <code style={{ fontSize: '0.85em' }}>OLLAMA_ORIGINS</code>.
-              </p>
-            )}
-          </div>
-
           {/* Mode + generate */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
             <button type="button"
@@ -373,42 +332,8 @@ function SummaryModal ({
               >
               <div className="muted" style={{ fontSize: '0.73rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 Generated {summary.generatedAt} · ~90-day data window
-                {summary.aiText && summary.aiProvider === 'ollama' && (
-                  <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · Ollama (local)</span>
-                )}
-                {summary.aiText && !summary.aiProvider && (
-                  <span style={{ marginLeft: 8, color: 'var(--mint-dark)' }}> · AI</span>
-                )}
-                {!summary.aiText && summary.aiError && (
-                  <span style={{ marginLeft: 8, color: 'var(--danger)' }}> · Ollama failed — showing app fallback</span>
-                )}
-                {!summary.aiText && !summary.aiError && <span style={{ marginLeft: 8 }}> · app-generated</span>}
+                <span style={{ marginLeft: 8 }}> · app-generated</span>
               </div>
-
-              {summary.aiError && (
-                <div className="banner error" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
-                  <strong>Ollama did not return a summary.</strong>
-                  {isOllamaCorsOrNetworkError(summary.aiError) ? (
-                    <div style={{ marginTop: 6, lineHeight: 1.5 }}>
-                      <div>The browser cannot reach Ollama (often CORS). Allow this site and vite dev in <code style={{ fontSize: '0.85em' }}>OLLAMA_ORIGINS</code>, then restart Ollama from the Start menu so it picks up the variable.</div>
-                      <div style={{ marginTop: 8, background: '#fff', padding: '8px 10px', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
-                        {ollamaOriginsPowerShellSnippet(typeof window !== 'undefined' ? window.location.origin : 'https://your-app.example')}
-                      </div>
-                      <div className="muted" style={{ marginTop: 8, fontSize: '0.72rem' }}>
-                        Tip: Running <code style={{ fontSize: '0.85em' }}>npm run dev</code> uses a same-origin proxy to Ollama (no CORS). Use that for local testing without changing Ollama.
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: 4, fontSize: '0.73rem', color: 'var(--muted)' }}>
-                      {summary.aiError.length > 200 ? summary.aiError.slice(0, 200) + '…' : summary.aiError}
-                      <div style={{ marginTop: 4 }}>Make sure Ollama is running: <code style={{ fontSize: '0.85em' }}>ollama serve</code></div>
-                    </div>
-                  )}
-                  <div style={{ marginTop: 8, fontWeight: 600, fontSize: '0.78rem' }}>
-                    Showing app-generated narrative below as a fallback.
-                  </div>
-                </div>
-              )}
 
               {summary.medEventsLoadError && (
                 <div className="banner error" style={{ marginBottom: 0, fontSize: '0.82rem' }}>
@@ -431,7 +356,7 @@ function SummaryModal ({
                 </div>
               )}
 
-              <NarrativeRenderer text={summary.aiText || summary.narrativeFallback} />
+              <NarrativeRenderer text={summary.narrativeFallback} />
 
               </div>
 
@@ -456,9 +381,7 @@ function SummaryModal ({
                 Pulling your last ~90 days of visits, medications, pain logs, episodes, and questions from the app…
               </p>
               <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.5, margin: 0, opacity: 0.9 }}>
-                {aiSource === 'ollama'
-                  ? 'Then sending that bundle to Ollama on your machine — often a minute or so.'
-                  : 'Then assembling your handoff narrative in the app.'}
+                Then assembling your handoff narrative in the app.
               </p>
             </div>
           )}
@@ -592,7 +515,6 @@ export function DashboardPage () {
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
-  const [summaryAiSource, setSummaryAiSource] = useState<SummaryAiSource>('app')
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [summaryLeavePrompt, setSummaryLeavePrompt] = useState(false)
@@ -847,19 +769,8 @@ export function DashboardPage () {
     try {
       const s = localStorage.getItem('mb-handoff-focus')
       if (s) setPatientFocus(s)
-      const raw = localStorage.getItem(AI_SOURCE_STORAGE)
-      if (raw === 'app' || raw === 'ollama') setSummaryAiSource(raw)
-      else if (raw === 'cloud') {
-        try { localStorage.setItem(AI_SOURCE_STORAGE, 'app') } catch { /* ignore */ }
-        setSummaryAiSource('app')
-      }
     } catch { /* ignore */ }
   }, [])
-
-  function persistAiSource (v: SummaryAiSource) {
-    setSummaryAiSource(v)
-    try { localStorage.setItem(AI_SOURCE_STORAGE, v) } catch { /* ignore */ }
-  }
 
   async function generateSummary () {
     if (!user) return
@@ -875,7 +786,7 @@ export function DashboardPage () {
 
     const [
       painRes, sympRes, medRes, testsRes, pendingTestsRes,
-      diagRes, visitRes, qRes, symptomLogRes, medEventsRes,
+      diagRes, visitRes, qRes, medEventsRes,
     ] = await Promise.all([
       supabase.from('pain_entries')
         .select('entry_date, entry_time, intensity, location, pain_type, triggers, relief_methods, notes')
@@ -919,11 +830,6 @@ export function DashboardPage () {
         .eq('status', 'Unanswered')
         .order('date_created', { ascending: false })
         .limit(25),
-      supabase.from('symptom_logs')
-        .select('logged_at, activity_last_4h, symptoms')
-        .eq('user_id', user.id)
-        .order('logged_at', { ascending: false })
-        .limit(18),
       supabase.rpc('get_medication_change_events', {
         p_since: since120Str,
         p_limit: 50,
@@ -937,7 +843,6 @@ export function DashboardPage () {
     const diagRows = (diagRes.data ?? []) as Record<string, unknown>[]
     const visitRows = (visitRes.data ?? []) as Record<string, unknown>[]
     const qList = (qRes.data ?? []) as Record<string, unknown>[]
-    const slogRows = (symptomLogRes.error ? [] : (symptomLogRes.data ?? [])) as { logged_at: string; activity_last_4h: string | null; symptoms: string[] | null }[]
 
     let medChangeEvents: MedChangeEvent[] = []
     let medEventsLoadError: string | null = null
@@ -1002,50 +907,27 @@ export function DashboardPage () {
     const todayIso = new Date().toISOString().slice(0, 10)
     try { localStorage.setItem('mb-handoff-focus', patientFocus) } catch { /* ignore */ }
 
-    const patientData = buildCompactPatientData({
-      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, slogRows, medChangeEvents: allMedEvents,
-    })
-
     const narrativeFallback = buildHandoffNarrative({
-      todayIso, painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents: allMedEvents,
+      todayIso,
+      patientFocus: patientFocus.trim() || undefined,
+      painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents: allMedEvents,
       medChangeEventsLoadError: medEventsLoadError,
       painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
     })
 
-    let aiText: string | null = null
-    let aiError: string | null = null
-    let aiProvider: 'ollama' | null = null
-
-    if (summaryAiSource === 'ollama') {
-      try {
-        aiText = await generateOllamaHandoffSummary({
-          patientData,
-          patientFocus: patientFocus.trim() || undefined,
-          mode: summaryMode,
-        })
-        if (!aiText?.trim()) aiText = null
-        else aiProvider = 'ollama'
-      } catch (aiErr) {
-        const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)
-        console.warn('Ollama summary failed, using narrative fallback:', msg)
-        aiError = msg
-      }
-    }
-
     const generatedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
-    const handoffText = (aiText?.trim() || narrativeFallback).trim()
+    const handoffText = narrativeFallback.trim()
     if (handoffText) {
       pushSummaryArchive({
         generatedLabel: generatedAt,
         text: handoffText,
-        sourceAi: !!aiText?.trim(),
-        aiKind: aiProvider ?? undefined,
+        sourceAi: false,
       })
     }
 
     setSummary({
-      generatedAt, aiText, aiError, aiProvider, narrativeFallback,
+      generatedAt, narrativeFallback,
       medEventsLoadError, medCorrelationBlock,
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
@@ -1056,7 +938,7 @@ export function DashboardPage () {
   }
 
   function handoffTextForPdf (s: HealthSummary) {
-    const main = s.aiText?.trim() || s.narrativeFallback
+    const main = s.narrativeFallback
     if (s.medCorrelationBlock.trim() && !main.includes('MEDICATION CHANGES')) {
       return `${main}\n\n---\nMedication changes & outcomes (app-derived)\n\n${s.medCorrelationBlock}`
     }
@@ -1290,14 +1172,12 @@ export function DashboardPage () {
           summary={summary}
           loading={summaryLoading}
           mode={summaryMode}
-          aiSource={summaryAiSource}
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
           episodeChartPdfRef={episodeChartPdfRef}
           handoffPdfVisualRef={handoffPdfVisualRef}
           onFocusChange={setPatientFocus}
           onModeChange={setSummaryMode}
-          onAiSourceChange={persistAiSource}
           onGenerate={generateSummary}
           onDone={handleSummaryFooterDone}
           onCancelRequest={handleSummaryCancelRequest}
@@ -1442,7 +1322,7 @@ export function DashboardPage () {
             <span className="scrap-log-title">Episodes</span>
             <span className="scrap-log-sub">Log an episode</span>
           </Link>
-          <Link to="/app/questions" className="scrap-log-tile scrap-log-tile--blue">
+          <Link to="/app/log?tab=questions" className="scrap-log-tile scrap-log-tile--blue">
             <span className="scrap-tape scrap-tape--sky" aria-hidden />
             {openQsCount != null && openQsCount > 0 && (
               <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
