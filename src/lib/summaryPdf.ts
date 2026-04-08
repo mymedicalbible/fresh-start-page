@@ -23,13 +23,71 @@ const TOKEN_BORDER = '#d4eadc'
 const TOKEN_MUTED = '#6b7c72'
 const TOKEN_MINT_INK = '#1e4d34'
 
+/** Recharts root surface — html2canvas often clips or drops SVG; we rasterize this directly. */
+const RECHARTS_SURFACE = 'svg.recharts-surface'
+
+function sanitizeSvgSerialization (str: string): string {
+  return str
+    .replace(/var\(--border\)/g, TOKEN_BORDER)
+    .replace(/var\(--muted\)/g, TOKEN_MUTED)
+    .replace(/var\(--mint-ink\)/g, TOKEN_MINT_INK)
+    /** Any remaining CSS variables would break blob→Image rasterization */
+    .replace(/var\(--[a-zA-Z0-9-]+\)/g, TOKEN_MUTED)
+}
+
+function isInsideFixedAncestor (el: HTMLElement): boolean {
+  let p: HTMLElement | null = el
+  while (p) {
+    if (getComputedStyle(p).position === 'fixed') return true
+    p = p.parentElement
+  }
+  return false
+}
+
+type SvgDimRestore = { el: SVGElement; width: string | null; height: string | null; sw: string; sh: string }
+
+/**
+ * html2canvas needs explicit pixel width/height on SVG nodes; Recharts often uses % only.
+ * Returns a restore function for the live DOM.
+ */
+function applySvgPixelDimensions (root: HTMLElement): () => void {
+  const snaps: SvgDimRestore[] = []
+  root.querySelectorAll('svg').forEach((node) => {
+    const svg = node as SVGSVGElement
+    const r = svg.getBoundingClientRect()
+    const w = Math.max(1, Math.ceil(r.width))
+    const h = Math.max(1, Math.ceil(r.height))
+    snaps.push({
+      el: svg,
+      width: svg.getAttribute('width'),
+      height: svg.getAttribute('height'),
+      sw: svg.style.width,
+      sh: svg.style.height,
+    })
+    svg.setAttribute('width', String(w))
+    svg.setAttribute('height', String(h))
+    svg.style.width = `${w}px`
+    svg.style.height = `${h}px`
+  })
+  return () => {
+    snaps.forEach(({ el, width, height, sw, sh }) => {
+      if (width === null) el.removeAttribute('width')
+      else el.setAttribute('width', width)
+      if (height === null) el.removeAttribute('height')
+      else el.setAttribute('height', height)
+      el.style.width = sw
+      el.style.height = sh
+    })
+  }
+}
+
 async function isCaptureMostlyBlank (cap: CapturedChart): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      const w = Math.min(320, img.naturalWidth || cap.width)
-      const h = Math.min(320, img.naturalHeight || cap.height)
+      const w = Math.min(480, img.naturalWidth || cap.width)
+      const h = Math.min(480, img.naturalHeight || cap.height)
       canvas.width = w
       canvas.height = h
       const ctx = canvas.getContext('2d')
@@ -39,14 +97,14 @@ async function isCaptureMostlyBlank (cap: CapturedChart): Promise<boolean> {
       }
       ctx.drawImage(img, 0, 0, w, h)
       let nonWhite = 0
-      const step = 16
+      const step = 12
       for (let x = 0; x < w; x += step) {
         for (let y = 0; y < h; y += step) {
           const d = ctx.getImageData(x, y, 1, 1).data
           if (d[0] < 245 || d[1] < 245 || d[2] < 245) nonWhite++
         }
       }
-      resolve(nonWhite < 6)
+      resolve(nonWhite < 4)
     }
     img.onerror = () => resolve(true)
     img.src = cap.dataUrl
@@ -56,18 +114,19 @@ async function isCaptureMostlyBlank (cap: CapturedChart): Promise<boolean> {
 async function captureSvgToPng (svg: SVGSVGElement, scale = 2): Promise<CapturedChart | null> {
   try {
     const rect = svg.getBoundingClientRect()
-    const w = Math.max(8, Math.round(rect.width))
-    const h = Math.max(8, Math.round(rect.height))
+    let w = Math.max(8, Math.round(rect.width))
+    let h = Math.max(8, Math.round(rect.height))
+    if (w < 16 || h < 16) {
+      w = Math.max(w, svg.clientWidth || w)
+      h = Math.max(h, svg.clientHeight || h)
+    }
     const clone = svg.cloneNode(true) as SVGSVGElement
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
     clone.setAttribute('width', String(w))
     clone.setAttribute('height', String(h))
-    clone.removeAttribute('style')
     let str = new XMLSerializer().serializeToString(clone)
-    str = str
-      .replace(/var\(--border\)/g, TOKEN_BORDER)
-      .replace(/var\(--muted\)/g, TOKEN_MUTED)
-      .replace(/var\(--mint-ink\)/g, TOKEN_MINT_INK)
+    str = sanitizeSvgSerialization(str)
     const blob = new Blob([str], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     return await new Promise((resolve) => {
@@ -105,20 +164,42 @@ async function captureSvgToPng (svg: SVGSVGElement, scale = 2): Promise<Captured
 }
 
 async function captureCardViaSvgFallback (card: HTMLElement): Promise<CapturedChart | null> {
-  const svg = card.querySelector(':scope svg')
+  const svg = card.querySelector(RECHARTS_SURFACE) ?? card.querySelector(':scope svg')
   if (svg instanceof SVGSVGElement) return captureSvgToPng(svg, 2)
   return null
 }
 
 /**
- * Rasterize DOM for PDF. Tries html2canvas; if the result is blank, exports the Recharts SVG directly.
+ * Rasterize DOM for PDF. Recharts SVG is rasterized directly (html2canvas is unreliable for SVG).
  */
 export async function captureElementAsPng (el: HTMLElement): Promise<CapturedChart | null> {
   try {
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       await document.fonts.ready
     }
-    await new Promise<void>((r) => setTimeout(r, 100))
+    await new Promise<void>((r) => setTimeout(r, 50))
+
+    const surfaces = el.querySelectorAll(RECHARTS_SURFACE)
+    /**
+     * Single chart *card* only: rasterize `recharts-surface` directly.
+     * Do not use this for `.handoff-pdf-capture-root` (one chart + narrative would drop the text).
+     */
+    const chartCardOnly =
+      el.classList.contains('card') &&
+      surfaces.length === 1 &&
+      !el.querySelector('.summary-readable')
+    if (chartCardOnly) {
+      const svgCap = await captureSvgToPng(surfaces[0] as SVGSVGElement, 2)
+      if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+      const svgCap2 = await captureCardViaSvgFallback(el)
+      if (svgCap2 && !(await isCaptureMostlyBlank(svgCap2))) return svgCap2
+    }
+
+    const restore = applySvgPixelDimensions(el)
+    const fixed = isInsideFixedAncestor(el)
+    /** Wrong scroll offsets against fixed overlays are a common cause of horizontal clipping. */
+    const scrollX = fixed ? 0 : -window.scrollX
+    const scrollY = fixed ? 0 : -window.scrollY
 
     const runHtml2 = (foreignObject: boolean) =>
       html2canvas(el, {
@@ -128,54 +209,72 @@ export async function captureElementAsPng (el: HTMLElement): Promise<CapturedCha
         useCORS: true,
         allowTaint: true,
         foreignObjectRendering: foreignObject,
-        scrollX: -window.scrollX,
-        scrollY: -window.scrollY,
+        scrollX,
+        scrollY,
         windowWidth: document.documentElement.scrollWidth,
         windowHeight: document.documentElement.scrollHeight,
-        /** Modal scroll containers can clip SVG/raster; expand in the clone only. */
-        onclone: (clonedDoc) => {
+        onclone: (clonedDoc, clonedElement) => {
           const modalBody = clonedDoc.querySelector('.summary-modal-body')
           if (modalBody instanceof HTMLElement) {
             modalBody.style.overflow = 'visible'
             modalBody.style.maxHeight = 'none'
           }
+          clonedElement.querySelectorAll('svg').forEach((node) => {
+            const svg = node as SVGSVGElement
+            const r = svg.getBoundingClientRect()
+            const w = Math.max(1, Math.ceil(r.width))
+            const h = Math.max(1, Math.ceil(r.height))
+            svg.setAttribute('width', String(w))
+            svg.setAttribute('height', String(h))
+            svg.style.width = `${w}px`
+            svg.style.height = `${h}px`
+          })
         },
       })
 
-    let canvas = await runHtml2(true)
-    let cap: CapturedChart = {
-      dataUrl: canvas.toDataURL('image/png'),
-      width: canvas.width,
-      height: canvas.height,
-    }
-
-    if (await isCaptureMostlyBlank(cap)) {
-      canvas = await runHtml2(false)
-      cap = {
+    try {
+      /** `foreignObjectRendering: false` usually rasterizes SVG more reliably than true. */
+      let canvas = await runHtml2(false)
+      let cap: CapturedChart = {
         dataUrl: canvas.toDataURL('image/png'),
         width: canvas.width,
         height: canvas.height,
       }
-    }
 
-    if (await isCaptureMostlyBlank(cap)) {
-      if (el.classList.contains('card')) {
-        const svgCap = await captureCardViaSvgFallback(el)
-        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+      if (await isCaptureMostlyBlank(cap)) {
+        canvas = await runHtml2(true)
+        cap = {
+          dataUrl: canvas.toDataURL('image/png'),
+          width: canvas.width,
+          height: canvas.height,
+        }
       }
-      const innerCard = el.querySelector('.card')
-      if (innerCard instanceof HTMLElement) {
-        const svgCap = await captureCardViaSvgFallback(innerCard)
-        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
-      }
-      const anySvg = el.querySelector('svg')
-      if (anySvg instanceof SVGSVGElement) {
-        const svgCap = await captureSvgToPng(anySvg, 2)
-        if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
-      }
-    }
 
-    return cap
+      if (await isCaptureMostlyBlank(cap)) {
+        if (surfaces.length >= 1) {
+          const svgCap = await captureSvgToPng(surfaces[0] as SVGSVGElement, 2)
+          if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+        }
+        if (el.classList.contains('card')) {
+          const svgCap = await captureCardViaSvgFallback(el)
+          if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+        }
+        const innerCard = el.querySelector('.card')
+        if (innerCard instanceof HTMLElement) {
+          const svgCap = await captureCardViaSvgFallback(innerCard)
+          if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+        }
+        const anySvg = el.querySelector('svg')
+        if (anySvg instanceof SVGSVGElement) {
+          const svgCap = await captureSvgToPng(anySvg, 2)
+          if (svgCap && !(await isCaptureMostlyBlank(svgCap))) return svgCap
+        }
+      }
+
+      return cap
+    } finally {
+      restore()
+    }
   } catch (err) {
     console.warn('captureElementAsPng failed:', err)
     return null
@@ -286,7 +385,7 @@ export async function downloadHealthSummaryPdf (
     y += 12
   }
 
-  /** Always embed chart captures when present and non-blank — full-handoff html2canvas often omits Recharts SVG. */
+  /** Chart cards use direct SVG rasterization; keep section for clarity + fallback if visual failed. */
   const painOk = options?.pain && !(await isCaptureMostlyBlank(options.pain))
   const epOk = options?.episode && !(await isCaptureMostlyBlank(options.episode))
   if (painOk || epOk) {
