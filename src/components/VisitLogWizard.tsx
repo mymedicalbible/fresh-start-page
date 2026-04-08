@@ -24,7 +24,7 @@ type Props = {
   resumeVisitId?: string | null
   initialDoctorName?: string
   initialSpecialty?: string
-  /** Where "Go back" / dirty-exit should land (e.g. /app or /app/meds). */
+  /** Where Cancel / dirty-exit "back" should land (e.g. /app or /app/meds). */
   backPath?: string
   onDone?: () => void
 }
@@ -629,8 +629,44 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
   if (!user) return null
 
+  const leaveBar = (
+    <div
+      style={{
+        display: 'flex',
+        gap: 12,
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 30,
+        margin: '0 -4px 4px',
+        padding: '10px 4px 12px',
+        background: 'linear-gradient(180deg, var(--surface) 70%, transparent)',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <button
+        type="button"
+        className="btn btn-secondary"
+        style={{ flex: '1 1 120px', minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }}
+        onClick={() => requestLeave('back')}
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        className="btn btn-primary"
+        style={{ flex: '1 1 120px', minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }}
+        onClick={() => requestLeave('home')}
+      >
+        Home
+      </button>
+    </div>
+  )
+
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      {leaveBar}
       {resumePrompt && resumeDraftRef.current && (
         <LeaveLaterDialog
           variant="resume"
@@ -974,7 +1010,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
           onClick={() => requestLeave('back')}
         >
-          Go back
+          Cancel
         </button>
         <button
           type="button"
