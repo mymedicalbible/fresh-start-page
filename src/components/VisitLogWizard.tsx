@@ -713,9 +713,14 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               </button>
             </div>
           )}
-          <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy} onClick={() => void saveStep1()}>
-            Continue
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} disabled={busy} onClick={() => void saveStep1()}>
+              Continue
+            </button>
+          </div>
         </div>
       )}
 
@@ -770,9 +775,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             + Add another question
           </button>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>←</button>
-            <button type="button" className="btn btn-primary" style={{ flex: 2 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-secondary" style={{ flex: '0 0 auto', minWidth: 44 }} onClick={() => setStep(1)}>←</button>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -949,30 +957,17 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             )}
           </div>
 
-          <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
-            <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>
-            <button type="button" className="btn btn-secondary btn-block" disabled={busy} onClick={() => void finalizeVisit(true)}>Save as pending</button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => setStep(2)}>← Questions</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 150px' }} disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>
+            <button type="button" className="btn btn-secondary" style={{ flex: '1 1 150px' }} disabled={busy} onClick={() => void finalizeVisit(true)}>Save as pending</button>
           </div>
+          <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8, fontSize: '0.88rem' }} onClick={() => setStep(2)}>← Questions</button>
         </div>
       )}
 
-      <div
-        style={{
-          marginTop: 20,
-          paddingTop: 16,
-          borderTop: '1.5px solid var(--border)',
-        }}
-      >
-        <button
-          type="button"
-          className="btn btn-secondary btn-block"
-          style={{ minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
-          onClick={() => requestLeave()}
-        >
-          Cancel
-        </button>
-      </div>
     </div>
   )
 })
