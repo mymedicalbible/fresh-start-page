@@ -501,7 +501,6 @@ function PendingVisitStickers ({
 // ────────────────────────────────────────────────────────────
 export function DashboardPage () {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const { pathname: dashPath, search: dashSearch } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
@@ -542,13 +541,27 @@ export function DashboardPage () {
     answerDrafts: Record<string, string>
     savedIds: Set<string>
     savingId: string | null
+    /** Set when opened from a pending-visit sticker — footer shows link to finish visit log after questions */
+    stickyVisitLog?: { resumeId: string | undefined; doctorLabel: string } | null
   }>(null)
 
   const [apptQsLeavePrompt, setApptQsLeavePrompt] = useState(false)
 
-  async function openApptQuestionsPopup (doctor: string) {
+  async function openApptQuestionsPopup (
+    doctor: string,
+    stickyVisitLog?: { resumeId: string | undefined; doctorLabel: string },
+  ) {
     if (!user?.id) return
-    setApptOpenQsPopup({ doctor, loading: true, loadError: null, rows: [], answerDrafts: {}, savedIds: new Set(), savingId: null })
+    setApptOpenQsPopup({
+      doctor,
+      loading: true,
+      loadError: null,
+      rows: [],
+      answerDrafts: {},
+      savedIds: new Set(),
+      savingId: null,
+      stickyVisitLog: stickyVisitLog ?? null,
+    })
     const { data, error } = await supabase
       .from('doctor_questions')
       .select('id, question, priority, answer, status')
@@ -1142,6 +1155,20 @@ export function DashboardPage () {
               gap: 12,
               flexShrink: 0,
             }}>
+              {apptOpenQsPopup.stickyVisitLog && (
+                <Link
+                  className="btn btn-primary btn-block"
+                  style={{ fontSize: '1.05rem', minHeight: 50, fontWeight: 600 }}
+                  to={
+                    apptOpenQsPopup.stickyVisitLog.resumeId
+                      ? `/app/visits?resume=${apptOpenQsPopup.stickyVisitLog.resumeId}&returnTo=${dashReturnTo}`
+                      : `/app/visits?tab=pending&doctor=${encodeURIComponent(apptOpenQsPopup.stickyVisitLog.doctorLabel)}&returnTo=${dashReturnTo}`
+                  }
+                  onClick={() => finishApptQsDone()}
+                >
+                  Continue visit log →
+                </Link>
+              )}
               <Link
                 className="btn btn-secondary btn-block"
                 style={{ fontSize: '1.05rem', minHeight: 50, fontWeight: 600 }}
@@ -1303,8 +1330,7 @@ export function DashboardPage () {
           <PendingVisitStickers
             entries={pendingDockEntries}
             onNavigate={(resumeId, label) => {
-              if (resumeId) navigate(`/app/visits?resume=${resumeId}&returnTo=${dashReturnTo}`)
-              else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}&returnTo=${dashReturnTo}`)
+              void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
             }}
             onDismiss={(norm) => {
               setPendingVisitsByNorm((prev) => {
