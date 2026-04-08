@@ -648,6 +648,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         <LeaveLaterDialog
           variant="saveForLater"
           onYes={() => {
+            /** Step 3: persist visit as pending in the DB; earlier steps only use local draft. */
+            if (step === 3 && visitId) {
+              setLeaveOpen(false)
+              void finalizeVisit(true)
+              return
+            }
             const snap = buildDraftSnapshot()
             if (snap) saveVisitWizardDraft(snap)
             finishLeave()
@@ -713,11 +719,11 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               </button>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => requestLeave()}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} disabled={busy} onClick={() => void saveStep1()}>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px', minHeight: 44, fontSize: '0.95rem', fontWeight: 600 }} disabled={busy} onClick={() => void saveStep1()}>
               Continue
             </button>
           </div>
@@ -775,10 +781,10 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             + Add another question
           </button>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary" style={{ flex: '0 0 auto', minWidth: 44 }} onClick={() => setStep(1)}>←</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost" style={{ minWidth: 44, padding: '10px 12px', fontSize: '1rem', fontWeight: 600 }} onClick={() => setStep(1)}>←</button>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px', minHeight: 44, fontSize: '0.95rem', fontWeight: 600 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => requestLeave()}>
               Cancel
             </button>
           </div>
@@ -874,7 +880,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               {openDocs && (
                 <div className="form-group" style={{ padding: '0 12px 12px', margin: 0 }}>
                   <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#94a3b8' }}>
-                    Queued files upload when you tap Save visit or Save as pending below.
+                    Queued files upload when you save the visit (or choose “save for later” when leaving).
                   </p>
                   <input
                     type="file"
@@ -957,12 +963,13 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => requestLeave()}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => requestLeave()}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 150px' }} disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>
-            <button type="button" className="btn btn-secondary" style={{ flex: '1 1 150px' }} disabled={busy} onClick={() => void finalizeVisit(true)}>Save as pending</button>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px', minHeight: 44, fontSize: '0.98rem', fontWeight: 600 }} disabled={busy} onClick={() => void finalizeVisit(false)}>
+              Save visit
+            </button>
           </div>
           <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8, fontSize: '0.88rem' }} onClick={() => setStep(2)}>← Questions</button>
         </div>
