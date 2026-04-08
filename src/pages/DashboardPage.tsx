@@ -466,16 +466,16 @@ function SummaryModal ({
 
         <div style={{
           flexShrink: 0,
-          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-          justifyContent: 'flex-end',
-          padding: '12px 20px 18px',
+          display: 'flex',
+          gap: 12,
+          padding: '14px 20px 20px',
           borderTop: '1.5px solid var(--border)',
           background: 'var(--surface)',
         }}>
-          <button type="button" className="btn btn-secondary" style={{ fontSize: '0.85rem' }} disabled={loading} onClick={onCancelRequest}>
+          <button type="button" className="btn btn-secondary" style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }} disabled={loading} onClick={onCancelRequest}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary" style={{ fontSize: '0.85rem' }} disabled={loading} onClick={onDone}>
+          <button type="button" className="btn btn-primary" style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }} disabled={loading} onClick={onDone}>
             Done
           </button>
         </div>
@@ -1247,36 +1247,39 @@ export function DashboardPage () {
 
             {/* Footer */}
             <div style={{
-              padding: '12px 20px',
+              padding: '14px 20px 18px',
               borderTop: '1.5px solid rgba(74,55,40,0.12)',
               background: '#fffef8',
-              display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+              display: 'grid',
+              gap: 12,
               flexShrink: 0,
             }}>
               <Link
-                className="btn btn-secondary"
-                style={{ fontSize: '0.85rem' }}
+                className="btn btn-secondary btn-block"
+                style={{ fontSize: '1.05rem', minHeight: 50, fontWeight: 600 }}
                 to={`/app/questions?doctor=${encodeURIComponent(apptOpenQsPopup.doctor)}&tab=open`}
                 onClick={() => finishApptQsDone()}
               >
-                View all questions →
+                View all questions for this doctor
               </Link>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.88rem' }}
-                onClick={() => requestCloseApptQsPopup()}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ marginLeft: 'auto', fontSize: '0.88rem' }}
-                onClick={() => finishApptQsDone()}
-              >
-                Done
-              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+                  onClick={() => requestCloseApptQsPopup()}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+                  onClick={() => finishApptQsDone()}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

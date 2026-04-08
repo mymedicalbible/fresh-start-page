@@ -2012,8 +2012,13 @@ button.scrap-appt-q:focus-visible {
 
 .doctor-note-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.doctor-note-actions .btn {
+  flex: 1;
+  min-height: 48px;
+  font-size: 1.05rem;
+  font-weight: 600;
 }

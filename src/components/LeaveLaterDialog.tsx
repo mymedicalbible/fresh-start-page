@@ -42,14 +42,14 @@ export function LeaveLaterDialog (props: Props) {
           <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
             You can pick this up again from the same screen. If you choose not to save, what you entered here will be cleared.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button type="button" className="btn btn-primary btn-block" onClick={props.onYes}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={props.onYes}>
               Yes, save for later
             </button>
-            <button type="button" className="btn btn-secondary btn-block" onClick={props.onNo}>
+            <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={props.onNo}>
               No, discard
             </button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={props.onStay}>
+            <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={props.onStay}>
               Keep editing
             </button>
           </div>
@@ -76,11 +76,11 @@ export function LeaveLaterDialog (props: Props) {
         <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
           You have unsaved progress from last time on this screen.
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button type="button" className="btn btn-primary btn-block" onClick={props.onResume}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={props.onResume}>
             Yes, restore my draft
           </button>
-          <button type="button" className="btn btn-secondary btn-block" onClick={props.onFresh}>
+          <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={props.onFresh}>
             No, start fresh
           </button>
         </div>

@@ -624,14 +624,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.75rem', color: '#64748b' }}>
-        <span style={{ fontWeight: 700, color: step >= 1 ? '#4f46e5' : '#cbd5e1' }}>1 · Visit</span>
-        <span>→</span>
-        <span style={{ fontWeight: 700, color: step >= 2 ? '#4f46e5' : '#cbd5e1' }}>2 · Questions</span>
-        <span>→</span>
-        <span style={{ fontWeight: 700, color: step >= 3 ? '#4f46e5' : '#cbd5e1' }}>3 · Details</span>
-      </div>
-
       {step === 1 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
           <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#475569' }}>When & who</p>
@@ -683,18 +675,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy} onClick={() => void saveStep1()}>
             Continue
           </button>
-          <button type="button" className="btn btn-ghost btn-block" onClick={() => requestLeave('/app/visits')}>
-            Cancel
-          </button>
         </div>
       )}
 
       {step === 2 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
-          <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#475569' }}>Questions for this visit</p>
-          <p style={{ margin: '0 0 12px', fontSize: '0.78rem', color: '#94a3b8' }}>
-            Same layout as Questions quick log — priority + question text. Add any questions now, or skip.
-          </p>
+          <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#475569' }}>Questions for this visit</p>
           {questionLines.map((line, i) => (
             <div key={i} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
               <div className="form-group" style={{ marginBottom: 8 }}>
@@ -747,18 +733,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep(1)}>←</button>
             <button type="button" className="btn btn-primary" style={{ flex: 2 }} disabled={busy} onClick={() => void saveStep2AndGo()}>Next</button>
           </div>
-          <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => requestLeave('/app/visits')}>
-            Cancel
-          </button>
         </div>
       )}
 
       {step === 3 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
-          <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds & follow-up</p>
-          <p style={{ margin: '0 0 14px', fontSize: '0.78rem', color: '#94a3b8' }}>
-            Open a section when you are ready. Fill now or save as pending and finish later from Doctor visits.
-          </p>
+          <p style={{ margin: '0 0 14px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds & follow-up</p>
 
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
             <button
@@ -932,10 +912,36 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void finalizeVisit(false)}>Save visit</button>
             <button type="button" className="btn btn-secondary btn-block" disabled={busy} onClick={() => void finalizeVisit(true)}>Save as pending</button>
             <button type="button" className="btn btn-ghost btn-block" onClick={() => setStep(2)}>← Questions</button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => requestLeave('/app/visits')}>Cancel</button>
           </div>
         </div>
       )}
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: '1.5px solid var(--border)',
+        }}
+      >
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => requestLeave('/app/visits')}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => requestLeave('/app')}
+        >
+          Done
+        </button>
+      </div>
     </div>
   )
 })

@@ -234,25 +234,6 @@ export function VisitsPage () {
   if (wizardNew || resumeId) {
     return (
       <div style={{ paddingBottom: 40 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-          <Link
-            to="/app"
-            className="btn btn-ghost"
-            onClick={(e) => {
-              e.preventDefault()
-              visitWizardRef.current?.requestLeave('/app')
-            }}
-          >
-            Return to home
-          </Link>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => visitWizardRef.current?.requestLeave('/app/visits')}
-          >
-            Cancel
-          </button>
-        </div>
         <VisitLogWizard
           ref={visitWizardRef}
           resumeVisitId={resumeId}

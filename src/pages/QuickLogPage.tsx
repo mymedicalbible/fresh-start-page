@@ -337,15 +337,6 @@ export function QuickLogPage () {
         />
       )}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-        <button type="button" className="btn btn-ghost" onClick={() => attemptLeave('home')}>
-          Return to home
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => attemptLeave('back')}>
-          Cancel
-        </button>
-      </div>
-
       {postSave && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 400,
@@ -384,10 +375,7 @@ export function QuickLogPage () {
       {/* VISIT */}
       {screen === 'visit' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <p style={{ fontSize: '0.9rem', color: '#475569', marginTop: 0, lineHeight: 1.5 }}>
-            Date → doctor → reason → questions → tests & meds. One guided flow.
-          </p>
-          <button type="button" className="btn btn-primary btn-block" style={{ marginTop: 14 }}
+          <button type="button" className="btn btn-primary btn-block"
             onClick={() => navigate('/app/visits?new=1')}>
             Start visit log
           </button>
@@ -420,10 +408,7 @@ export function QuickLogPage () {
                 <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} style={{ flex: 2 }} />
                 <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
               </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next →</button>
-                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')}>Cancel</button>
-              </div>
+              <button className="btn btn-primary btn-block" onClick={() => setPainStep(2)}>Next →</button>
             </div>
           )}
           {painStep === 2 && (
@@ -448,10 +433,7 @@ export function QuickLogPage () {
                   )
                 })}
               </div>
-              <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
-                <button className="btn btn-primary btn-block" onClick={() => setPainStep(3)}>Next →</button>
-                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')}>Cancel</button>
-              </div>
+              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => setPainStep(3)}>Next →</button>
             </div>
           )}
           {painStep === 3 && (
@@ -466,12 +448,9 @@ export function QuickLogPage () {
                 ))}
               </div>
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
-              <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
-                <button className="btn btn-primary btn-block" onClick={handleSavePain} disabled={busy}>
-                  {busy ? 'Saving…' : 'Finish ✓'}
-                </button>
-                <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>Cancel</button>
-              </div>
+              <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={handleSavePain} disabled={busy}>
+                {busy ? 'Saving…' : 'Finish ✓'}
+              </button>
             </div>
           )}
         </div>
@@ -555,14 +534,9 @@ export function QuickLogPage () {
             />
           </div>
 
-          <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
-            <button className="btn btn-primary btn-block" onClick={handleSaveSymptoms} disabled={busy}>
-              {busy ? 'Saving…' : 'Save episode'}
-            </button>
-            <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>
-              Cancel
-            </button>
-          </div>
+          <button className="btn btn-primary btn-block" style={{ marginTop: 4 }} onClick={handleSaveSymptoms} disabled={busy}>
+            {busy ? 'Saving…' : 'Save episode'}
+          </button>
         </div>
       )}
 
@@ -597,16 +571,38 @@ export function QuickLogPage () {
             <label>Question</label>
             <textarea placeholder="What do you want to ask?" value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={4} />
           </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <button className="btn btn-primary btn-block" onClick={handleSaveQuestion} disabled={busy}>
-              {busy ? 'Saving…' : 'Save Question'}
-            </button>
-            <button type="button" className="btn btn-secondary btn-block" onClick={() => attemptLeave('back')} disabled={busy}>
-              Cancel
-            </button>
-          </div>
+          <button className="btn btn-primary btn-block" onClick={handleSaveQuestion} disabled={busy}>
+            {busy ? 'Saving…' : 'Save Question'}
+          </button>
         </div>
       )}
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          marginTop: 24,
+          paddingTop: 20,
+          borderTop: '1.5px solid var(--border)',
+        }}
+      >
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => attemptLeave('back')}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ flex: 1, minHeight: 50, fontSize: '1.05rem', fontWeight: 600 }}
+          onClick={() => attemptLeave('home')}
+        >
+          Done
+        </button>
+      </div>
     </div>
   )
 }
