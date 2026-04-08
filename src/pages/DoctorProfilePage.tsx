@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -93,6 +93,8 @@ function SectionHeader ({
 export function DoctorProfilePage () {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname, search } = useLocation()
+  const profileReturnTo = encodeURIComponent(`${pathname}${search}`)
   const { id } = useParams<{ id: string }>()
   const { openNoteModal } = useDoctorNoteModal()
 
@@ -671,8 +673,10 @@ export function DoctorProfilePage () {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn btn-primary" onClick={saveVisit} disabled={busy}>Save visit</button>
-              <Link to={`/app/visits?new=1&doctor=${encodeURIComponent(doctor.name)}`}
-                className="btn btn-secondary" style={{ textDecoration: 'none', fontSize: '0.85rem' }}>
+              <Link
+                to={`/app/visits?new=1&doctor=${encodeURIComponent(doctor.name)}&returnTo=${profileReturnTo}`}
+                className="btn btn-secondary" style={{ textDecoration: 'none', fontSize: '0.85rem' }}
+              >
                 Guided wizard →
               </Link>
             </div>

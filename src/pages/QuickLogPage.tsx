@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
@@ -17,6 +17,7 @@ import {
   painSelectionsToString,
   type PainAreaSelection
 } from '../lib/parse'
+import { parseAppReturnPath, safeAppReturnPath } from '../lib/safeReturnPath'
 
 const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
 
@@ -48,7 +49,10 @@ function quickLogDraftMeaningful (d: QuickLogDraftV1): boolean {
 export function QuickLogPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname, search: locSearch } = useLocation()
   const [searchParams] = useSearchParams()
+  const returnRaw = searchParams.get('returnTo')
+  const leaveBackPath = safeAppReturnPath(returnRaw, '/app')
   const [error, setError] = useState<string | null>(null)
   const [postSave, setPostSave] = useState<{ archive: string; title: string } | null>(null)
 
@@ -126,25 +130,19 @@ export function QuickLogPage () {
       navigate('/app')
       return
     }
-    const idx = (history.state as { idx?: number } | null)?.idx
-    if (typeof idx === 'number' && idx > 0) navigate(-1)
-    else navigate('/app')
-  }, [navigate])
+    navigate(leaveBackPath)
+  }, [leaveBackPath, navigate])
 
   const attemptLeave = useCallback((nav: 'home' | 'back') => {
     leaveNavRef.current = nav
     if (!isQuickLogDirty()) {
       clearQuickLogDraft()
       if (nav === 'home') navigate('/app')
-      else {
-        const idx = (history.state as { idx?: number } | null)?.idx
-        if (typeof idx === 'number' && idx > 0) navigate(-1)
-        else navigate('/app')
-      }
+      else navigate(leaveBackPath)
       return
     }
     setLeavePrompt(true)
-  }, [isQuickLogDirty, navigate])
+  }, [isQuickLogDirty, leaveBackPath, navigate])
 
   useEffect(() => {
     if (!user) return
@@ -375,8 +373,15 @@ export function QuickLogPage () {
       {/* VISIT */}
       {screen === 'visit' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <button type="button" className="btn btn-primary btn-block"
-            onClick={() => navigate('/app/visits?new=1')}>
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              const origin = parseAppReturnPath(searchParams.get('returnTo'))
+              const visitReturn = origin ?? `${pathname}${locSearch}`
+              navigate(`/app/visits?new=1&returnTo=${encodeURIComponent(visitReturn)}`)
+            }}
+          >
             Start visit log
           </button>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { safeAppReturnPath } from '../lib/safeReturnPath'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -42,6 +43,7 @@ function normDoctorName (name: string) {
 export function VisitsPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname, search: locSearch } = useLocation()
   const [searchParams] = useSearchParams()
   const wizardNew = searchParams.get('new') === '1'
   const resumeId = searchParams.get('resume')
@@ -50,6 +52,9 @@ export function VisitsPage () {
   const pendingDoctorFilter = prefillDoctor.trim()
   // FIX: read ?tab=pending from URL so dashboard badge works
   const tabParam = searchParams.get('tab')
+  const returnRaw = searchParams.get('returnTo')
+  const wizardBackPath = safeAppReturnPath(returnRaw, '/app/visits')
+  const wizardDonePath = safeAppReturnPath(returnRaw, '/app')
 
   const [visits, setVisits] = useState<VisitRow[]>([])
   const [listTab, setListTab] = useState<'all' | 'pending'>(
@@ -95,7 +100,8 @@ export function VisitsPage () {
           ref={visitWizardRef}
           resumeVisitId={resumeId}
           initialDoctorName={prefillDoctor}
-          onDone={() => navigate('/app')}
+          backPath={wizardBackPath}
+          onDone={() => navigate(wizardDonePath)}
         />
       </div>
     )
@@ -110,7 +116,11 @@ export function VisitsPage () {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ margin: 0 }}>🏥 Doctor visits</h2>
-          <button type="button" className="btn btn-primary" onClick={() => navigate('/app/visits?new=1')}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate(`/app/visits?new=1&returnTo=${encodeURIComponent(`${pathname}${locSearch}`)}`)}
+          >
             Log visit
           </button>
         </div>

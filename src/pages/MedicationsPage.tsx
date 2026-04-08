@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
@@ -433,6 +434,9 @@ export function MedicationsPage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
+  const navigate = useNavigate()
+  const { pathname, search } = useLocation()
+  const medsSelf = `${pathname}${search}`
 
   // Add/Edit popup
   const [addForm, setAddForm] = useState<AddForm>(emptyMed())
@@ -684,18 +688,27 @@ export function MedicationsPage () {
 
       {/* HEADER CARD */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <BackButton />
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Medications</h2>
           </div>
-          <button
-            type="button"
-            className="btn btn-mint"
-            onClick={() => { setAddForm(emptyMed()); setEditingId(null); setFormError(null); setShowMedPopup(true) }}
-          >
-            + Add
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate(`/app/log?tab=pain&returnTo=${encodeURIComponent(medsSelf)}`)}
+            >
+              Log
+            </button>
+            <button
+              type="button"
+              className="btn btn-mint"
+              onClick={() => { setAddForm(emptyMed()); setEditingId(null); setFormError(null); setShowMedPopup(true) }}
+            >
+              + Add
+            </button>
+          </div>
         </div>
       </div>
 

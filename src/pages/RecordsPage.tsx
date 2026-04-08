@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -44,6 +44,8 @@ function visitPending (status: string | null | undefined) {
 
 export function RecordsPage () {
   const { user } = useAuth()
+  const { pathname, search } = useLocation()
+  const recordsReturnTo = encodeURIComponent(`${pathname}${search}`)
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = tabFromParams(searchParams)
 
@@ -257,7 +259,11 @@ export function RecordsPage () {
                   }}>
                     {visitPending(v.status) ? 'Pending' : 'Complete'}
                   </span>
-                  <Link to={`/app/visits?resume=${encodeURIComponent(v.id)}`} className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '4px 12px' }}>
+                  <Link
+                    to={`/app/visits?resume=${encodeURIComponent(v.id)}&returnTo=${recordsReturnTo}`}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+                  >
                     Open
                   </Link>
                 </div>

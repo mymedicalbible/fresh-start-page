@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -502,7 +502,9 @@ function PendingVisitStickers ({
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname: dashPath, search: dashSearch } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
+  const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
   /** Pending `doctor_visits` counts keyed by `normDoctorName(doctor)` */
   const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
@@ -1271,11 +1273,11 @@ export function DashboardPage () {
                 const norm = doc ? normDoctorName(doc) : ''
                 const resumeId = norm ? pendingResumeIdByNorm[norm] : undefined
                 const newUrl = doc
-                  ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}`
-                  : '/app/visits?new=1'
+                  ? `/app/visits?new=1&doctor=${encodeURIComponent(doc)}&returnTo=${dashReturnTo}`
+                  : `/app/visits?new=1&returnTo=${dashReturnTo}`
                 return resumeId ? (
                   <Link
-                    to={`/app/visits?resume=${resumeId}`}
+                    to={`/app/visits?resume=${resumeId}&returnTo=${dashReturnTo}`}
                     className="scrap-upcoming-visit-log-link scrap-upcoming-visit-log-link--continue"
                   >
                     Continue visit log — finish this appointment →
@@ -1297,7 +1299,7 @@ export function DashboardPage () {
           <PendingVisitStickers
             entries={pendingDockEntries}
             onNavigate={(resumeId, label) => {
-              if (resumeId) navigate(`/app/visits?resume=${resumeId}`)
+              if (resumeId) navigate(`/app/visits?resume=${resumeId}&returnTo=${dashReturnTo}`)
               else navigate(`/app/visits?tab=pending&doctor=${encodeURIComponent(label)}`)
             }}
             onDismiss={(norm) => {
@@ -1312,17 +1314,17 @@ export function DashboardPage () {
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">
-          <Link to="/app/log?tab=pain" className="scrap-log-tile scrap-log-tile--pink">
+          <Link to={`/app/log?tab=pain&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--pink">
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
             <span className="scrap-log-title">Pain</span>
             <span className="scrap-log-sub">Log a pain entry</span>
           </Link>
-          <Link to="/app/log?tab=symptoms" className="scrap-log-tile scrap-log-tile--green">
+          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--green">
             <span className="scrap-tape scrap-tape--mint" aria-hidden />
             <span className="scrap-log-title">Episodes</span>
             <span className="scrap-log-sub">Log an episode</span>
           </Link>
-          <Link to="/app/log?tab=questions" className="scrap-log-tile scrap-log-tile--blue">
+          <Link to={`/app/log?tab=questions&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--blue">
             <span className="scrap-tape scrap-tape--sky" aria-hidden />
             {openQsCount != null && openQsCount > 0 && (
               <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
@@ -1330,7 +1332,7 @@ export function DashboardPage () {
             <span className="scrap-log-title">Questions</span>
             <span className="scrap-log-sub">Add for your doctor</span>
           </Link>
-          <Link to="/app/visits?new=1" className="scrap-log-tile scrap-log-tile--yellow">
+          <Link to={`/app/visits?new=1&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--yellow">
             <span className="scrap-tape scrap-tape--butter" aria-hidden />
             <span className="scrap-log-title">Visit log</span>
             <span className="scrap-log-sub">Record a visit</span>
