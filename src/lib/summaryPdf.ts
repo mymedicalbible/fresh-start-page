@@ -128,10 +128,18 @@ export async function captureElementAsPng (el: HTMLElement): Promise<CapturedCha
         useCORS: true,
         allowTaint: true,
         foreignObjectRendering: foreignObject,
-        scrollX: 0,
+        scrollX: -window.scrollX,
         scrollY: -window.scrollY,
         windowWidth: document.documentElement.scrollWidth,
         windowHeight: document.documentElement.scrollHeight,
+        /** Modal scroll containers can clip SVG/raster; expand in the clone only. */
+        onclone: (clonedDoc) => {
+          const modalBody = clonedDoc.querySelector('.summary-modal-body')
+          if (modalBody instanceof HTMLElement) {
+            modalBody.style.overflow = 'visible'
+            modalBody.style.maxHeight = 'none'
+          }
+        },
       })
 
     let canvas = await runHtml2(true)
@@ -269,23 +277,27 @@ export async function downloadHealthSummaryPdf (
   y += 12
 
   const visual = options?.visual
-  const visualOk = visual && !(await isCaptureMostlyBlank(visual))
+  const visualOk = Boolean(visual && !(await isCaptureMostlyBlank(visual)))
 
   if (visualOk && visual) {
     addRawLines('Summary as shown in the app (charts and narrative)', 11, [17, 24, 39], 16)
     y += 10
     y = await addImagePaginated(doc, visual, margin, pageH, maxW, y)
     y += 12
-  } else {
-    const hasCharts = Boolean(options?.pain || options?.episode)
-    if (hasCharts) {
-      addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
-      y += 8
-      if (options?.pain) addChartImage(options.pain)
-      if (options?.episode) addChartImage(options.episode)
-      y += 4
-    }
+  }
 
+  /** Always embed chart captures when present and non-blank — full-handoff html2canvas often omits Recharts SVG. */
+  const painOk = options?.pain && !(await isCaptureMostlyBlank(options.pain))
+  const epOk = options?.episode && !(await isCaptureMostlyBlank(options.episode))
+  if (painOk || epOk) {
+    addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
+    y += 8
+    if (painOk) addChartImage(options.pain!)
+    if (epOk) addChartImage(options.episode!)
+    y += 4
+  }
+
+  if (!visualOk) {
     addRawLines(body, 11, [31, 41, 55], 15)
   }
 

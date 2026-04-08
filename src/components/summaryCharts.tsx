@@ -43,7 +43,7 @@ export function PainSummaryChart ({ data, title = 'Pain intensity' }: { data: Pa
       </p>
       <div className="charts-wrap" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: -16 }}>
+          <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: 4 }}>
             <defs>
               <linearGradient id="painArea" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={PAIN_FILL} stopOpacity={0.9} />
@@ -52,7 +52,7 @@ export function PainSummaryChart ({ data, title = 'Pain intensity' }: { data: Pa
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted)" />
-            <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tickFormatter={(v) => `${v}/10`} tick={{ fontSize: 10 }} stroke="var(--muted)" width={36} />
+            <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tickFormatter={(v) => `${v}/10`} tick={{ fontSize: 10 }} stroke="var(--muted)" width={40} />
             <Tooltip formatter={(v: number) => [`${v}/10`, 'Pain']} labelFormatter={(l) => l} />
             <Area type="monotone" dataKey="intensity" stroke="none" fill="url(#painArea)" />
             <Line
@@ -87,7 +87,7 @@ export function EpisodeSummaryChart ({ data, title = 'Episode activity' }: { dat
       </p>
       <div className="charts-wrap" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: -16 }}>
+          <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: 4 }}>
             <defs>
               <linearGradient id="epArea" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={EP_FILL} stopOpacity={0.85} />
@@ -96,7 +96,7 @@ export function EpisodeSummaryChart ({ data, title = 'Episode activity' }: { dat
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#d4eadc" />
             <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#6b7c72" />
-            <YAxis domain={[0, 10]} ticks={[0, 3, 6, 9, 10]} tickFormatter={(v) => `${v}`} tick={{ fontSize: 10 }} stroke="#6b7c72" width={28} />
+            <YAxis domain={[0, 10]} ticks={[0, 3, 6, 9, 10]} tickFormatter={(v) => `${v}`} tick={{ fontSize: 10 }} stroke="#6b7c72" width={32} />
             <Tooltip formatter={(v: number) => [v, 'Score']} labelFormatter={(l) => l} />
             <Area type="monotone" dataKey="score" stroke="none" fill="url(#epArea)" />
             <Line

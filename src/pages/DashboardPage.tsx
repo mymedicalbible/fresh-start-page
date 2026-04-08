@@ -953,6 +953,10 @@ export function DashboardPage () {
       await document.fonts.ready
     }
     await new Promise<void>((r) => setTimeout(r, 500))
+    const modalBody = document.querySelector('.summary-modal-body')
+    if (modalBody instanceof HTMLElement) modalBody.scrollTop = 0
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
     const visual = handoffPdfVisualRef.current
       ? await captureElementAsPng(handoffPdfVisualRef.current)
       : null
