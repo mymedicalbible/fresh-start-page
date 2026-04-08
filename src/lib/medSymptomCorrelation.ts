@@ -63,6 +63,78 @@ function describeOutcome (preEp: number, postEp: number, prePain: number | null,
   return 'no clear change in episodes or pain yet'
 }
 
+/** Same windows as describeOutcome, with episode % change and pain before/after averages. */
+function describeOutcomeQuantified (
+  preEp: number,
+  postEp: number,
+  prePain: number | null,
+  postPain: number | null,
+  windowDays: number,
+): string {
+  const bits: string[] = []
+  const epDelta = postEp - preEp
+  const painDelta = prePain != null && postPain != null ? postPain - prePain : null
+
+  if (preEp === 0 && postEp === 0) {
+    /* skip */
+  } else if (preEp === 0 && postEp > 0) {
+    bits.push(`symptom episodes went from none in the prior ${windowDays}-day window to ${postEp} in the ${windowDays} days after the change`)
+  } else if (preEp > 0) {
+    const pct = Math.round((epDelta / preEp) * 100)
+    if (epDelta === 0) {
+      bits.push(`symptom episode count was similar (${preEp} episodes in each ${windowDays}-day window)`)
+    } else {
+      bits.push(
+        `symptom episodes ${epDelta > 0 ? 'increased' : 'decreased'} by about ${Math.abs(pct)}% (${preEp} → ${postEp} across comparable ${windowDays}-day windows)`,
+      )
+    }
+  }
+
+  if (prePain != null && postPain != null) {
+    const d = Math.round((postPain - prePain) * 10) / 10
+    if (Math.abs(d) < 0.3) {
+      bits.push(`average pain was similar (${prePain}/10 vs ${postPain}/10)`)
+    } else {
+      bits.push(`average pain ${d < 0 ? 'lessened' : 'rose'} (${prePain}/10 → ${postPain}/10)`)
+    }
+  } else if (prePain != null || postPain != null) {
+    const v = prePain ?? postPain
+    bits.push(`average pain was ${v}/10 where logged`)
+  }
+
+  if (bits.length === 0) {
+    const raw = describeOutcome(preEp, postEp, prePain, postPain)
+    return raw.charAt(0).toUpperCase() + raw.slice(1) + '.'
+  }
+
+  const mixed =
+    painDelta != null &&
+    ((epDelta <= -2 && painDelta >= 0.8) || (epDelta >= 2 && painDelta <= -0.8))
+  let s = bits.join('; ')
+  if (mixed) s += ' (mixed pattern: episodes and pain moved in different directions)'
+  return s + '.'
+}
+
+function fmtActionRelative (ev: MedChangeEvent, todayIso: string): string {
+  const days = Math.floor(
+    (new Date(todayIso + 'T12:00:00').getTime() - new Date(ev.event_date + 'T12:00:00').getTime()) / MS_DAY,
+  )
+  const rel =
+    days < 1
+      ? 'today'
+      : days === 1
+        ? '1 day ago'
+        : days < 14
+          ? `${days} days ago`
+          : days < 75
+            ? `about ${Math.round(days / 7)} week${Math.round(days / 7) === 1 ? '' : 's'} ago`
+            : `about ${Math.round(days / 30)} month${Math.round(days / 30) === 1 ? '' : 's'} ago`
+
+  if (ev.event_type === 'stop') return `stopped ${rel}`
+  if (ev.event_type === 'adjustment') return `adjusted ${rel}`
+  return `started ${rel}`
+}
+
 function firstDoseNumber (s: string | null | undefined): number | null {
   if (!s) return null
   const m = String(s).replace(/,/g, '.').match(/(\d+(?:\.\d+)?)/)
@@ -97,6 +169,11 @@ function fmtEventLabel (ev: MedChangeEvent): string {
 
 export type CorrelationLine = { event: MedChangeEvent; line: string }
 
+export type BuildMedCorrelationOptions = {
+  /** Include episode % change and pain averages; use relative time (e.g. "about 1 week ago"). */
+  quantified?: boolean
+}
+
 /**
  * Build plain-English one-liner correlation lines per medication event.
  *
@@ -112,7 +189,9 @@ export function buildMedSymptomCorrelationLines (
   painRows: Record<string, unknown>[],
   sympRows: Record<string, unknown>[],
   windowDays = 21,
+  opts?: BuildMedCorrelationOptions,
 ): CorrelationLine[] {
+  const quantified = opts?.quantified === true
   const todayIso = new Date().toISOString().slice(0, 10)
   const out: CorrelationLine[] = []
   const seen = new Set<string>()
@@ -127,14 +206,18 @@ export function buildMedSymptomCorrelationLines (
     const label = fmtEventLabel(ev)
     const actionPart = ev.event_type === 'stop'
       ? `stopped ${fmtDate(evt)}`
-      : `started ${fmtDate(evt)}`
+      : ev.event_type === 'adjustment'
+        ? `adjusted ${fmtDate(evt)}`
+        : `started ${fmtDate(evt)}`
+    const actionQuant = fmtActionRelative(ev, todayIso)
 
     // If the event is very recent, there is no meaningful "after" window yet
     const daysAfter = Math.floor(
       (new Date(todayIso + 'T12:00:00').getTime() - new Date(evt + 'T12:00:00').getTime()) / MS_DAY,
     )
     if (daysAfter < 3) {
-      out.push({ event: ev, line: `${label} · ${actionPart} — Not enough data yet to see a pattern.` })
+      const lead = quantified ? `${label} · ${actionQuant}` : `${label} · ${actionPart}`
+      out.push({ event: ev, line: `${lead} — Not enough data yet to see a pattern.` })
       if (out.length >= 5) break
       continue
     }
@@ -152,12 +235,15 @@ export function buildMedSymptomCorrelationLines (
     let body: string
     if (preEp === 0 && postEp === 0 && prePain == null && postPain == null) {
       body = 'No pain or episode logs in the surrounding window — keep logging to see a pattern.'
+    } else if (quantified) {
+      body = describeOutcomeQuantified(preEp, postEp, prePain, postPain, windowDays)
     } else {
       const raw = describeOutcome(preEp, postEp, prePain, postPain)
       body = raw.charAt(0).toUpperCase() + raw.slice(1) + '.'
     }
 
-    out.push({ event: ev, line: `${label} · ${actionPart} — ${body}` })
+    const lead = quantified ? `${label} · ${actionQuant}` : `${label} · ${actionPart}`
+    out.push({ event: ev, line: `${lead} — ${body}` })
     if (out.length >= 5) break
   }
 

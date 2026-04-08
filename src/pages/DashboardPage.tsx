@@ -86,6 +86,8 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
 type HealthSummary = {
   generatedAt: string
   narrativeFallback: string
+  /** Full handoff vs meds / pain / symptoms interconnection focus */
+  summaryScope: 'full' | 'symptomsPainMeds'
   /** Supabase error when loading medication_change_events (if any) */
   medEventsLoadError: string | null
   /** Same correlation text shown in narrative; highlighted separately in the modal */
@@ -205,12 +207,14 @@ function SummaryModal ({
   summary,
   loading,
   mode,
+  scope,
   focus,
   painChartPdfRef,
   episodeChartPdfRef,
   handoffPdfVisualRef,
   onFocusChange,
   onModeChange,
+  onScopeChange,
   onGenerate,
   onDone,
   onCancelRequest,
@@ -219,12 +223,14 @@ function SummaryModal ({
   summary: HealthSummary | null
   loading: boolean
   mode: 'fast' | 'thorough'
+  scope: 'full' | 'symptomsPainMeds'
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
   episodeChartPdfRef: RefObject<HTMLDivElement>
   handoffPdfVisualRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
   onModeChange: (v: 'fast' | 'thorough') => void
+  onScopeChange: (v: 'full' | 'symptomsPainMeds') => void
   onGenerate: () => void
   onDone: () => void
   onCancelRequest: () => void
@@ -285,6 +291,23 @@ function SummaryModal ({
             />
           </div>
 
+          {/* Scope: full vs interconnection */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <span className="muted" style={{ fontSize: '0.72rem', width: '100%' }}>Summary focus</span>
+            <button type="button"
+              className={`btn ${scope === 'full' ? 'btn-mint' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+              disabled={loading} onClick={() => onScopeChange('full')}>
+              Full handoff
+            </button>
+            <button type="button"
+              className={`btn ${scope === 'symptomsPainMeds' ? 'btn-mint' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+              disabled={loading} onClick={() => onScopeChange('symptomsPainMeds')}>
+              Meds · pain · symptoms
+            </button>
+          </div>
+
           {/* Mode + generate */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
             <button type="button"
@@ -332,6 +355,9 @@ function SummaryModal ({
               >
               <div className="muted" style={{ fontSize: '0.73rem', borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
                 Generated {summary.generatedAt} · ~90-day data window
+                {summary.summaryScope === 'symptomsPainMeds' && (
+                  <span> · meds / pain / symptoms focus</span>
+                )}
                 <span style={{ marginLeft: 8 }}> · app-generated</span>
               </div>
 
@@ -516,6 +542,17 @@ export function DashboardPage () {
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
+  const [summaryScope, setSummaryScope] = useState<'full' | 'symptomsPainMeds'>(() => {
+    try {
+      const v = localStorage.getItem('mb-handoff-summary-scope')
+      if (v === 'symptomsPainMeds') return 'symptomsPainMeds'
+    } catch { /* ignore */ }
+    return 'full'
+  })
+  function persistSummaryScope (v: 'full' | 'symptomsPainMeds') {
+    setSummaryScope(v)
+    try { localStorage.setItem('mb-handoff-summary-scope', v) } catch { /* ignore */ }
+  }
   const [patientFocus, setPatientFocus] = useState('')
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [summaryLeavePrompt, setSummaryLeavePrompt] = useState(false)
@@ -904,7 +941,13 @@ export function DashboardPage () {
 
     const medCorrelationBlock = medEventsLoadError
       ? ''
-      : formatCorrelationBlock(buildMedSymptomCorrelationLines(allMedEvents, painRows, sympRows, 21))
+      : formatCorrelationBlock(buildMedSymptomCorrelationLines(
+        allMedEvents,
+        painRows,
+        sympRows,
+        21,
+        summaryScope === 'symptomsPainMeds' ? { quantified: true } : undefined,
+      ))
 
     const pendingTests = pendingTestsRes.count ?? 0
 
@@ -925,6 +968,7 @@ export function DashboardPage () {
     const narrativeFallback = buildHandoffNarrative({
       todayIso,
       patientFocus: patientFocus.trim() || undefined,
+      scope: summaryScope,
       painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents: allMedEvents,
       medChangeEventsLoadError: medEventsLoadError,
       painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
@@ -943,6 +987,7 @@ export function DashboardPage () {
 
     setSummary({
       generatedAt, narrativeFallback,
+      summaryScope,
       medEventsLoadError, medCorrelationBlock,
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
@@ -1205,12 +1250,14 @@ export function DashboardPage () {
           summary={summary}
           loading={summaryLoading}
           mode={summaryMode}
+          scope={summaryScope}
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
           episodeChartPdfRef={episodeChartPdfRef}
           handoffPdfVisualRef={handoffPdfVisualRef}
           onFocusChange={setPatientFocus}
           onModeChange={setSummaryMode}
+          onScopeChange={persistSummaryScope}
           onGenerate={generateSummary}
           onDone={handleSummaryFooterDone}
           onCancelRequest={handleSummaryCancelRequest}
