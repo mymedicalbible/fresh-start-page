@@ -367,7 +367,7 @@ export function QuickLogPage () {
       {screen === 'visit' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>
               Cancel
             </button>
             <button
@@ -413,7 +413,7 @@ export function QuickLogPage () {
                 <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>Cancel</button>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} onClick={() => setPainStep(2)}>Next →</button>
               </div>
             </div>
@@ -441,7 +441,7 @@ export function QuickLogPage () {
                 })}
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>Cancel</button>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} onClick={() => setPainStep(3)}>Next →</button>
               </div>
             </div>
@@ -459,7 +459,7 @@ export function QuickLogPage () {
               </div>
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>Cancel</button>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={handleSavePain} disabled={busy}>
                   {busy ? 'Saving…' : 'Finish ✓'}
                 </button>
@@ -548,7 +548,7 @@ export function QuickLogPage () {
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>Cancel</button>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
             <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={handleSaveSymptoms} disabled={busy}>
               {busy ? 'Saving…' : 'Save episode'}
             </button>
@@ -588,7 +588,7 @@ export function QuickLogPage () {
             <textarea placeholder="What do you want to ask?" value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={4} />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => attemptLeave()}>Cancel</button>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
             <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={handleSaveQuestion} disabled={busy}>
               {busy ? 'Saving…' : 'Save Question'}
             </button>

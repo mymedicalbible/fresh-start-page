@@ -1,0 +1,11 @@
+---
+description: Do not change project files unless the user explicitly requests that change.
+alwaysApply: true
+---
+
+# Changes only when asked
+
+- **Do not** edit, refactor, rename, remove, or “improve” code, UI, config, or copy unless the user **explicitly** asked for that change in the current task.
+- If something seems broken or suboptimal but the user did not ask to fix it, **do not touch it**—ask first or wait for instruction.
+- **Do not** revert to “helpful” drive-by edits on unrelated files. Stay inside the scope the user gave.
+- Applies to this entire repo unless a message clearly scopes a different rule.
