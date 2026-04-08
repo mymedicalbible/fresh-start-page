@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { safeAppReturnPath } from '../lib/safeReturnPath'
+import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,16 +29,6 @@ type VisitRow = {
   follow_up: string | null
   notes: string | null
   status?: string | null
-}
-
-/** Match dashboard doctor name normalization for pending-visit filters */
-function normDoctorName (name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/^dr\.?\s+/i, '')
-    .replace(/[.,]+$/g, '')
-    .replace(/\s+/g, ' ')
 }
 
 export function VisitsPage () {

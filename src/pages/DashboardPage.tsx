@@ -22,6 +22,7 @@ import {
   loadApptQsDraft,
   saveApptQsDraft,
 } from '../lib/apptQuestionsDraft'
+import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
 
 type UpcomingAppt = {
   id: string
@@ -41,23 +42,22 @@ function localISODate (d: Date = new Date()) {
   return `${y}-${m}-${day}`
 }
 
-function normDoctorName (name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/^dr\.?\s+/i, '')
-    .replace(/[.,]+$/g, '')
-    .replace(/\s+/g, ' ')
-}
-
-
 /** Matches Visits list: treat only explicit pending as pending (null/empty → complete). */
 function isDoctorVisitPendingStatus (status: string | null | undefined) {
   return String(status ?? 'complete').trim().toLowerCase() === 'pending'
 }
 
+/** One timeout per upcoming row; cleared before reschedule so Strict Mode / double-clicks cannot stack duplicate reminders. */
+const apptQuestionNotifyTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearScheduledApptQuestionNotifications () {
+  for (const t of apptQuestionNotifyTimers.values()) clearTimeout(t)
+  apptQuestionNotifyTimers.clear()
+}
+
 function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
+  clearScheduledApptQuestionNotifications()
   const now = Date.now()
   for (const appt of appts) {
     const q = pendingQMap[appt.doctor ?? ''] ?? 0
@@ -66,19 +66,21 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
     const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
     const delay = notifyAt - now
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-      setTimeout(() => {
+      const tid = setTimeout(() => {
+        apptQuestionNotifyTimers.delete(appt.id)
         const doctorParam = appt.doctor ? encodeURIComponent(appt.doctor) : ''
         const deepLink = `/app/questions?tab=open${doctorParam ? `&doctor=${doctorParam}` : ''}`
         const n = new Notification('Medical Bible — Review your questions', {
           body: `Appointment with ${appt.doctor ?? 'your doctor'} just finished. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to review.`,
           icon: '/icon-192.png',
-          tag: `appt-${appt.appointment_date}-${doctorParam}`,
+          tag: `appt-q-${appt.id}`,
         })
         n.onclick = () => {
           window.focus()
           window.location.href = deepLink
         }
       }, delay)
+      apptQuestionNotifyTimers.set(appt.id, tid)
     }
   }
 }
@@ -703,6 +705,10 @@ export function DashboardPage () {
   }
 
   useEffect(() => {
+    return () => { clearScheduledApptQuestionNotifications() }
+  }, [])
+
+  useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
     setSummaryOpen(true)
     setSearchParams({}, { replace: true })
@@ -838,7 +844,7 @@ export function DashboardPage () {
 
     const [
       painRes, sympRes, medRes, testsRes, pendingTestsRes,
-      diagRes, visitRes, qRes, medEventsRes,
+      diagRes, visitRes, qRes, medEventsRes, archiveRes,
     ] = await Promise.all([
       supabase.from('pain_entries')
         .select('entry_date, entry_time, intensity, location, pain_type, triggers, relief_methods, notes')
@@ -886,6 +892,11 @@ export function DashboardPage () {
         p_since: since120Str,
         p_limit: 50,
       }),
+      supabase.from('medications_archive')
+        .select('medication, dose, frequency, prescribed_by, reason_stopped, stopped_date, notes')
+        .eq('user_id', user.id)
+        .order('stopped_date', { ascending: false })
+        .limit(40),
     ])
 
     const painRows = (painRes.data ?? []) as Record<string, unknown>[]
@@ -895,6 +906,12 @@ export function DashboardPage () {
     const diagRows = (diagRes.data ?? []) as Record<string, unknown>[]
     const visitRows = (visitRes.data ?? []) as Record<string, unknown>[]
     const qList = (qRes.data ?? []) as Record<string, unknown>[]
+    let archivedMeds: Record<string, unknown>[] = []
+    if (archiveRes.error) {
+      console.warn('medications_archive:', archiveRes.error.message)
+    } else {
+      archivedMeds = (archiveRes.data ?? []) as Record<string, unknown>[]
+    }
 
     let medChangeEvents: MedChangeEvent[] = []
     let medEventsLoadError: string | null = null
@@ -969,6 +986,7 @@ export function DashboardPage () {
       todayIso,
       patientFocus: patientFocus.trim() || undefined,
       scope: summaryScope,
+      archivedMeds,
       painRows, sympRows, medList, testRows, diagRows, visitRows, qList, medChangeEvents: allMedEvents,
       medChangeEventsLoadError: medEventsLoadError,
       painAvg, painTopAreas: areaTop, painTopTypes: typeTop, topSymptoms: symptomTop,
@@ -1362,7 +1380,7 @@ export function DashboardPage () {
                   </Link>
                 ) : (
                   <Link to={newUrl} className="scrap-upcoming-visit-log-link">
-                    Start visit log for this appointment →
+                    Log this visit →
                   </Link>
                 )
               })()}

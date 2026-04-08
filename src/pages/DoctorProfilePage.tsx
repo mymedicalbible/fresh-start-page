@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useDoctorNoteModal } from '../contexts/DoctorNoteModalContext'
+import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 
 
 /* ──────────────── Types ──────────────── */
@@ -122,6 +123,7 @@ export function DoctorProfilePage () {
   const [visitMeds, setVisitMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '', prn: false })
   const [visitMedsIncludeAll, setVisitMedsIncludeAll] = useState(false)
+  const saveVisitInFlightRef = useRef(false)
 
   // Inline question form
   const [showQuestionForm, setShowQuestionForm] = useState(false)
@@ -279,59 +281,72 @@ export function DoctorProfilePage () {
   async function saveVisit () {
     if (!visitForm.visit_date) { setError('Visit date is required.'); return }
     if (!doctor) return
+    if (saveVisitInFlightRef.current) return
+    saveVisitInFlightRef.current = true
     const validTests = visitTests.filter((t) => t.test_name.trim())
     setBusy(true)
-    const { error: ve } = await supabase.from('doctor_visits').insert({
-      user_id: user!.id, visit_date: visitForm.visit_date,
-      visit_time: visitForm.visit_time || null, doctor: doctor.name,
-      specialty: doctor.specialty || null,
-      reason: visitForm.reason || null, findings: visitForm.findings || null,
-      tests_ordered: validTests.map((t) => t.test_name).join(', ') || null,
-      instructions: visitForm.instructions || null,
-      follow_up: visitForm.next_appt_date || null,
-      notes: visitForm.notes || null, status: 'complete',
-    })
-    if (ve) { setError(ve.message); setBusy(false); return }
-
-    if (validTests.length > 0) {
-      await supabase.from('tests_ordered').insert(
-        validTests.map((t) => ({
-          user_id: user!.id, test_date: visitForm.visit_date,
-          doctor: doctor.name, test_name: t.test_name,
-          reason: t.reason || null, status: 'Pending',
-        }))
-      )
-    }
-    if (visitForm.next_appt_date) {
-      await supabase.from('appointments').insert({
-        user_id: user!.id, doctor: doctor.name,
+    try {
+      const { error: ve } = await supabase.from('doctor_visits').insert({
+        user_id: user!.id, visit_date: visitForm.visit_date,
+        visit_time: visitForm.visit_time || null, doctor: doctor.name,
         specialty: doctor.specialty || null,
-        appointment_date: visitForm.next_appt_date,
-        appointment_time: visitForm.next_appt_time || null,
+        reason: visitForm.reason || null, findings: visitForm.findings || null,
+        tests_ordered: validTests.map((t) => t.test_name).join(', ') || null,
+        instructions: visitForm.instructions || null,
+        follow_up: visitForm.next_appt_date || null,
+        notes: visitForm.notes || null, status: 'complete',
       })
-    }
-    for (const m of visitMeds) {
-      if (m.action === 'remove') {
-        await supabase.from('current_medications')
-          .delete().eq('user_id', user!.id).eq('medication', m.medication)
+      if (ve) { setError(ve.message); return }
+
+      await markAppointmentsVisitLoggedForVisitDay(
+        supabase,
+        user!.id,
+        visitForm.visit_date,
+        doctor.name,
+      )
+
+      if (validTests.length > 0) {
+        await supabase.from('tests_ordered').insert(
+          validTests.map((t) => ({
+            user_id: user!.id, test_date: visitForm.visit_date,
+            doctor: doctor.name, test_name: t.test_name,
+            reason: t.reason || null, status: 'Pending',
+          }))
+        )
       }
+      if (visitForm.next_appt_date) {
+        await supabase.from('appointments').insert({
+          user_id: user!.id, doctor: doctor.name,
+          specialty: doctor.specialty || null,
+          appointment_date: visitForm.next_appt_date,
+          appointment_time: visitForm.next_appt_time || null,
+        })
+      }
+      for (const m of visitMeds) {
+        if (m.action === 'remove') {
+          await supabase.from('current_medications')
+            .delete().eq('user_id', user!.id).eq('medication', m.medication)
+        }
+      }
+      if (newMedEntry.medication.trim()) {
+        await supabase.from('current_medications').upsert({
+          user_id: user!.id, medication: newMedEntry.medication.trim(),
+          dose: newMedEntry.dose || null,
+          frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
+          notes: `Prescribed by: ${doctor.name}`,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,medication' })
+      }
+      setShowVisitForm(false)
+      setVisitForm({})
+      setVisitTests([{ test_name: '', reason: '' }])
+      setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
+      flash('Visit saved.')
+      await loadData(doctor.name)
+    } finally {
+      saveVisitInFlightRef.current = false
+      setBusy(false)
     }
-    if (newMedEntry.medication.trim()) {
-      await supabase.from('current_medications').upsert({
-        user_id: user!.id, medication: newMedEntry.medication.trim(),
-        dose: newMedEntry.dose || null,
-        frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
-        notes: `Prescribed by: ${doctor.name}`,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,medication' })
-    }
-    setBusy(false)
-    setShowVisitForm(false)
-    setVisitForm({})
-    setVisitTests([{ test_name: '', reason: '' }])
-    setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
-    flash('Visit saved.')
-    await loadData(doctor.name)
   }
 
 

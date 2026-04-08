@@ -17,6 +17,7 @@ import {
   saveVisitWizardDraft,
   type VisitWizardDraftV1,
 } from '../lib/visitWizardDraft'
+import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -121,6 +122,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const [resumePrompt, setResumePrompt] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
+  const finalizeInFlightRef = useRef(false)
 
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
 
@@ -420,103 +422,113 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
   async function finalizeVisit (asPending: boolean) {
     if (!user || !visitId) return
+    if (finalizeInFlightRef.current) return
     if (!effectiveName) { setError('Doctor name missing.'); return }
+    finalizeInFlightRef.current = true
     setError(null)
     setBusy(true)
-    const validTests = dvTests.filter((t) => t.test_name.trim())
-    const testsStr = validTests.map((t) => t.test_name.trim()).join(', ') || null
-    const medsStr = [
-      ...dvMeds.filter((m) => m.action === 'keep').map((m) => `${m.medication}${m.dose ? ` (${m.dose})` : ''}`),
-      ...(newMedEntry.medication.trim()
-        ? (() => {
-          const sched = newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || '')
-          const tail = [newMedEntry.dose, sched].filter(Boolean).join(' · ')
-          return [`${newMedEntry.medication.trim()}${tail ? ` (${tail})` : ''}`]
-        })()
-        : []),
-    ].join('; ') || null
+    try {
+      const validTests = dvTests.filter((t) => t.test_name.trim())
+      const testsStr = validTests.map((t) => t.test_name.trim()).join(', ') || null
+      const medsStr = [
+        ...dvMeds.filter((m) => m.action === 'keep').map((m) => `${m.medication}${m.dose ? ` (${m.dose})` : ''}`),
+        ...(newMedEntry.medication.trim()
+          ? (() => {
+            const sched = newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || '')
+            const tail = [newMedEntry.dose, sched].filter(Boolean).join(' · ')
+            return [`${newMedEntry.medication.trim()}${tail ? ` (${tail})` : ''}`]
+          })()
+          : []),
+      ].join('; ') || null
 
-    const { error: ue } = await supabase.from('doctor_visits').update({
-      doctor: effectiveName,
-      specialty: specialty || null,
-      reason: reason || null,
-      findings: findings || null,
-      tests_ordered: testsStr,
-      new_meds: medsStr,
-      instructions: instructions || null,
-      follow_up: nextApptDate || null,
-      notes: notes || null,
-      status: asPending ? 'pending' : 'complete',
-    }).eq('id', visitId)
-
-    if (ue) { setError(ue.message); setBusy(false); return }
-
-    if (pendingVisitFiles.length > 0 && visitId) {
-      let salt = 0
-      for (const file of pendingVisitFiles) {
-        salt += 1
-        const { error: upErr } = await uploadVisitDocument(user.id, visitId, file, salt)
-        if (upErr) console.warn('visit document upload:', upErr.message)
-      }
-      setPendingVisitFiles([])
-      await refreshVisitDocs()
-    }
-
-    if (!asPending && validTests.length > 0) {
-      await supabase.from('tests_ordered').insert(
-        validTests.map((t) => ({
-          user_id: user.id,
-          test_date: visitDate,
-          doctor: effectiveName,
-          test_name: t.test_name.trim(),
-          reason: t.reason || null,
-          status: 'Pending',
-        }))
-      )
-    }
-
-    if (!asPending && nextApptDate) {
-      const apptPayload: Record<string, unknown> = {
-        user_id: user.id,
+      const { error: ue } = await supabase.from('doctor_visits').update({
         doctor: effectiveName,
         specialty: specialty || null,
-        appointment_date: nextApptDate,
-        appointment_time: nextApptTime || null,
-        appointment_end_time: nextApptEndTime || null,
-      }
-      let { error: apErr } = await supabase.from('appointments').insert(apptPayload)
-      if (apErr?.message?.includes('appointment_end_time')) {
-        const { appointment_end_time: _drop, ...fallback } = apptPayload
-        const res2 = await supabase.from('appointments').insert(fallback)
-        apErr = res2.error
-      }
-      if (apErr) console.warn('appointments insert:', apErr.message)
-    }
+        reason: reason || null,
+        findings: findings || null,
+        tests_ordered: testsStr,
+        new_meds: medsStr,
+        instructions: instructions || null,
+        follow_up: nextApptDate || null,
+        notes: notes || null,
+        status: asPending ? 'pending' : 'complete',
+      }).eq('id', visitId)
 
-    for (const m of dvMeds) {
-      if (m.action === 'remove') {
-        await supabase.from('current_medications').delete().eq('user_id', user.id).eq('medication', m.medication)
-      }
-    }
-    if (!asPending && newMedEntry.medication.trim()) {
-      await supabase.from('current_medications').upsert({
-        user_id: user.id,
-        medication: newMedEntry.medication.trim(),
-        dose: newMedEntry.dose || null,
-        frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
-        notes: `Prescribed by: ${effectiveName}`,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,medication' })
-    }
+      if (ue) { setError(ue.message); return }
 
-    void ensureDoctorProfile(user.id, effectiveName, specialty || null)
-    setBusy(false)
-    clearVisitWizardDraft()
-    if (onDone) {
-      onDone()
-      return
+      if (!asPending) {
+        await markAppointmentsVisitLoggedForVisitDay(supabase, user.id, visitDate, effectiveName)
+      }
+
+      if (pendingVisitFiles.length > 0 && visitId) {
+        let salt = 0
+        for (const file of pendingVisitFiles) {
+          salt += 1
+          const { error: upErr } = await uploadVisitDocument(user.id, visitId, file, salt)
+          if (upErr) console.warn('visit document upload:', upErr.message)
+        }
+        setPendingVisitFiles([])
+        await refreshVisitDocs()
+      }
+
+      if (!asPending && validTests.length > 0) {
+        await supabase.from('tests_ordered').insert(
+          validTests.map((t) => ({
+            user_id: user.id,
+            test_date: visitDate,
+            doctor: effectiveName,
+            test_name: t.test_name.trim(),
+            reason: t.reason || null,
+            status: 'Pending',
+          }))
+        )
+      }
+
+      if (!asPending && nextApptDate) {
+        const apptPayload: Record<string, unknown> = {
+          user_id: user.id,
+          doctor: effectiveName,
+          specialty: specialty || null,
+          appointment_date: nextApptDate,
+          appointment_time: nextApptTime || null,
+          appointment_end_time: nextApptEndTime || null,
+        }
+        let { error: apErr } = await supabase.from('appointments').insert(apptPayload)
+        if (apErr?.message?.includes('appointment_end_time')) {
+          const { appointment_end_time: _drop, ...fallback } = apptPayload
+          const res2 = await supabase.from('appointments').insert(fallback)
+          apErr = res2.error
+        }
+        if (apErr) console.warn('appointments insert:', apErr.message)
+      }
+
+      for (const m of dvMeds) {
+        if (m.action === 'remove') {
+          await supabase.from('current_medications').delete().eq('user_id', user.id).eq('medication', m.medication)
+        }
+      }
+      if (!asPending && newMedEntry.medication.trim()) {
+        await supabase.from('current_medications').upsert({
+          user_id: user.id,
+          medication: newMedEntry.medication.trim(),
+          dose: newMedEntry.dose || null,
+          frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
+          notes: `Prescribed by: ${effectiveName}`,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,medication' })
+      }
+
+      void ensureDoctorProfile(user.id, effectiveName, specialty || null)
+      clearVisitWizardDraft()
+      if (onDone) {
+        onDone()
+        return
+      }
+      navigate('/app')
+    } finally {
+      finalizeInFlightRef.current = false
+      setBusy(false)
     }
-    navigate('/app')
   }
 
   function isReasonPinned (text: string) {
