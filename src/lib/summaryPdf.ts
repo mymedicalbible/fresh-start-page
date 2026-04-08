@@ -281,6 +281,91 @@ export async function captureElementAsPng (el: HTMLElement): Promise<CapturedCha
   }
 }
 
+/** Ink along one raster row — low values ≈ horizontal gap (good page-break point for screenshots). */
+function rowInkScore (ctx: CanvasRenderingContext2D, w: number, y: number): number {
+  const yy = Math.max(0, Math.min(Math.floor(y), ctx.canvas.height - 1))
+  const d = ctx.getImageData(0, yy, w, 1).data
+  let s = 0
+  for (let x = 0; x < w; x += 4) {
+    const i = x * 4
+    if (d[i]! < 250 || d[i + 1]! < 250 || d[i + 2]! < 250) s++
+  }
+  return s
+}
+
+/**
+ * Move the slice end **upward** only (never past `idealEndY`) to land on a low-ink row
+ * so tall screenshots don’t shear through lines of text.
+ */
+function pickSliceEndY (
+  ctx: CanvasRenderingContext2D,
+  fullW: number,
+  fullH: number,
+  srcYpx: number,
+  idealEndY: number,
+): number {
+  if (idealEndY <= srcYpx + 1) return Math.min(fullH, idealEndY)
+  const span = idealEndY - srcYpx
+  const searchRadius = Math.min(120, Math.max(28, span * 0.35))
+  const yMin = Math.max(srcYpx + 2, Math.floor(idealEndY - searchRadius))
+  const yMax = Math.min(fullH - 1, Math.ceil(idealEndY))
+  if (yMin > yMax) return Math.min(fullH, idealEndY)
+
+  const gapThreshold = Math.max(14, fullW * 0.006)
+  const candidates: { y: number; score: number }[] = []
+  for (let yy = yMin; yy <= yMax; yy++) {
+    const score = rowInkScore(ctx, fullW, yy)
+    if (score <= gapThreshold) candidates.push({ y: yy, score })
+  }
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => Math.abs(a.y - idealEndY) - Math.abs(b.y - idealEndY))
+    return candidates[0]!.y
+  }
+  let bestY = idealEndY
+  let bestScore = Infinity
+  for (let yy = yMin; yy <= yMax; yy++) {
+    const score = rowInkScore(ctx, fullW, yy)
+    if (score < bestScore) {
+      bestScore = score
+      bestY = yy
+    }
+  }
+  return Math.min(fullH, Math.max(srcYpx + 1, bestY))
+}
+
+/**
+ * Wrap at spaces so `splitTextToSize` doesn’t split words mid-character; only overflow uses splitTextToSize.
+ */
+function wrapTextToLines (doc: jsPDF, text: string, maxW: number): string[] {
+  const out: string[] = []
+  const paragraphs = text.split(/\n/)
+  for (const para of paragraphs) {
+    if (para === '') {
+      out.push('')
+      continue
+    }
+    const words = para.split(/\s+/).filter(Boolean)
+    let line = ''
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word
+      if (doc.getTextWidth(candidate) <= maxW + 0.01) {
+        line = candidate
+      } else {
+        if (line) out.push(line)
+        if (doc.getTextWidth(word) <= maxW + 0.01) {
+          line = word
+        } else {
+          const chunks = doc.splitTextToSize(word, maxW) as string[]
+          for (let i = 0; i < chunks.length - 1; i++) out.push(chunks[i]!)
+          line = chunks[chunks.length - 1] ?? ''
+        }
+      }
+    }
+    if (line) out.push(line)
+  }
+  return out
+}
+
 /** Slice a tall bitmap across PDF pages */
 async function addImagePaginated (
   doc: jsPDF,
@@ -298,6 +383,16 @@ async function addImagePaginated (
   return await new Promise<number>((resolve) => {
     const img = new Image()
     img.onload = () => {
+      const fullCanvas = document.createElement('canvas')
+      fullCanvas.width = fullW
+      fullCanvas.height = fullH
+      const fctx = fullCanvas.getContext('2d')
+      if (fctx) {
+        fctx.fillStyle = '#ffffff'
+        fctx.fillRect(0, 0, fullW, fullH)
+        fctx.drawImage(img, 0, 0, fullW, fullH)
+      }
+
       let y = startY
       let srcYpx = 0
       let remainingPt = totalImgH
@@ -311,20 +406,28 @@ async function addImagePaginated (
         }
         const slicePt = Math.min(remainingPt, room)
         const sliceSrcHpx = (slicePt / imgW) * fullW
+        const idealEndY = Math.min(fullH, srcYpx + sliceSrcHpx)
+        const endY = fctx
+          ? pickSliceEndY(fctx, fullW, fullH, srcYpx, idealEndY)
+          : idealEndY
+        let actualSrcH = Math.max(1, endY - srcYpx)
+        if (srcYpx + actualSrcH > fullH) actualSrcH = fullH - srcYpx
+        const actualSlicePt = (actualSrcH / fullW) * imgW
 
         const sc = document.createElement('canvas')
         sc.width = fullW
-        sc.height = Math.max(1, Math.ceil(sliceSrcHpx))
+        sc.height = Math.max(1, Math.ceil(actualSrcH))
         const ctx = sc.getContext('2d')
         if (ctx) {
           ctx.fillStyle = '#ffffff'
           ctx.fillRect(0, 0, sc.width, sc.height)
-          ctx.drawImage(img, 0, srcYpx, fullW, sliceSrcHpx, 0, 0, fullW, sliceSrcHpx)
+          ctx.drawImage(img, 0, srcYpx, fullW, actualSrcH, 0, 0, fullW, actualSrcH)
         }
-        doc.addImage(sc.toDataURL('image/png'), 'PNG', margin, y, imgW, slicePt)
-        y += slicePt + 8
-        srcYpx += sliceSrcHpx
-        remainingPt -= slicePt
+        doc.addImage(sc.toDataURL('image/png'), 'PNG', margin, y, imgW, actualSlicePt)
+        y += actualSlicePt + 8
+        srcYpx += actualSrcH
+        remainingPt -= actualSlicePt
+        if (srcYpx >= fullH - 0.5) break
       }
       resolve(y)
     }
@@ -347,13 +450,16 @@ export async function downloadHealthSummaryPdf (
   const addRawLines = (text: string, fontSize: number, color: [number, number, number], lineHeight: number) => {
     doc.setFontSize(fontSize)
     doc.setTextColor(...color)
-    const lines = doc.splitTextToSize(text, maxW)
+    const lines = wrapTextToLines(doc, text, maxW)
+    const textOpts = { baseline: 'top' as const }
     for (const line of lines) {
       if (y + lineHeight > pageH - margin) {
         doc.addPage()
         y = margin
       }
-      doc.text(line, margin, y)
+      if (line.length > 0) {
+        doc.text(line, margin, y, textOpts)
+      }
       y += lineHeight
     }
   }
