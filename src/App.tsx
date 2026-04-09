@@ -15,6 +15,8 @@ import { QuestionsArchivePage } from './pages/QuestionsArchivePage'
 import { DiagnosesDirectoryPage } from './pages/DiagnosesDirectoryPage'
 import { VisitsPage } from './pages/VisitsPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { MorePage } from './pages/MorePage'
+import { AppointmentsPage } from './pages/AppointmentsPage'
 
 
 function Protected ({ children }: { children: ReactNode }) {
@@ -40,6 +42,8 @@ export default function App () {
         <Route path="tests" element={<TestsOrderedPage />} />
         <Route path="questions" element={<QuestionsArchivePage />} />
         <Route path="diagnoses" element={<DiagnosesDirectoryPage />} />
+        <Route path="more" element={<MorePage />} />
+        <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

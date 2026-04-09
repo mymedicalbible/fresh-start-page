@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams, useLocation } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 
-type Tab = 'pain' | 'symptoms' | 'visits' | 'summaries'
+type Tab = 'pain' | 'symptoms' | 'summaries'
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -21,38 +21,21 @@ type SymptomRow = {
   severity: string | null; relief: string | null; notes: string | null
 }
 
-type VisitRow = {
-  id: string
-  visit_date: string
-  visit_time: string | null
-  doctor: string | null
-  reason: string | null
-  findings: string | null
-  notes: string | null
-  status: string | null
-}
-
 function tabFromParams (sp: URLSearchParams): Tab {
   const t = sp.get('tab')
-  if (t === 'pain' || t === 'symptoms' || t === 'visits' || t === 'summaries') return t
+  if (t === 'visits') return 'pain'
+  if (t === 'pain' || t === 'symptoms' || t === 'summaries') return t
   return 'pain'
-}
-
-function visitPending (status: string | null | undefined) {
-  return String(status ?? 'complete').trim().toLowerCase() === 'pending'
 }
 
 export function RecordsPage () {
   const { user } = useAuth()
-  const { pathname, search } = useLocation()
-  const recordsReturnTo = encodeURIComponent(`${pathname}${search}`)
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = tabFromParams(searchParams)
 
   const [q, setQ] = useState('')
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
-  const [visits, setVisits] = useState<VisitRow[]>([])
   const [summaries, setSummaries] = useState<ArchivedHandoffSummary[]>([])
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -83,20 +66,6 @@ export function RecordsPage () {
   }, [user])
 
   useEffect(() => {
-    if (!user || tab !== 'visits') return
-    setError(null)
-    supabase.from('doctor_visits')
-      .select('id, visit_date, visit_time, doctor, reason, findings, notes, status')
-      .eq('user_id', user.id)
-      .order('visit_date', { ascending: false })
-      .limit(150)
-      .then(({ data, error: e }) => {
-        if (e) setError(e.message)
-        else setVisits((data ?? []) as VisitRow[])
-      })
-  }, [user, tab])
-
-  useEffect(() => {
     if (tab === 'summaries') {
       setSummaries(loadSummaryArchive())
     }
@@ -104,14 +73,13 @@ export function RecordsPage () {
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return { pain, symptoms, visits }
+    if (!term) return { pain, symptoms }
     const f = (s: string | null) => (s ?? '').toLowerCase().includes(term)
     return {
       pain: pain.filter((r) => f(r.location) || f(String(r.intensity ?? '')) || f(r.pain_type) || f(r.notes) || f(r.relief_methods)),
       symptoms: symptoms.filter((r) => f(r.symptoms) || f(r.activity) || f(r.notes) || f(r.relief) || f(r.severity)),
-      visits: visits.filter((r) => f(r.doctor) || f(r.reason) || f(r.findings) || f(r.notes)),
     }
-  }, [q, pain, symptoms, visits])
+  }, [q, pain, symptoms])
 
   async function removeFeature (episodeId: string, sym: string) {
     const key = `${episodeId}::${sym}`
@@ -137,7 +105,6 @@ export function RecordsPage () {
   const tabLabels: [Tab, string][] = [
     ['pain', 'Pain'],
     ['symptoms', 'Episodes'],
-    ['visits', 'Visits'],
     ['summaries', 'Summaries'],
   ]
 
@@ -160,6 +127,8 @@ export function RecordsPage () {
             </button>
           ))}
         </div>
+
+        <Link to="/app/visits" className="btn btn-ghost">View all visits →</Link>
 
         <div className="form-group" style={{ marginBottom: 6, marginTop: 10 }}>
           <label>Search</label>
@@ -227,50 +196,6 @@ export function RecordsPage () {
               {r.activity && <div className="muted" style={{ marginTop: 6, fontSize: '0.85rem' }}>Activity: {r.activity}</div>}
               {r.relief && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}>Relief: {r.relief}</div>}
               {r.notes && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}>Notes: {r.notes}</div>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* VISITS */}
-      {tab === 'visits' && (
-        <div className="card">
-          <h3>Visit archive</h3>
-          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
-            Doctor visits from your log. <Link to={`/app/visits?returnTo=${recordsReturnTo}`}>Open visits</Link> to add or edit.
-          </p>
-          {filtered.visits.length === 0 ? <p className="muted">No visits yet.</p> : null}
-          {filtered.visits.map((v) => (
-            <div key={v.id} className="list-item">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                <div>
-                  <strong>{v.visit_date}{v.visit_time ? ` · ${v.visit_time}` : ''}</strong>
-                  {v.doctor && <div className="muted" style={{ marginTop: 4 }}>{v.doctor}</div>}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  <span style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    padding: '2px 8px',
-                    borderRadius: 20,
-                    ...(visitPending(v.status)
-                      ? { background: '#fef3c7', color: '#92400e' }
-                      : { background: '#ecfdf5', color: '#065f46' }),
-                  }}>
-                    {visitPending(v.status) ? 'Pending' : 'Complete'}
-                  </span>
-                  <Link
-                    to={`/app/visits?resume=${encodeURIComponent(v.id)}&returnTo=${recordsReturnTo}`}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.78rem', padding: '4px 12px' }}
-                  >
-                    Open
-                  </Link>
-                </div>
-              </div>
-              {v.reason && <div className="muted" style={{ marginTop: 8, fontSize: '0.9rem' }}><strong>Reason:</strong> {v.reason}</div>}
-              {v.findings && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}><strong>Findings:</strong> {v.findings}</div>}
-              {v.notes && <div className="muted" style={{ marginTop: 4, fontSize: '0.85rem' }}><strong>Notes:</strong> {v.notes}</div>}
             </div>
           ))}
         </div>
