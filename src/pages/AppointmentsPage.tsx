@@ -26,6 +26,7 @@ export function AppointmentsPage () {
   const [formSpecialty, setFormSpecialty] = useState('')
   const [formDate, setFormDate] = useState(todayISO())
   const [formTime, setFormTime] = useState('')
+  const [view, setView] = useState<'upcoming' | 'past'>('upcoming')
 
   async function load () {
     if (!user) return
@@ -92,6 +93,22 @@ export function AppointmentsPage () {
             {showForm ? 'Cancel' : '+ Add'}
           </button>
         </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          <button
+            type="button"
+            className={`btn ${view === 'upcoming' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setView('upcoming')}
+          >
+            Upcoming
+          </button>
+          <button
+            type="button"
+            className={`btn ${view === 'past' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setView('past')}
+          >
+            Past
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -122,25 +139,11 @@ export function AppointmentsPage () {
       )}
 
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Upcoming</h3>
-        {upcoming.length === 0 ? <p className="muted">No upcoming appointments.</p> : null}
-        {upcoming.map((r) => (
-          <div key={r.id} className="list-item">
-            <div style={{ fontWeight: 700 }}>{r.doctor ?? '—'}</div>
-            <div className="muted" style={{ fontSize: '0.85rem' }}>
-              {r.specialty ?? '—'}
-            </div>
-            <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
-              {r.appointment_date}{r.appointment_time ? ` · ${r.appointment_time}` : ''}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Past</h3>
-        {past.length === 0 ? <p className="muted">No past appointments.</p> : null}
-        {past.map((r) => (
+        <h3 style={{ marginTop: 0 }}>{view === 'upcoming' ? 'Upcoming' : 'Past'}</h3>
+        {(view === 'upcoming' ? upcoming : past).length === 0 ? (
+          <p className="muted">{view === 'upcoming' ? 'No upcoming appointments.' : 'No past appointments.'}</p>
+        ) : null}
+        {(view === 'upcoming' ? upcoming : past).map((r) => (
           <div key={r.id} className="list-item">
             <div style={{ fontWeight: 700 }}>{r.doctor ?? '—'}</div>
             <div className="muted" style={{ fontSize: '0.85rem' }}>

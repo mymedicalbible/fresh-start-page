@@ -100,12 +100,12 @@ export function AppLayout () {
                 type="button"
                 className="bottom-nav-item bottom-nav-item--scrapbook"
                 onClick={() => openNoteModal()}
-                aria-label="Log a note for a doctor"
+                aria-label="Note for a doctor"
               >
                 <span className="bottom-nav-icon bottom-nav-icon--scrapbook" aria-hidden>
                   <Icon />
                 </span>
-                <span className="bottom-nav-label bottom-nav-label--scrapbook">log note</span>
+                <span className="bottom-nav-label bottom-nav-label--scrapbook">note</span>
               </button>
             )
           }
