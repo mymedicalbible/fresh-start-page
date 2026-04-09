@@ -14,16 +14,13 @@ function ScrapSticker ({
 
 export function MorePage () {
   return (
-    <div className="scrapbook-dashboard">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <BackButton />
-        <h2 style={{ margin: 0 }}>More</h2>
-      </div>
+    <div>
+      <BackButton fallbackTo="/app" />
       <div className="scrap-sticker-grid">
-        <ScrapSticker to="/app/visits" title="Visits" sub="Visit logs" tone="mint" />
-        <ScrapSticker to="/app/questions" title="Questions" sub="For your doctors" tone="sky" />
-        <ScrapSticker to="/app/tests" title="Tests" sub="Orders & results" tone="cream" />
-        <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your directory" tone="lavender" />
+        <ScrapSticker to="/app/visits" title="Visits" sub="All visit history" tone="mint" />
+        <ScrapSticker to="/app/questions" title="Questions" sub="Open & answered" tone="sky" />
+        <ScrapSticker to="/app/tests" title="Tests & orders" sub="Pending & results" tone="cream" />
+        <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Confirmed & suspected" tone="pink" />
       </div>
     </div>
   )

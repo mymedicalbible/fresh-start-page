@@ -34,6 +34,7 @@ export default function App () {
       <Route path="/app" element={<Protected><AppLayout /></Protected>}>
         <Route index element={<DashboardPage />} />
         <Route path="log" element={<QuickLogPage />} />
+        <Route path="flares" element={<RecordsPage />} />
         <Route path="records" element={<RecordsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="meds" element={<MedicationsPage />} />

@@ -1452,7 +1452,7 @@ export function DashboardPage () {
         <div className="scrap-sticker-grid">
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
-          <ScrapSticker to="/app/appointments" title="Appointments" sub="Upcoming & past" tone="pink" />
+          <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
         </div>
 
         <p className="scrap-dash-account-line">

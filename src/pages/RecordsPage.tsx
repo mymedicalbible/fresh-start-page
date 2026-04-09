@@ -23,7 +23,6 @@ type SymptomRow = {
 
 function tabFromParams (sp: URLSearchParams): Tab {
   const t = sp.get('tab')
-  if (t === 'visits') return 'pain'
   if (t === 'pain' || t === 'symptoms' || t === 'summaries') return t
   return 'pain'
 }

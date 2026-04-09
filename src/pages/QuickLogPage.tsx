@@ -61,7 +61,7 @@ export function QuickLogPage () {
     // map old 'mcas' param to 'symptoms' for backwards compat
     if (t === 'symptoms' || t === 'mcas') return 'symptoms'
     if (t === 'visit' || t === 'pain' || t === 'questions') return t
-    return 'visit'
+    return 'pain'
   })
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)

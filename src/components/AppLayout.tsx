@@ -10,7 +10,7 @@ const NAV_ITEMS: NavItem[] = [
   { kind: 'path', path: '/app', label: 'home' },
   { kind: 'path', path: '/app/log', label: 'log' },
   { kind: 'note', label: 'note' },
-  { kind: 'path', path: '/app/records', label: 'records' },
+  { kind: 'path', path: '/app/flares', label: 'flares' },
   { kind: 'path', path: '/app/more', label: 'more' },
 ]
 
@@ -25,8 +25,7 @@ function IconHome () {
 function IconLog () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v8M8 12h8" />
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
     </svg>
   )
 }
@@ -50,17 +49,15 @@ function IconMore () {
   )
 }
 
-function IconRecords () {
+function IconFlares () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      <path d="M8 7h8M8 11h8" />
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.5-1-2-1-3.5C10 5.5 10 3 9 3c-1 3-1 4.5-1 6.5a2.5 2.5 0 0 0 5 0" />
     </svg>
   )
 }
 
-const NAV_ICONS = [IconHome, IconLog, IconNote, IconRecords, IconMore] as const
+const NAV_ICONS = [IconHome, IconLog, IconNote, IconFlares, IconMore] as const
 
 export function AppLayout () {
   const { user } = useAuth()
