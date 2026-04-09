@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
@@ -46,6 +47,17 @@ function quickLogDraftMeaningful (d: QuickLogDraftV1): boolean {
   return false
 }
 
+function ScrapSticker ({
+  to, title, sub, tone,
+}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
+  return (
+    <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
+      <span className="scrap-sticker-title">{title}</span>
+      <span className="scrap-sticker-sub">{sub}</span>
+    </Link>
+  )
+}
+
 export function QuickLogPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -56,12 +68,12 @@ export function QuickLogPage () {
   const [error, setError] = useState<string | null>(null)
   const [postSave, setPostSave] = useState<{ archive: string; title: string } | null>(null)
 
-  const [screen, setScreen] = useState<'visit' | 'pain' | 'symptoms' | 'questions'>(() => {
+  const [screen, setScreen] = useState<'hub' | 'visit' | 'pain' | 'symptoms' | 'questions'>(() => {
     const t = searchParams.get('tab')
     // map old 'mcas' param to 'symptoms' for backwards compat
     if (t === 'symptoms' || t === 'mcas') return 'symptoms'
     if (t === 'visit' || t === 'pain' || t === 'questions') return t
-    return 'pain'
+    return 'hub'
   })
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)
@@ -105,7 +117,7 @@ export function QuickLogPage () {
   }, [])
 
   const snapshotDraft = useCallback((): QuickLogDraftV1 | null => {
-    if (!user) return null
+    if (!user || screen === 'hub') return null
     return {
       v: 1,
       userId: user.id,
@@ -124,18 +136,47 @@ export function QuickLogPage () {
     return !!(d && quickLogDraftMeaningful(d))
   }, [snapshotDraft])
 
-  const commitLeaveNavigation = useCallback(() => {
-    navigate(leaveBackPath)
-  }, [leaveBackPath, navigate])
-
   const attemptLeave = useCallback(() => {
     if (!isQuickLogDirty()) {
-      clearQuickLogDraft()
+      if (screen !== 'hub') clearQuickLogDraft()
       navigate(leaveBackPath)
       return
     }
     setLeavePrompt(true)
-  }, [isQuickLogDirty, leaveBackPath, navigate])
+  }, [isQuickLogDirty, leaveBackPath, navigate, screen])
+
+  function logTabHref (tab: 'pain' | 'symptoms' | 'questions') {
+    const q = new URLSearchParams(searchParams)
+    q.set('tab', tab)
+    return `/app/log?${q.toString()}`
+  }
+
+  function visitLogHref () {
+    const ret = encodeURIComponent(`${pathname}${locSearch}`)
+    return `/app/visits?new=1&returnTo=${ret}`
+  }
+
+  function saveDraftAndGoHome () {
+    const d = snapshotDraft()
+    if (d) saveQuickLogDraft(d)
+    setLeavePrompt(false)
+    navigate(leaveBackPath)
+  }
+
+  function saveDraftAndGoToHub () {
+    const d = snapshotDraft()
+    if (d) saveQuickLogDraft(d)
+    setLeavePrompt(false)
+    const p = new URLSearchParams()
+    if (returnRaw) p.set('returnTo', returnRaw)
+    navigate({ pathname: '/app/log', search: p.toString() }, { replace: true })
+  }
+
+  function discardDraftAndLeave () {
+    clearQuickLogDraft()
+    setLeavePrompt(false)
+    navigate(leaveBackPath)
+  }
 
   useEffect(() => {
     if (!user) return
@@ -170,7 +211,7 @@ export function QuickLogPage () {
   }, [user])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || screen === 'hub') return
     const draft: QuickLogDraftV1 = {
       v: 1,
       userId: user.id,
@@ -191,6 +232,7 @@ export function QuickLogPage () {
     const t = searchParams.get('tab')
     if (t === 'symptoms' || t === 'mcas') setScreen('symptoms')
     else if (t === 'visit' || t === 'pain' || t === 'questions') setScreen(t)
+    else setScreen('hub')
   }, [searchParams])
 
   useEffect(() => {
@@ -301,31 +343,65 @@ export function QuickLogPage () {
           variant="resume"
           onResume={() => {
             const d = loadQuickLogDraft(user.id)
-            if (d) applyQuickLogDraft(d)
+            if (d) {
+              applyQuickLogDraft(d)
+              if (d.screen !== 'visit') {
+                const q = new URLSearchParams(searchParams)
+                q.set('tab', d.screen === 'symptoms' ? 'symptoms' : d.screen === 'questions' ? 'questions' : 'pain')
+                navigate({ pathname: '/app/log', search: q.toString() }, { replace: true })
+              }
+            }
             setResumePrompt(false)
           }}
           onFresh={() => {
             clearQuickLogDraft()
             setResumePrompt(false)
+            const p = new URLSearchParams()
+            if (returnRaw) p.set('returnTo', returnRaw)
+            navigate({ pathname: '/app/log', search: p.toString() }, { replace: true })
+            setScreen('hub')
           }}
         />
       )}
       {leavePrompt && (
-        <LeaveLaterDialog
-          variant="saveForLater"
-          onYes={() => {
-            const d = snapshotDraft()
-            if (d) saveQuickLogDraft(d)
-            setLeavePrompt(false)
-            commitLeaveNavigation()
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quicklog-leave-title"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(15, 23, 42, 0.35)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
           }}
-          onNo={() => {
-            clearQuickLogDraft()
-            setLeavePrompt(false)
-            commitLeaveNavigation()
-          }}
-          onStay={() => setLeavePrompt(false)}
-        />
+          onClick={() => setLeavePrompt(false)}
+        >
+          <div
+            className="card shadow"
+            style={{ maxWidth: 380, width: '100%', borderRadius: 16, padding: 20 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="quicklog-leave-title" style={{ margin: '0 0 8px', fontSize: '1.05rem' }}>
+              Save for later?
+            </h2>
+            <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
+              You can pick this up again from the same screen. If you choose not to save, what you entered here will be cleared.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoHome}>
+                Save for later & go home
+              </button>
+              <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoToHub}>
+                Save for later & quick log menu
+              </button>
+              <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={discardDraftAndLeave}>
+                No, discard
+              </button>
+              <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {postSave && (
@@ -360,6 +436,19 @@ export function QuickLogPage () {
       {error && (
         <div className="banner error" style={{ marginBottom: 16 }} onClick={() => setError(null)}>
           {error} ✕
+        </div>
+      )}
+
+      {/* HUB — quick log menu (same flows as dashboard tiles) */}
+      {screen === 'hub' && (
+        <div>
+          <BackButton fallbackTo="/app" />
+          <div className="scrap-sticker-grid">
+            <ScrapSticker to={logTabHref('pain')} title="Pain" sub="Log a pain entry" tone="pink" />
+            <ScrapSticker to={logTabHref('symptoms')} title="Episodes" sub="Log an episode" tone="mint" />
+            <ScrapSticker to={logTabHref('questions')} title="Questions" sub="Add for your doctor" tone="sky" />
+            <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" />
+          </div>
         </div>
       )}
 
