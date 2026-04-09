@@ -52,7 +52,7 @@ function IconMore () {
 function IconFlares () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.5-1-2-1-3.5C10 5.5 10 3 9 3c-1 3-1 4.5-1 6.5a2.5 2.5 0 0 0 5 0" />
+      <path d="M2 12 L6 12 L8 6 L11 18 L14 8 L16 12 L22 12" />
     </svg>
   )
 }
