@@ -34,7 +34,18 @@ test.describe('Medical Bible — authenticated smoke', () => {
     await page.getByLabel(/^email$/i).fill(email!)
     await page.getByLabel(/^password$/i).fill(password!)
     await page.locator('form').getByRole('button', { name: /^sign in$/i }).click()
-    await expect(page).toHaveURL(/\/app\/?$/, { timeout: 20_000 })
+    try {
+      await page.waitForURL(/\/app\/?$/, { timeout: 20_000 })
+    } catch {
+      const errText = (await page.locator('.banner.error').textContent().catch(() => null))?.trim()
+      throw new Error(
+        [
+          'Sign-in did not navigate to /app.',
+          errText ? ` ${errText}` : ' (no error banner.)',
+          ' Use PLAYWRIGHT_SMOKE_EMAIL / PLAYWRIGHT_SMOKE_PASSWORD for a user in the same Supabase project as root `.env` (VITE_SUPABASE_*). Default base URL is http://127.0.0.1:5173.',
+        ].join(''),
+      )
+    }
     await expect(page.getByRole('heading', { name: /your records/i })).toBeVisible({ timeout: 15_000 })
   })
 

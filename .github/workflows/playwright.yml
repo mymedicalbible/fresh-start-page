@@ -19,8 +19,11 @@ jobs:
       run: npx playwright install --with-deps
     - name: Run Playwright tests
       env:
+        PLAYWRIGHT_BASE_URL: http://127.0.0.1:5173
         PLAYWRIGHT_SMOKE_EMAIL: ${{ secrets.PLAYWRIGHT_SMOKE_EMAIL }}
         PLAYWRIGHT_SMOKE_PASSWORD: ${{ secrets.PLAYWRIGHT_SMOKE_PASSWORD }}
+        # Vite reads `.env` from the repo; add repository secrets VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+        # and a step that writes `.env` before this job if you need full authenticated e2e in CI.
       run: npx playwright test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
