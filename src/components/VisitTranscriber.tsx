@@ -3,7 +3,9 @@ import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { extractVisitFieldsFromTranscript, type ExtractedVisitFields, type TranscriptExtractPayload } from '../lib/transcriptExtract'
 import { pushTranscriptArchive } from '../lib/transcriptArchive'
+import { formatExtractedClinicalSummary } from '../lib/transcriptVisitFormat'
 import { downloadTranscriptPdf } from '../lib/transcriptPdf'
+import { AppConfirmDialog } from './AppConfirmDialog'
 
 type Props = {
   doctorName: string
@@ -16,25 +18,6 @@ type Props = {
 export type VisitTranscriberHandle = {
   /** Prompt to archive transcript (if any), then run `done` (e.g. close parent modal). */
   tryCloseParent: (done: () => void) => void
-}
-
-function offerSaveTranscriptCopy (opts: {
-  transcript: string
-  doctorName: string
-  visitDate: string
-  extracted: ExtractedVisitFields | null
-}) {
-  if (!opts.transcript.trim()) return
-  const save = window.confirm(
-    'Save a copy of this transcript under Records → Transcripts (Flares page)?\n\nOK = save\nCancel = don\'t save'
-  )
-  if (!save) return
-  pushTranscriptArchive({
-    doctorName: opts.doctorName.trim() || 'Unknown doctor',
-    visitDate: opts.visitDate,
-    transcript: opts.transcript.trim(),
-    extracted: opts.extracted,
-  })
 }
 
 export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(function VisitTranscriber ({
@@ -50,16 +33,44 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   const [error, setError] = useState<string | null>(null)
   const [extracted, setExtracted] = useState<ExtractedVisitFields | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  /** After user chooses save/skip archive (stacked above confirm sheet when needed). */
+  const [archiveAfter, setArchiveAfter] = useState<(() => void) | null>(null)
 
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
+  function pushArchiveIfNeeded (save: boolean) {
+    if (!save || !transcript.trim()) return
+    const ext = extracted
+    pushTranscriptArchive({
+      doctorName: doctorName.trim() || 'Unknown doctor',
+      visitDate,
+      transcript: transcript.trim(),
+      extracted: ext,
+      extractedSummary: ext ? formatExtractedClinicalSummary(ext) : undefined,
+    })
+  }
+
+  function finishArchiveChoice (save: boolean) {
+    pushArchiveIfNeeded(save)
+    const next = archiveAfter
+    setArchiveAfter(null)
+    next?.()
+  }
+
+  function promptArchiveThen (after: () => void) {
+    if (!transcript.trim()) {
+      after()
+      return
+    }
+    setArchiveAfter(() => after)
+  }
+
   useImperativeHandle(ref, () => ({
     tryCloseParent (done: () => void) {
-      offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
-      done()
+      promptArchiveThen(done)
     },
   }), [transcript, doctorName, visitDate, extracted])
 
@@ -221,22 +232,35 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
   function confirmAndFill () {
     if (!extracted) return
-    offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
-    onExtracted({ fields: extracted, transcript })
-    setShowConfirm(false)
+    promptArchiveThen(() => {
+      onExtracted({ fields: extracted, transcript })
+      setShowConfirm(false)
+    })
   }
 
   function cancelConfirmSheet () {
-    offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
-    setShowConfirm(false)
+    promptArchiveThen(() => setShowConfirm(false))
   }
 
   useEffect(() => {
     return () => { stopAll() }
   }, [])
 
+  const TX = { fontSize: '0.88rem' as const, lineHeight: 1.45 as const }
+
   return (
     <div style={{ margin: '16px 0', padding: '16px', background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12 }}>
+      {archiveAfter && (
+        <AppConfirmDialog
+          title="Save transcript?"
+          message="Save a copy under Records → Transcripts (Flares page)? This device only."
+          confirmLabel="Save copy"
+          cancelLabel="Don't save"
+          onConfirm={() => finishArchiveChoice(true)}
+          onCancel={() => finishArchiveChoice(false)}
+        />
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Visit transcription</div>
         {status === 'recording' && (
@@ -276,7 +300,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       {transcript && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 6 }}>Live transcript</div>
-          <div style={{ fontSize: '0.88rem', lineHeight: 1.6, maxHeight: 160, overflowY: 'auto', padding: '10px 12px', background: 'var(--surface-alt, #f9f9f6)', borderRadius: 8, border: '1px solid var(--border)' }}>
+          <div style={{ ...TX, maxHeight: 160, overflowY: 'auto', padding: '10px 12px', background: 'var(--surface-alt, #f9f9f6)', borderRadius: 8, border: '1px solid var(--border)' }}>
             {transcript}
           </div>
           {status === 'done' && (

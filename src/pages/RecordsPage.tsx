@@ -318,21 +318,45 @@ export function RecordsPage () {
                   </div>
                 </div>
                 {open && (
-                  <div
-                    style={{
-                      marginTop: 12,
-                      padding: '12px 14px',
-                      background: 'var(--bg)',
-                      borderRadius: 10,
-                      border: '1px solid var(--border)',
-                      fontSize: '0.88rem',
-                      whiteSpace: 'pre-wrap',
-                      maxHeight: 360,
-                      overflowY: 'auto',
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {a.transcript}
+                  <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+                    {a.extractedSummary?.trim() && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Clinical summary</div>
+                        <div
+                          style={{
+                            padding: '12px 14px',
+                            background: 'var(--bg)',
+                            borderRadius: 10,
+                            border: '1px solid var(--border)',
+                            fontSize: '0.88rem',
+                            whiteSpace: 'pre-wrap',
+                            maxHeight: 220,
+                            overflowY: 'auto',
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          {a.extractedSummary}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Transcript</div>
+                      <div
+                        style={{
+                          padding: '12px 14px',
+                          background: 'var(--bg)',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          fontSize: '0.88rem',
+                          whiteSpace: 'pre-wrap',
+                          maxHeight: 360,
+                          overflowY: 'auto',
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        {a.transcript}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

@@ -10,6 +10,8 @@ export type ArchivedTranscript = {
   visitDate: string
   transcript: string
   extracted?: ExtractedVisitFields | null
+  /** Formatted clinical summary from extract (same idea as visit fields). */
+  extractedSummary?: string
 }
 
 function uid (): string {

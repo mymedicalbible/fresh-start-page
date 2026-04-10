@@ -19,7 +19,12 @@ import {
 } from '../lib/visitWizardDraft'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 import { VisitTranscriber } from './VisitTranscriber'
+import { AppConfirmDialog } from './AppConfirmDialog'
 import type { ExtractedVisitFields, TranscriptExtractPayload } from '../lib/transcriptExtract'
+import {
+  buildClinicalNotesSupplement,
+  mergeNotesWithTranscriptAppendix,
+} from '../lib/transcriptVisitFormat'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -69,6 +74,15 @@ function normPin (s: string) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
+}
+
+/** Cohesive with form text across the app */
+const WIZARD_TX: CSSProperties = { width: '100%', fontSize: '0.88rem', lineHeight: 1.45 }
+/** Same typography as WIZARD_TX for inputs in flex rows (no forced full width). */
+const WIZARD_TX_INLINE: CSSProperties = { fontSize: '0.88rem', lineHeight: 1.45, minWidth: 0 }
+
+function isPlaceholderTranscriptDoctorName (name: string) {
+  return /^visit\s*\(from transcript\)$/i.test(name.trim())
 }
 
 export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function VisitLogWizard ({
@@ -126,13 +140,19 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
   const finalizeInFlightRef = useRef(false)
   const transcriptBootstrappedRef = useRef(false)
+  const [showTranscriptPrefillBanner, setShowTranscriptPrefillBanner] = useState(false)
+  const [incompleteSaveOpen, setIncompleteSaveOpen] = useState(false)
 
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
+
+  const doctorPickOptions = useMemo(
+    () => doctors.filter((d) => !isPlaceholderTranscriptDoctorName(d.name)),
+    [doctors],
+  )
 
   const applyExtractedVisitFields = useCallback((fields: ExtractedVisitFields) => {
     if (fields.findings) setFindings(fields.findings)
     if (fields.instructions) setInstructions(fields.instructions)
-    if (fields.notes) setNotes((prev) => (prev ? `${prev}\n${fields.notes}` : fields.notes))
     if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
     if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
     if (fields.tests?.length) {
@@ -140,7 +160,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       setOpenTests(true)
     }
     if (fields.medications?.length) {
-      const [first, ...rest] = fields.medications
+      const [first] = fields.medications
       if (first?.medication?.trim()) {
         setNewMedEntry({
           medication: first.medication.trim(),
@@ -149,19 +169,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           prn: false,
         })
         setOpenMeds(true)
-        if (rest.length) {
-          const extra = rest
-            .filter((m) => m.medication?.trim())
-            .map((m) =>
-              `${m.medication.trim()}${m.dose ? ` ${m.dose}` : ''}${m.frequency ? ` — ${m.frequency}` : ''}`,
-            )
-            .join('; ')
-          if (extra) {
-            setNotes((prev) =>
-              (prev ? `${prev}\n` : '') + `Additional medications (from transcript): ${extra}`,
-            )
-          }
-        }
       }
     }
     if (fields.findings || fields.instructions) setOpenClinical(true)
@@ -385,6 +392,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       }
       setVisitId(newId)
     }
+    setShowTranscriptPrefillBanner(false)
     setStep(2)
   }
 
@@ -451,6 +459,24 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       setBusy(false)
     }
     setStep(3)
+  }
+
+  function visitLogLooksIncomplete (): boolean {
+    if (!reason.trim()) return true
+    if (!findings.trim() && !instructions.trim()) return true
+    return false
+  }
+
+  function requestFinalizeVisit (asPending: boolean) {
+    if (asPending) {
+      void finalizeVisit(true)
+      return
+    }
+    if (visitLogLooksIncomplete()) {
+      setIncompleteSaveOpen(true)
+      return
+    }
+    void finalizeVisit(false)
   }
 
   async function finalizeVisit (asPending: boolean) {
@@ -683,15 +709,16 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
   function handleTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
     applyExtractedVisitFields(fields)
-    if (transcript.trim()) {
-      setNotes((prev) => {
-        const block = `— Transcript —\n${transcript.trim()}`
-        return prev ? `${prev}\n\n${block}` : block
-      })
-    }
+    const supplement = buildClinicalNotesSupplement(fields)
+    setNotes((prev) =>
+      mergeNotesWithTranscriptAppendix(
+        [prev.trim(), supplement].filter(Boolean).join('\n\n'),
+        transcript,
+      ),
+    )
   }
 
-  /** Dashboard → visit log: create visit row and jump to step 3 with extracted fields. */
+  /** Dashboard → visit log: pre-fill step 1 (real doctor required); no DB row until save step 1. */
   useEffect(() => {
     if (!user || resumeVisitId || transcriptBootstrappedRef.current) return
     const bundleKey = 'mb-pending-transcript-bundle'
@@ -709,8 +736,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
     let fields: ExtractedVisitFields
     let transcriptText = ''
-    let bundleDoctor = ''
-    let visitDateForRow = todayISO()
 
     if (bundleRaw) {
       try {
@@ -723,11 +748,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         sessionStorage.removeItem(bundleKey)
         fields = b.fields
         transcriptText = typeof b.transcript === 'string' ? b.transcript : ''
-        bundleDoctor = (b.doctorName ?? '').trim()
         const vd = (b.visitDate ?? '').trim()
         if (/^\d{4}-\d{2}-\d{2}/.test(vd)) {
-          visitDateForRow = vd.slice(0, 10)
-          setVisitDate(visitDateForRow)
+          setVisitDate(vd.slice(0, 10))
         }
       } catch {
         transcriptBootstrappedRef.current = false
@@ -743,53 +766,23 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       }
     }
 
-    const doctorLabel = bundleDoctor || 'Visit (from transcript)'
-    setDoctorMode('new')
-    setNewDoctorName(doctorLabel)
+    setVisitId(null)
+    setDoctorMode('pick')
+    setNewDoctorName(initialDoctorName || '')
     setSelectedName('')
-    setReason((r) => (r.trim() ? r : 'Visit (from transcript)'))
+    setReason('')
 
     applyExtractedVisitFields(fields)
-    if (transcriptText.trim()) {
-      setNotes((prev) => {
-        const block = `— Transcript —\n${transcriptText.trim()}`
-        return prev ? `${prev}\n\n${block}` : block
-      })
-    }
-
-    void (async () => {
-      const payload = {
-        user_id: user.id,
-        visit_date: visitDateForRow,
-        visit_time: nowTime(),
-        doctor: doctorLabel,
-        specialty: null as string | null,
-        reason: 'Visit (from transcript)',
-        status: 'pending' as const,
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { status: _st, ...payloadNoStatus } = payload
-      let { data: rows, error: e } = await supabase.from('doctor_visits').insert(payload).select('id')
-      if (e?.message?.toLowerCase().includes('status')) {
-        const res2 = await supabase.from('doctor_visits').insert(payloadNoStatus).select('id')
-        rows = res2.data
-        e = res2.error
-      }
-      if (e) {
-        setError(e.message)
-        transcriptBootstrappedRef.current = false
-        return
-      }
-      const newId = rows?.[0]?.id as string | undefined
-      if (!newId) {
-        setError('Could not create visit from transcript. Try logging the visit manually.')
-        transcriptBootstrappedRef.current = false
-        return
-      }
-      setVisitId(newId)
-      setStep(3)
-    })()
-  }, [user, resumeVisitId, applyExtractedVisitFields])
+    const supplement = buildClinicalNotesSupplement(fields)
+    setNotes(
+      mergeNotesWithTranscriptAppendix(
+        supplement,
+        transcriptText,
+      ),
+    )
+    setStep(1)
+    setShowTranscriptPrefillBanner(true)
+  }, [user, resumeVisitId, applyExtractedVisitFields, initialDoctorName])
 
   useEffect(() => {
     if (!user || resumeVisitId) return
@@ -843,6 +836,19 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           onStay={() => setLeaveOpen(false)}
         />
       )}
+      {incompleteSaveOpen && (
+        <AppConfirmDialog
+          title="Are you sure?"
+          message="Some fields were left unanswered. Save as complete anyway?"
+          confirmLabel="Save anyway"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            setIncompleteSaveOpen(false)
+            void finalizeVisit(false)
+          }}
+          onCancel={() => setIncompleteSaveOpen(false)}
+        />
+      )}
       {error && (
         <div className="banner error" style={{ cursor: 'pointer' }} onClick={() => setError(null)}>
           {error} ✕
@@ -851,29 +857,37 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
       {step === 1 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
+          {showTranscriptPrefillBanner && (
+            <div
+              className="banner"
+              style={{ marginBottom: 12, fontSize: '0.85rem', lineHeight: 1.45, background: 'var(--surface-alt, #f0fdf4)', borderColor: 'var(--border)' }}
+            >
+              We filled details from your transcript. Pick your doctor and a reason for the visit, then continue.
+            </div>
+          )}
           <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#475569' }}>When & who</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} style={{ flex: '1 1 140px' }} />
-            <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} style={{ flex: '1 1 120px' }} />
+            <input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} style={{ flex: '1 1 140px', fontSize: '0.88rem' }} />
+            <input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} style={{ flex: '1 1 120px', fontSize: '0.88rem' }} />
           </div>
           <div style={{ marginTop: 12 }}>
             <button type="button" className={`pill ${doctorMode === 'pick' ? 'on' : ''}`} style={{ marginRight: 8 }} onClick={() => setDoctorMode('pick')}>My doctors</button>
             <button type="button" className={`pill ${doctorMode === 'new' ? 'on' : ''}`} onClick={() => setDoctorMode('new')}>Someone new</button>
           </div>
           {doctorMode === 'pick' ? (
-            <select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} style={{ width: '100%', marginTop: 10 }}>
+            <select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} style={{ ...WIZARD_TX, marginTop: 10 }}>
               <option value="">— Pick a doctor —</option>
-              {doctors.map((d) => (
+              {doctorPickOptions.map((d) => (
                 <option key={d.id} value={d.name}>{d.name}</option>
               ))}
             </select>
           ) : (
-            <input value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Doctor name" style={{ width: '100%', marginTop: 10 }} />
+            <input value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Doctor name" style={{ ...WIZARD_TX, marginTop: 10 }} />
           )}
-          <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Specialty (optional)" style={{ width: '100%', marginTop: 10 }} />
+          <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Specialty (optional)" style={{ ...WIZARD_TX, marginTop: 10 }} />
           <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — tap a saved/past reason or type</p>
           {chipRow}
-          <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="In your own words…" rows={3} style={{ marginTop: 8, width: '100%' }} />
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="In your own words…" rows={3} style={{ ...WIZARD_TX, marginTop: 8 }} />
           {reason.trim() && !isReasonPinned(reason) && (
             <button
               type="button"
@@ -941,7 +955,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                   value={line.text}
                   rows={3}
                   placeholder="What do you want to ask?"
-                  style={{ width: '100%' }}
+                  style={{ ...WIZARD_TX }}
                   onChange={(e) => setQuestionLines((prev) => prev.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                 />
               </div>
@@ -994,8 +1008,8 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               <div style={{ padding: '0 12px 12px' }}>
                 {dvTests.map((t, i) => (
                   <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                    <input style={{ flex: 2 }} placeholder="Test" value={t.test_name} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, test_name: e.target.value } : x))} />
-                    <input style={{ flex: 2 }} placeholder="Why (optional)" value={t.reason} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, reason: e.target.value } : x))} />
+                    <input style={{ ...WIZARD_TX_INLINE, flex: 2 }} placeholder="Test" value={t.test_name} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, test_name: e.target.value } : x))} />
+                    <input style={{ ...WIZARD_TX_INLINE, flex: 2 }} placeholder="Why (optional)" value={t.reason} onChange={(e) => setDvTests((p) => p.map((x, j) => j === i ? { ...x, reason: e.target.value } : x))} />
                   </div>
                 ))}
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setDvTests((p) => [...p, { test_name: '', reason: '' }])}>+ Another test row</button>
@@ -1024,8 +1038,8 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                   </div>
                 ))}
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                  <input style={{ flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
-                  <input style={{ flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
+                  <input style={{ ...WIZARD_TX_INLINE, flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
+                  <input style={{ ...WIZARD_TX_INLINE, flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
                 </div>
                 <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Schedule</span>
@@ -1053,7 +1067,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                   </div>
                   {!newMedEntry.prn && (
                     <input
-                      style={{ width: '100%' }}
+                      style={{ ...WIZARD_TX }}
                       placeholder="e.g. Twice daily, at bedtime"
                       value={newMedEntry.frequency}
                       onChange={(e) => setNewMedEntry((p) => ({ ...p, frequency: e.target.value }))}
@@ -1076,9 +1090,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             </button>
             {openClinical && (
               <div style={{ padding: '0 12px 12px', display: 'grid', gap: 8 }}>
-                <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ width: '100%' }} />
-                <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ width: '100%' }} />
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ width: '100%' }} />
+                <textarea value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Findings (optional)" rows={2} style={{ ...WIZARD_TX }} />
+                <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Instructions (optional)" rows={2} style={{ ...WIZARD_TX }} />
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} style={{ ...WIZARD_TX }} />
               </div>
             )}
           </div>
@@ -1167,9 +1181,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             {openNextAppt && (
               <div style={{ padding: '0 12px 12px' }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ flex: '1 1 140px' }} />
-                  <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="Start" title="Start time" />
-                  <input type="time" value={nextApptEndTime} onChange={(e) => setNextApptEndTime(e.target.value)} style={{ flex: '1 1 100px' }} placeholder="End" title="End time (optional)" />
+                  <input type="date" value={nextApptDate} onChange={(e) => setNextApptDate(e.target.value)} style={{ ...WIZARD_TX_INLINE, flex: '1 1 140px' }} />
+                  <input type="time" value={nextApptTime} onChange={(e) => setNextApptTime(e.target.value)} style={{ ...WIZARD_TX_INLINE, flex: '1 1 100px' }} placeholder="Start" title="Start time" />
+                  <input type="time" value={nextApptEndTime} onChange={(e) => setNextApptEndTime(e.target.value)} style={{ ...WIZARD_TX_INLINE, flex: '1 1 100px' }} placeholder="End" title="End time (optional)" />
                 </div>
                 {nextApptTime && nextApptEndTime && (
                   <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '4px 0 0' }}>
@@ -1184,7 +1198,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => requestLeave()}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px', minHeight: 44, fontSize: '0.98rem', fontWeight: 600 }} disabled={busy} onClick={() => void finalizeVisit(false)}>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px', minHeight: 44, fontSize: '0.98rem', fontWeight: 600 }} disabled={busy} onClick={() => void requestFinalizeVisit(false)}>
               Save visit
             </button>
           </div>
