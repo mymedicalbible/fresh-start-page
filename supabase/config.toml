@@ -3,3 +3,7 @@ project_id = "medical-tracker"
 
 [api]
 enabled = true
+
+# Lets logged-in users invoke even if session/JWT edge cases fail; function auth is AssemblyAI secret server-side.
+[functions.transcribe-visit]
+verify_jwt = false
