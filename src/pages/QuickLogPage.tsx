@@ -47,6 +47,15 @@ function quickLogDraftMeaningful (d: QuickLogDraftV1): boolean {
   return false
 }
 
+/** Archive / directory route for the current quick log type (hub has none). */
+function logDirectoryForScreen (screen: 'hub' | 'visit' | 'pain' | 'symptoms' | 'questions'): { path: string; title: string } | null {
+  if (screen === 'pain') return { path: '/app/records?tab=pain', title: 'Pain log' }
+  if (screen === 'symptoms') return { path: '/app/records?tab=symptoms', title: 'Episode log' }
+  if (screen === 'questions') return { path: '/app/questions', title: 'Questions' }
+  if (screen === 'visit') return { path: '/app/visits', title: 'Visit log' }
+  return null
+}
+
 function ScrapSticker ({
   to, title, sub, tone,
 }: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
@@ -137,13 +146,12 @@ export function QuickLogPage () {
   }, [snapshotDraft])
 
   const attemptLeave = useCallback(() => {
-    if (!isQuickLogDirty()) {
-      if (screen !== 'hub') clearQuickLogDraft()
+    if (screen === 'hub') {
       navigate(leaveBackPath)
       return
     }
     setLeavePrompt(true)
-  }, [isQuickLogDirty, leaveBackPath, navigate, screen])
+  }, [leaveBackPath, navigate, screen])
 
   function logTabHref (tab: 'pain' | 'symptoms' | 'questions') {
     const q = new URLSearchParams(searchParams)
@@ -173,6 +181,21 @@ export function QuickLogPage () {
   }
 
   function discardDraftAndLeave () {
+    clearQuickLogDraft()
+    setLeavePrompt(false)
+    navigate(leaveBackPath)
+  }
+
+  function leaveOpenDirectory () {
+    const dir = logDirectoryForScreen(screen)
+    if (!dir) return
+    const d = snapshotDraft()
+    if (d && quickLogDraftMeaningful(d)) saveQuickLogDraft(d)
+    setLeavePrompt(false)
+    navigate(dir.path)
+  }
+
+  function leaveGoHomeWithoutSave () {
     clearQuickLogDraft()
     setLeavePrompt(false)
     navigate(leaveBackPath)
@@ -363,7 +386,10 @@ export function QuickLogPage () {
           }}
         />
       )}
-      {leavePrompt && (
+      {leavePrompt && (() => {
+        const leaveDir = logDirectoryForScreen(screen)
+        const dirty = isQuickLogDirty()
+        return (
         <div
           role="dialog"
           aria-modal="true"
@@ -381,28 +407,62 @@ export function QuickLogPage () {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="quicklog-leave-title" style={{ margin: '0 0 8px', fontSize: '1.05rem' }}>
-              Save for later?
+              {dirty ? 'Save for later or discard?' : 'Leave quick log?'}
             </h2>
-            <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
-              You can pick this up again from the same screen. If you choose not to save, what you entered here will be cleared.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoHome}>
-                Save for later & go home
-              </button>
-              <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoToHub}>
-                Save for later & quick log menu
-              </button>
-              <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={discardDraftAndLeave}>
-                No, discard
-              </button>
-              <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
-                Keep editing
-              </button>
-            </div>
+            {dirty ? (
+              <>
+                <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                  You can pick this up again from the same screen. If you discard, what you entered here will be cleared.
+                </p>
+                {leaveDir && (
+                  <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                    You can also open the <strong>{leaveDir.title}</strong> directory; your progress will be saved if you do.
+                  </p>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {leaveDir && (
+                    <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
+                      Open {leaveDir.title} directory
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoHome}>
+                    Save for later & go home
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoToHub}>
+                    Save for later & quick log menu
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={discardDraftAndLeave}>
+                    Discard & go home
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
+                    Keep editing
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                  Nothing here needs saving right now. Go home, open the directory for this log, or keep editing.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {leaveDir && (
+                    <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
+                      Open {leaveDir.title} directory
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveGoHomeWithoutSave}>
+                    Go home
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
+                    Keep editing
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {postSave && (
         <div style={{
@@ -413,7 +473,7 @@ export function QuickLogPage () {
           <div className="card" style={{ maxWidth: 360, width: '100%', borderRadius: 20 }}>
             <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--mint-ink)' }}>Saved</div>
             <p className="muted" style={{ fontSize: '0.88rem', marginTop: 0 }}>
-              Open the archive for this list, tap <strong>Done</strong> to exit quick log and return where you started, or <strong>Stay here</strong> to log something else.
+              Want to open the directory for this log (same list as <strong>{postSave.title}</strong>)? Use the first button. <strong>Done</strong> returns where you started without opening it. <strong>Cancel</strong> closes this and keeps you on quick log to log something else.
             </p>
             <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
               <button type="button" className="btn btn-mint btn-block"
@@ -426,7 +486,7 @@ export function QuickLogPage () {
               </button>
               <button type="button" className="btn btn-ghost btn-block"
                 onClick={() => setPostSave(null)}>
-                Stay here
+                Cancel
               </button>
             </div>
           </div>
