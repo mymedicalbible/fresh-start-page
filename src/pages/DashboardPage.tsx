@@ -533,6 +533,8 @@ export function DashboardPage () {
   const [searchParams, setSearchParams] = useSearchParams()
   const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
+  /** `upcoming` row is from future schedule vs most recent ended appointment when nothing is upcoming */
+  const [apptBannerSource, setApptBannerSource] = useState<'upcoming' | 'past' | 'none'>('none')
   /** Pending `doctor_visits` counts keyed by `normDoctorName(doctor)` */
   const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
   /** First-seen display name per norm key (for links / copy when there is no upcoming row). */
@@ -724,6 +726,32 @@ export function DashboardPage () {
     async function load () {
       const today = localISODate()
 
+      const { data: docRows } = await supabase
+        .from('doctors')
+        .select('id, name, specialty, archived_at')
+        .eq('user_id', user!.id)
+      const byName = new Map<string, { id: string; name: string; specialty: string | null }>()
+      for (const r of (docRows ?? []) as { id: string; name: string; specialty: string | null; archived_at?: string | null }[]) {
+        if (r.archived_at) continue
+        byName.set(normDoctorName(r.name), { id: r.id, name: r.name, specialty: r.specialty })
+      }
+
+      function enrichApptRows (raw: (UpcomingAppt & { visit_logged?: boolean | null })[]): UpcomingAppt[] {
+        return raw.map((a) => {
+          const docRaw = typeof a.doctor === 'string' ? a.doctor.trim() : ''
+          const docLabel = docRaw || null
+          const hit = docLabel ? byName.get(normDoctorName(docLabel)) : undefined
+          const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
+          const displayDoctor = (hit?.name ?? docLabel ?? '').trim() || null
+          return {
+            ...a,
+            doctor: displayDoctor,
+            specialty: spec,
+            doctorId: hit?.id ?? null,
+          }
+        })
+      }
+
       const { data: apptData, error: apptErr } = await supabase
         .from('appointments')
         .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
@@ -735,37 +763,16 @@ export function DashboardPage () {
       if (apptErr) {
         console.warn('appointments:', apptErr.message)
         setUpcoming([])
+        setApptBannerSource('none')
       } else {
         const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
         const active = rows.filter((r) => r.visit_logged !== true) as UpcomingAppt[]
-
-        const { data: docRows } = await supabase
-          .from('doctors')
-          .select('id, name, specialty, archived_at')
-          .eq('user_id', user!.id)
-        const byName = new Map<string, { id: string; name: string; specialty: string | null }>()
-        for (const r of (docRows ?? []) as { id: string; name: string; specialty: string | null; archived_at?: string | null }[]) {
-          if (r.archived_at) continue
-          byName.set(normDoctorName(r.name), { id: r.id, name: r.name, specialty: r.specialty })
-        }
-        const enrichedAll: UpcomingAppt[] = active.map((a) => {
-          const raw = typeof a.doctor === 'string' ? a.doctor.trim() : ''
-          const docLabel = raw || null
-          const hit = docLabel ? byName.get(normDoctorName(docLabel)) : undefined
-          const spec = (a.specialty?.trim() || hit?.specialty?.trim() || null) as string | null
-          const displayDoctor = (hit?.name ?? docLabel ?? '').trim() || null
-          return {
-            ...a,
-            doctor: displayDoctor,
-            specialty: spec,
-            doctorId: hit?.id ?? null,
-          }
-        })
-        /* Banner shows only the single closest upcoming visit */
+        const enrichedAll = enrichApptRows(active)
         const enriched = enrichedAll.slice(0, 1)
-        setUpcoming(enriched)
 
         if (enriched.length > 0) {
+          setUpcoming(enriched)
+          setApptBannerSource('upcoming')
           const doctorNames = [...new Set(enriched.map((a) => a.doctor).filter(Boolean))]
           const { data: qRows } = await supabase
             .from('doctor_questions')
@@ -780,7 +787,48 @@ export function DashboardPage () {
           setApptPendingQ(qMap)
           scheduleApptNotifications(enriched, qMap)
         } else {
-          setApptPendingQ({})
+          const { data: pastData, error: pastErr } = await supabase
+            .from('appointments')
+            .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
+            .eq('user_id', user!.id)
+            .order('appointment_date', { ascending: false })
+            .order('appointment_time', { ascending: false, nullsFirst: false })
+            .limit(40)
+          if (pastErr) {
+            console.warn('appointments (past banner):', pastErr.message)
+            setUpcoming([])
+            setApptBannerSource('none')
+            setApptPendingQ({})
+          } else {
+            const now = Date.now()
+            const pastRows = (pastData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
+            const ended = pastRows.filter((r) => {
+              const startMs = new Date(`${r.appointment_date}T${r.appointment_time ?? '12:00'}`).getTime()
+              return startMs + 90 * 60 * 1000 <= now
+            })
+            const pick = ended[0]
+            if (pick) {
+              const pastEnriched = enrichApptRows([pick])
+              setUpcoming(pastEnriched)
+              setApptBannerSource('past')
+              const doctorNames = [...new Set(pastEnriched.map((a) => a.doctor).filter(Boolean))]
+              const { data: qRows } = await supabase
+                .from('doctor_questions')
+                .select('doctor')
+                .eq('user_id', user!.id)
+                .eq('status', 'Unanswered')
+                .in('doctor', doctorNames)
+              const qMap: Record<string, number> = {}
+              for (const row of (qRows ?? []) as { doctor: string | null }[]) {
+                if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
+              }
+              setApptPendingQ(qMap)
+            } else {
+              setUpcoming([])
+              setApptBannerSource('none')
+              setApptPendingQ({})
+            }
+          }
         }
       }
 
@@ -1295,21 +1343,23 @@ export function DashboardPage () {
         </header>
 
         {(() => {
-          // Single banner label: upcoming / in progress / just finished (see timing below)
+          // Label: upcoming / in progress / just finished (timing), or most recent past when nothing is upcoming
           const a = upcoming[0]
-          let bannerLabel = 'UPCOMING'
-          if (a) {
+          let bannerLabel = 'APPOINTMENTS'
+          if (apptBannerSource === 'past') {
+            bannerLabel = 'MOST RECENT APPOINTMENT'
+          } else if (apptBannerSource === 'upcoming' && a) {
             const startMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '00:00'}`).getTime()
-            // treat 90 min past start as "over" if no explicit end time
             const endMs = startMs + 90 * 60 * 1000
             if (nowMs >= endMs) bannerLabel = 'MOST RECENT APPOINTMENT'
             else if (nowMs >= startMs) bannerLabel = 'CURRENT APPOINTMENT'
+            else bannerLabel = 'UPCOMING'
           }
           return (
         <section className="scrap-sticky scrap-sticky--upcoming">
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">{bannerLabel}</div>
-          {upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+          {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
               className="btn btn-ghost scrap-reminders-prompt"
@@ -1322,10 +1372,10 @@ export function DashboardPage () {
               Enable visit reminders
             </button>
           )}
-          {upcoming.length === 0 && !hasAnyPendingVisits && (
+          {apptBannerSource === 'none' && !hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
           )}
-          {upcoming.length === 0 && hasAnyPendingVisits && (
+          {apptBannerSource === 'none' && hasAnyPendingVisits && (
             <p className="scrap-body scrap-body--muted">No upcoming appointments — see unfinished logs below.</p>
           )}
           {upcoming.length > 0 && (
