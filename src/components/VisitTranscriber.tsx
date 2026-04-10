@@ -37,13 +37,24 @@ export function VisitTranscriber ({
     setStatus('connecting')
 
     const { data, error: fnErr } = await supabase.functions.invoke('transcribe-visit', {})
-    if (fnErr || !data?.token) {
-      setError('Could not connect to transcription service. Check your API key.')
+    if (fnErr) {
+      setError(fnErr.message || 'Could not reach transcription service.')
+      setStatus('error')
+      return
+    }
+    const payload = data as { token?: string; error?: string } | null
+    if (payload?.error) {
+      setError(payload.error)
+      setStatus('error')
+      return
+    }
+    if (!payload?.token) {
+      setError('No transcription token returned.')
       setStatus('error')
       return
     }
 
-    const token = data.token as string
+    const token = payload.token
     const socket = new WebSocket(
       `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`
     )
