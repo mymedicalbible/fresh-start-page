@@ -12,6 +12,12 @@ export type ExtractedVisitFields = {
   summary: { field: string; value: string; destination: string }[]
 }
 
+/** Passed to visit log after transcription + extract (wizard or dashboard). */
+export type TranscriptExtractPayload = {
+  fields: ExtractedVisitFields
+  transcript: string
+}
+
 /** Pull a JSON object out of LLM output (handles extra prose or markdown). */
 function parseJsonObjectFromText (raw: string): ExtractedVisitFields | null {
   const clean = raw.replace(/```json|```/gi, '').trim()

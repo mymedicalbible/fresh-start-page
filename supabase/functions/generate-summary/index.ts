@@ -4,7 +4,9 @@
 // Deploy: supabase functions deploy generate-summary
 // Secrets: ANTHROPIC_API_KEY (required for default path)
 // Optional: OPENAI_API_KEY, OPENAI_MODEL (default gpt-4o-mini)
-// Optional: ANTHROPIC_MODEL_FAST (default claude-3-haiku-20240307), ANTHROPIC_MODEL_THOROUGH (default claude-3-5-sonnet-20241022)
+// Optional: ANTHROPIC_MODEL_THOROUGH (default claude-sonnet-4-6) — used for handoff + extract
+// Optional: ANTHROPIC_MODEL_EXTRACT — if set, overrides model for mode=extract only
+// Note: claude-3-5-sonnet-20241022 was retired 2025-10-28; see Anthropic model deprecations.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -13,12 +15,25 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const MODEL_FAST = Deno.env.get('ANTHROPIC_MODEL_FAST') ?? 'claude-3-haiku-20240307'
-const MODEL_THOROUGH = Deno.env.get('ANTHROPIC_MODEL_THOROUGH') ?? 'claude-3-5-sonnet-20241022'
+/** Current Sonnet — 3.5 Sonnet IDs are retired and return 404 from the API. */
+const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
-function modelForMode (mode: string): string {
-  return mode === 'fast' ? MODEL_FAST : MODEL_THOROUGH
+/** Retired IDs sometimes remain in Supabase secrets; map to a working model. */
+const RETIRED_ANTHROPIC_MODELS: Record<string, string> = {
+  'claude-3-5-sonnet-20241022': 'claude-sonnet-4-6',
+  'claude-3-5-sonnet-20240620': 'claude-sonnet-4-6',
+  'claude-3-7-sonnet-20250219': 'claude-sonnet-4-6',
 }
+
+/** Reject mistaken secret paste (API key in model env). Anthropic keys start with `sk-ant-`. */
+function anthropicModelFromEnv (envName: string, fallback: string): string {
+  const v = (Deno.env.get(envName) ?? '').trim()
+  if (!v) return fallback
+  if (v.startsWith('sk-ant-')) return fallback
+  return RETIRED_ANTHROPIC_MODELS[v] ?? v
+}
+
+const MODEL_THOROUGH = anthropicModelFromEnv('ANTHROPIC_MODEL_THOROUGH', DEFAULT_MODEL)
 
 const SYSTEM_PROMPT = `You prepare a clinical handoff the patient will give a physician. It must read like a nurse's verbal handoff: a short story first (so what), then what needs attention today, then supporting detail.
 
@@ -85,7 +100,6 @@ serve(async (req: Request) => {
 
     let userContent: string
     let systemPromptForRequest: string
-    let mode: 'fast' | 'thorough'
 
     if (isExtract) {
       const customPrompt = (body.customPrompt as string | undefined)?.trim()
@@ -94,11 +108,9 @@ serve(async (req: Request) => {
       }
       userContent = customPrompt
       systemPromptForRequest = 'You follow the user instructions exactly.'
-      mode = 'thorough'
     } else {
       const patientData = (body.patientData ?? body.prompt) as string | undefined
       const patientFocus = (body.patientFocus as string | undefined)?.trim() ?? ''
-      mode = body.mode === 'fast' ? 'fast' : 'thorough'
 
       if (!patientData?.trim()) {
         throw new Error('No patientData provided.')
@@ -113,9 +125,9 @@ serve(async (req: Request) => {
       systemPromptForRequest = SYSTEM_PROMPT
     }
 
-    // JSON extraction uses Haiku by default (fast, reliable); override with ANTHROPIC_MODEL_EXTRACT.
-    const extractModel = Deno.env.get('ANTHROPIC_MODEL_EXTRACT') ?? 'claude-3-haiku-20240307'
-    const model = isExtract ? extractModel : modelForMode(mode)
+    const model = isExtract
+      ? anthropicModelFromEnv('ANTHROPIC_MODEL_EXTRACT', MODEL_THOROUGH)
+      : MODEL_THOROUGH
     const anthropicKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
 
     let summary = ''

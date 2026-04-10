@@ -19,7 +19,7 @@ import {
 } from '../lib/visitWizardDraft'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 import { VisitTranscriber } from './VisitTranscriber'
-import type { ExtractedVisitFields } from '../lib/transcriptExtract'
+import type { ExtractedVisitFields, TranscriptExtractPayload } from '../lib/transcriptExtract'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -125,8 +125,48 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const [leaveOpen, setLeaveOpen] = useState(false)
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
   const finalizeInFlightRef = useRef(false)
+  const transcriptBootstrappedRef = useRef(false)
 
   const effectiveName = doctorMode === 'new' ? newDoctorName.trim() : selectedName
+
+  const applyExtractedVisitFields = useCallback((fields: ExtractedVisitFields) => {
+    if (fields.findings) setFindings(fields.findings)
+    if (fields.instructions) setInstructions(fields.instructions)
+    if (fields.notes) setNotes((prev) => (prev ? `${prev}\n${fields.notes}` : fields.notes))
+    if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
+    if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
+    if (fields.tests?.length) {
+      setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
+      setOpenTests(true)
+    }
+    if (fields.medications?.length) {
+      const [first, ...rest] = fields.medications
+      if (first?.medication?.trim()) {
+        setNewMedEntry({
+          medication: first.medication.trim(),
+          dose: (first.dose ?? '').trim(),
+          frequency: (first.frequency ?? '').trim(),
+          prn: false,
+        })
+        setOpenMeds(true)
+        if (rest.length) {
+          const extra = rest
+            .filter((m) => m.medication?.trim())
+            .map((m) =>
+              `${m.medication.trim()}${m.dose ? ` ${m.dose}` : ''}${m.frequency ? ` — ${m.frequency}` : ''}`,
+            )
+            .join('; ')
+          if (extra) {
+            setNotes((prev) =>
+              (prev ? `${prev}\n` : '') + `Additional medications (from transcript): ${extra}`,
+            )
+          }
+        }
+      }
+    }
+    if (fields.findings || fields.instructions) setOpenClinical(true)
+    if (fields.follow_up_date?.trim() || fields.follow_up_time?.trim()) setOpenNextAppt(true)
+  }, [])
 
   const buildDraftSnapshot = useCallback((): VisitWizardDraftV1 | null => {
     if (!user) return null
@@ -208,15 +248,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setOpenDocs(false)
     setOpenNextAppt(hasNext)
   }
-
-  useEffect(() => {
-    if (!user || resumeVisitId) return
-    const d = loadVisitWizardDraft(user.id)
-    if (d && draftLooksMeaningful(d)) {
-      resumeDraftRef.current = d
-      setResumePrompt(true)
-    }
-  }, [user, resumeVisitId])
 
   function finishLeave () {
     setLeaveOpen(false)
@@ -650,37 +681,127 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     )
   }, [pastReasons, pinnedReasons, chipCtx, chipPressing])
 
-  function handleTranscriptExtracted (fields: ExtractedVisitFields) {
-    if (fields.findings) setFindings(fields.findings)
-    if (fields.instructions) setInstructions(fields.instructions)
-    if (fields.notes) setNotes((prev) => prev ? prev + '\n' + fields.notes : fields.notes)
-    if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
-    if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
-    if (fields.tests?.length) {
-      setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
-      setOpenTests(true)
+  function handleTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
+    applyExtractedVisitFields(fields)
+    if (transcript.trim()) {
+      setNotes((prev) => {
+        const block = `— Transcript —\n${transcript.trim()}`
+        return prev ? `${prev}\n\n${block}` : block
+      })
     }
-    if (fields.findings || fields.instructions) setOpenClinical(true)
   }
 
+  /** Dashboard → visit log: create visit row and jump to step 3 with extracted fields. */
   useEffect(() => {
+    if (!user || resumeVisitId || transcriptBootstrappedRef.current) return
+    const bundleKey = 'mb-pending-transcript-bundle'
+    const legacyKey = 'mb-pending-transcript-extract'
+    let bundleRaw: string | null = null
+    let legacyRaw: string | null = null
     try {
-      const raw = sessionStorage.getItem('mb-pending-transcript-extract')
-      if (!raw) return
-      sessionStorage.removeItem('mb-pending-transcript-extract')
-      const fields = JSON.parse(raw) as ExtractedVisitFields
-      if (fields.findings) setFindings(fields.findings)
-      if (fields.instructions) setInstructions(fields.instructions)
-      if (fields.notes) setNotes((prev) => prev ? prev + '\n' + fields.notes : fields.notes)
-      if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
-      if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
-      if (fields.tests?.length) {
-        setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
-        setOpenTests(true)
-      }
-      if (fields.findings || fields.instructions) setOpenClinical(true)
+      bundleRaw = sessionStorage.getItem(bundleKey)
+      legacyRaw = sessionStorage.getItem(legacyKey)
     } catch { /* ignore */ }
-  }, [])
+    if (!bundleRaw && !legacyRaw) return
+
+    transcriptBootstrappedRef.current = true
+    clearVisitWizardDraft()
+
+    let fields: ExtractedVisitFields
+    let transcriptText = ''
+    let bundleDoctor = ''
+    let visitDateForRow = todayISO()
+
+    if (bundleRaw) {
+      try {
+        const b = JSON.parse(bundleRaw) as {
+          fields: ExtractedVisitFields
+          transcript?: string
+          doctorName?: string
+          visitDate?: string
+        }
+        sessionStorage.removeItem(bundleKey)
+        fields = b.fields
+        transcriptText = typeof b.transcript === 'string' ? b.transcript : ''
+        bundleDoctor = (b.doctorName ?? '').trim()
+        const vd = (b.visitDate ?? '').trim()
+        if (/^\d{4}-\d{2}-\d{2}/.test(vd)) {
+          visitDateForRow = vd.slice(0, 10)
+          setVisitDate(visitDateForRow)
+        }
+      } catch {
+        transcriptBootstrappedRef.current = false
+        return
+      }
+    } else {
+      try {
+        fields = JSON.parse(legacyRaw!) as ExtractedVisitFields
+        sessionStorage.removeItem(legacyKey)
+      } catch {
+        transcriptBootstrappedRef.current = false
+        return
+      }
+    }
+
+    const doctorLabel = bundleDoctor || 'Visit (from transcript)'
+    setDoctorMode('new')
+    setNewDoctorName(doctorLabel)
+    setSelectedName('')
+    setReason((r) => (r.trim() ? r : 'Visit (from transcript)'))
+
+    applyExtractedVisitFields(fields)
+    if (transcriptText.trim()) {
+      setNotes((prev) => {
+        const block = `— Transcript —\n${transcriptText.trim()}`
+        return prev ? `${prev}\n\n${block}` : block
+      })
+    }
+
+    void (async () => {
+      const payload = {
+        user_id: user.id,
+        visit_date: visitDateForRow,
+        visit_time: nowTime(),
+        doctor: doctorLabel,
+        specialty: null as string | null,
+        reason: 'Visit (from transcript)',
+        status: 'pending' as const,
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { status: _st, ...payloadNoStatus } = payload
+      let { data: rows, error: e } = await supabase.from('doctor_visits').insert(payload).select('id')
+      if (e?.message?.toLowerCase().includes('status')) {
+        const res2 = await supabase.from('doctor_visits').insert(payloadNoStatus).select('id')
+        rows = res2.data
+        e = res2.error
+      }
+      if (e) {
+        setError(e.message)
+        transcriptBootstrappedRef.current = false
+        return
+      }
+      const newId = rows?.[0]?.id as string | undefined
+      if (!newId) {
+        setError('Could not create visit from transcript. Try logging the visit manually.')
+        transcriptBootstrappedRef.current = false
+        return
+      }
+      setVisitId(newId)
+      setStep(3)
+    })()
+  }, [user, resumeVisitId, applyExtractedVisitFields])
+
+  useEffect(() => {
+    if (!user || resumeVisitId) return
+    try {
+      if (sessionStorage.getItem('mb-pending-transcript-bundle') || sessionStorage.getItem('mb-pending-transcript-extract')) return
+    } catch { /* ignore */ }
+    const d = loadVisitWizardDraft(user.id)
+    if (d && draftLooksMeaningful(d)) {
+      resumeDraftRef.current = d
+      setResumePrompt(true)
+    }
+  }, [user, resumeVisitId])
 
   if (!user) return null
 

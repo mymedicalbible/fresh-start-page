@@ -17,8 +17,8 @@ import { pushSummaryArchive } from '../lib/summaryArchive'
 import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
-import { VisitTranscriber } from '../components/VisitTranscriber'
-import type { ExtractedVisitFields } from '../lib/transcriptExtract'
+import { VisitTranscriber, type VisitTranscriberHandle } from '../components/VisitTranscriber'
+import type { TranscriptExtractPayload } from '../lib/transcriptExtract'
 import {
   clearApptQsDraft,
   loadApptQsDraft,
@@ -210,14 +210,12 @@ function NarrativeRenderer ({ text }: { text: string }) {
 function SummaryModal ({
   summary,
   loading,
-  mode,
   scope,
   focus,
   painChartPdfRef,
   episodeChartPdfRef,
   handoffPdfVisualRef,
   onFocusChange,
-  onModeChange,
   onScopeChange,
   onGenerate,
   onDone,
@@ -226,14 +224,12 @@ function SummaryModal ({
 }: {
   summary: HealthSummary | null
   loading: boolean
-  mode: 'fast' | 'thorough'
   scope: 'full' | 'symptomsPainMeds'
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
   episodeChartPdfRef: RefObject<HTMLDivElement>
   handoffPdfVisualRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
-  onModeChange: (v: 'fast' | 'thorough') => void
   onScopeChange: (v: 'full' | 'symptomsPainMeds') => void
   onGenerate: () => void
   onDone: () => void
@@ -312,20 +308,8 @@ function SummaryModal ({
             </button>
           </div>
 
-          {/* Mode + generate */}
+          {/* Generate */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-            <button type="button"
-              className={`btn ${mode === 'thorough' ? 'btn-mint' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-              disabled={loading} onClick={() => onModeChange('thorough')}>
-              Thorough
-            </button>
-            <button type="button"
-              className={`btn ${mode === 'fast' ? 'btn-mint' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-              disabled={loading} onClick={() => onModeChange('fast')}>
-              Fast
-            </button>
             <button type="button"
               className="btn btn-primary"
               style={{ fontSize: '0.82rem' }}
@@ -548,7 +532,6 @@ export function DashboardPage () {
   const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const [summaryMode, setSummaryMode] = useState<'fast' | 'thorough'>('thorough')
   const [summaryScope, setSummaryScope] = useState<'full' | 'symptomsPainMeds'>(() => {
     try {
       const v = localStorage.getItem('mb-handoff-summary-scope')
@@ -568,6 +551,7 @@ export function DashboardPage () {
   const painChartPdfRef = useRef<HTMLDivElement>(null)
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
+  const dashTranscriberRef = useRef<VisitTranscriberHandle>(null)
   const [transcribeModalOpen, setTranscribeModalOpen] = useState(false)
 
   /** Live clock for banner label (ticks every 30 s) */
@@ -1109,12 +1093,21 @@ export function DashboardPage () {
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   const hasAnyPendingVisits = pendingDockEntries.length > 0
 
-  function handleDashTranscriptExtracted (fields: ExtractedVisitFields) {
+  function handleDashTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
     try {
-      sessionStorage.setItem('mb-pending-transcript-extract', JSON.stringify(fields))
+      sessionStorage.setItem('mb-pending-transcript-bundle', JSON.stringify({
+        fields,
+        transcript,
+        doctorName: '',
+        visitDate: localISODate(),
+      }))
     } catch { /* ignore */ }
     setTranscribeModalOpen(false)
     navigate(`/app/visits?new=1&returnTo=${dashReturnTo}`)
+  }
+
+  function closeTranscribeModal () {
+    dashTranscriberRef.current?.tryCloseParent(() => setTranscribeModalOpen(false))
   }
 
   return (
@@ -1327,14 +1320,12 @@ export function DashboardPage () {
         <SummaryModal
           summary={summary}
           loading={summaryLoading}
-          mode={summaryMode}
           scope={summaryScope}
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
           episodeChartPdfRef={episodeChartPdfRef}
           handoffPdfVisualRef={handoffPdfVisualRef}
           onFocusChange={setPatientFocus}
-          onModeChange={setSummaryMode}
           onScopeChange={persistSummaryScope}
           onGenerate={generateSummary}
           onDone={handleSummaryFooterDone}
@@ -1400,7 +1391,7 @@ export function DashboardPage () {
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setTranscribeModalOpen(false)}
+          onClick={closeTranscribeModal}
         >
           <div
             style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}
@@ -1411,12 +1402,13 @@ export function DashboardPage () {
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: '0.85rem' }}
-                onClick={() => setTranscribeModalOpen(false)}
+                onClick={closeTranscribeModal}
               >
                 Close
               </button>
             </div>
             <VisitTranscriber
+              ref={dashTranscriberRef}
               doctorName=""
               visitDate={localISODate()}
               existingMeds={[]}

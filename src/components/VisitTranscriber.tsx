@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { extractVisitFieldsFromTranscript, type ExtractedVisitFields } from '../lib/transcriptExtract'
+import { extractVisitFieldsFromTranscript, type ExtractedVisitFields, type TranscriptExtractPayload } from '../lib/transcriptExtract'
+import { pushTranscriptArchive } from '../lib/transcriptArchive'
 import { downloadTranscriptPdf } from '../lib/transcriptPdf'
 
 type Props = {
@@ -9,16 +10,40 @@ type Props = {
   visitDate: string
   existingMeds: string[]
   knownDiagnoses: string[]
-  onExtracted: (fields: ExtractedVisitFields) => void
+  onExtracted: (payload: TranscriptExtractPayload) => void
 }
 
-export function VisitTranscriber ({
+export type VisitTranscriberHandle = {
+  /** Prompt to archive transcript (if any), then run `done` (e.g. close parent modal). */
+  tryCloseParent: (done: () => void) => void
+}
+
+function offerSaveTranscriptCopy (opts: {
+  transcript: string
+  doctorName: string
+  visitDate: string
+  extracted: ExtractedVisitFields | null
+}) {
+  if (!opts.transcript.trim()) return
+  const save = window.confirm(
+    'Save a copy of this transcript under Records → Transcripts (Flares page)?\n\nOK = save\nCancel = don\'t save'
+  )
+  if (!save) return
+  pushTranscriptArchive({
+    doctorName: opts.doctorName.trim() || 'Unknown doctor',
+    visitDate: opts.visitDate,
+    transcript: opts.transcript.trim(),
+    extracted: opts.extracted,
+  })
+}
+
+export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(function VisitTranscriber ({
   doctorName,
   visitDate,
   existingMeds,
   knownDiagnoses,
   onExtracted,
-}: Props) {
+}, ref) {
   const [_recording, setRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [status, setStatus] = useState<'idle' | 'connecting' | 'recording' | 'processing' | 'done' | 'error'>('idle')
@@ -30,6 +55,13 @@ export function VisitTranscriber ({
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    tryCloseParent (done: () => void) {
+      offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
+      done()
+    },
+  }), [transcript, doctorName, visitDate, extracted])
 
   async function startRecording () {
     setError(null)
@@ -189,7 +221,13 @@ export function VisitTranscriber ({
 
   function confirmAndFill () {
     if (!extracted) return
-    onExtracted(extracted)
+    offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
+    onExtracted({ fields: extracted, transcript })
+    setShowConfirm(false)
+  }
+
+  function cancelConfirmSheet () {
+    offerSaveTranscriptCopy({ transcript, doctorName, visitDate, extracted })
     setShowConfirm(false)
   }
 
@@ -306,7 +344,7 @@ export function VisitTranscriber ({
                 type="button"
                 className="btn btn-secondary"
                 style={{ flex: 1, minHeight: 50, fontSize: '1rem', fontWeight: 600 }}
-                onClick={() => setShowConfirm(false)}
+                onClick={cancelConfirmSheet}
               >
                 Cancel
               </button>
@@ -324,4 +362,4 @@ export function VisitTranscriber ({
       )}
     </div>
   )
-}
+})

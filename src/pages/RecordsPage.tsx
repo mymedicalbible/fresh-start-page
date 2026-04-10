@@ -4,9 +4,10 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
+import { deleteTranscriptArchiveItem, loadTranscriptArchive, type ArchivedTranscript } from '../lib/transcriptArchive'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 
-type Tab = 'pain' | 'symptoms' | 'summaries'
+type Tab = 'pain' | 'symptoms' | 'summaries' | 'transcripts'
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -23,7 +24,7 @@ type SymptomRow = {
 
 function tabFromParams (sp: URLSearchParams): Tab {
   const t = sp.get('tab')
-  if (t === 'pain' || t === 'symptoms' || t === 'summaries') return t
+  if (t === 'pain' || t === 'symptoms' || t === 'summaries' || t === 'transcripts') return t
   return 'pain'
 }
 
@@ -37,6 +38,8 @@ export function RecordsPage () {
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
   const [summaries, setSummaries] = useState<ArchivedHandoffSummary[]>([])
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null)
+  const [transcripts, setTranscripts] = useState<ArchivedTranscript[]>([])
+  const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removingFeature, setRemovingFeature] = useState<string | null>(null)
 
@@ -67,6 +70,9 @@ export function RecordsPage () {
   useEffect(() => {
     if (tab === 'summaries') {
       setSummaries(loadSummaryArchive())
+    }
+    if (tab === 'transcripts') {
+      setTranscripts(loadTranscriptArchive())
     }
   }, [tab])
 
@@ -99,12 +105,19 @@ export function RecordsPage () {
     if (expandedSummaryId === id) setExpandedSummaryId(null)
   }
 
+  function removeArchivedTranscript (id: string) {
+    deleteTranscriptArchiveItem(id)
+    setTranscripts(loadTranscriptArchive())
+    if (expandedTranscriptId === id) setExpandedTranscriptId(null)
+  }
+
   if (!user) return null
 
   const tabLabels: [Tab, string][] = [
     ['pain', 'Pain'],
     ['symptoms', 'Episodes'],
     ['summaries', 'Summaries'],
+    ['transcripts', 'Transcripts'],
   ]
 
   return (
@@ -129,10 +142,12 @@ export function RecordsPage () {
 
         <Link to="/app/visits" className="btn btn-ghost">View all visits →</Link>
 
-        <div className="form-group" style={{ marginBottom: 6, marginTop: 10 }}>
-          <label>Search</label>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" />
-        </div>
+        {(tab === 'pain' || tab === 'symptoms') && (
+          <div className="form-group" style={{ marginBottom: 6, marginTop: 10 }}>
+            <label>Search</label>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" />
+          </div>
+        )}
       </div>
 
       {/* PAIN */}
@@ -260,6 +275,64 @@ export function RecordsPage () {
                     }}
                   >
                     {a.text}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* VISIT TRANSCRIPTS (saved from transcription flow) */}
+      {tab === 'transcripts' && (
+        <div className="card">
+          <h3>Transcript archive</h3>
+          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
+            When you choose to save from visit transcription (dashboard mic or visit log), a copy is kept here. This device only.
+          </p>
+          {transcripts.length === 0 ? (
+            <p className="muted">
+              No saved transcripts yet. After you record a visit, confirm saving when prompted — or use <strong>Add to visit log</strong> / <strong>Close</strong> and choose to save a copy.
+            </p>
+          ) : null}
+          {transcripts.map((a) => {
+            const open = expandedTranscriptId === a.id
+            return (
+              <div key={a.id} className="list-item">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <div>
+                    <strong style={{ fontSize: '0.92rem' }}>{new Date(a.savedAtIso).toLocaleString()}</strong>
+                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                      {a.visitDate} · {a.doctorName || 'Doctor not set'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                      onClick={() => setExpandedTranscriptId(open ? null : a.id)}>
+                      {open ? 'Collapse' : 'Read'}
+                    </button>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
+                      onClick={() => removeArchivedTranscript(a.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                {open && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: '12px 14px',
+                      background: 'var(--bg)',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      fontSize: '0.88rem',
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: 360,
+                      overflowY: 'auto',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {a.transcript}
                   </div>
                 )}
               </div>
