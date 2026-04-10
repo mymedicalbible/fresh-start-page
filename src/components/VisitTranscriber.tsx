@@ -57,9 +57,10 @@ export function VisitTranscriber ({
       setStatus('error')
       return
     }
-    const payload = data as { token?: string; error?: string } | null
+    const payload = data as { token?: string; error?: string; build?: string } | null
     if (payload?.error) {
-      setError(payload.error)
+      const b = payload.build ? ` [${payload.build}]` : ''
+      setError(`${payload.error}${b}`)
       setStatus('error')
       return
     }
