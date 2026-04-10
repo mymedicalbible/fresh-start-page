@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Supabase Edge Function — clinical handoff summary (Claude primary; optional OpenAI on 429)
 // SYSTEM_PROMPT — keep in sync with src/lib/aiHandoffPrompt.ts (HANDOFF_AI_SYSTEM_PROMPT)
 // Deploy: supabase functions deploy generate-summary
