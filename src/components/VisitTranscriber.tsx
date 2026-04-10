@@ -70,8 +70,14 @@ export function VisitTranscriber ({
     }
 
     const token = payload.token
+    const wsParams = new URLSearchParams({
+      sample_rate: '16000',
+      speech_model: 'u3-rt-pro',
+      format_turns: 'true',
+      token,
+    })
     const socket = new WebSocket(
-      `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`
+      `wss://streaming.assemblyai.com/v3/ws?${wsParams.toString()}`
     )
     socketRef.current = socket
 
@@ -102,15 +108,29 @@ export function VisitTranscriber ({
       } catch {
         setError('Microphone access denied.')
         setStatus('error')
-        socket.close()
+        stopAll()
       }
     }
 
     socket.onmessage = (msg) => {
-      const parsed = JSON.parse(msg.data as string)
-      if (parsed.message_type === 'FinalTranscript' && parsed.text) {
-        setTranscript((prev) => prev + ' ' + parsed.text)
-      }
+      try {
+        const parsed = JSON.parse(msg.data as string) as {
+          type?: string
+          message_type?: string
+          text?: string
+          transcript?: string
+          end_of_turn?: boolean
+        }
+        if (parsed.type === 'Turn' && parsed.end_of_turn && parsed.transcript?.trim()) {
+          setTranscript((prev) =>
+            (prev ? `${prev} ${parsed.transcript}` : parsed.transcript!).trim(),
+          )
+          return
+        }
+        if (parsed.message_type === 'FinalTranscript' && parsed.text) {
+          setTranscript((prev) => prev + ' ' + parsed.text)
+        }
+      } catch { /* ignore malformed frames */ }
     }
 
     socket.onerror = () => {
@@ -120,19 +140,31 @@ export function VisitTranscriber ({
     }
 
     socket.onclose = () => {
-      stopAll()
+      socketRef.current = null
+      stopMediaTracks()
+      setRecording(false)
     }
   }
 
-  function stopAll () {
+  function stopMediaTracks () {
     processorRef.current?.disconnect()
     audioCtxRef.current?.close()
     streamRef.current?.getTracks().forEach((t) => t.stop())
-    socketRef.current?.close()
     processorRef.current = null
     audioCtxRef.current = null
     streamRef.current = null
+  }
+
+  function stopAll () {
+    const ws = socketRef.current
     socketRef.current = null
+    stopMediaTracks()
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'Terminate' }))
+      } catch { /* ignore */ }
+    }
+    ws?.close()
     setRecording(false)
   }
 

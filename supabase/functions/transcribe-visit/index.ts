@@ -39,20 +39,28 @@ serve(async (req) => {
       return json({ error: 'Missing ASSEMBLYAI_API_KEY — add it under Supabase → Edge Functions → Secrets.' })
     }
 
-    const res = await fetch('https://api.assemblyai.com/v2/realtime/token', {
-      method: 'POST',
+    // v2 api.assemblyai.com/v2/realtime/token is removed (404). Use v3 streaming token.
+    const tokenUrl = new URL('https://streaming.assemblyai.com/v3/token')
+    tokenUrl.searchParams.set('expires_in_seconds', '600')
+    tokenUrl.searchParams.set('max_session_duration_seconds', '10800')
+
+    const res = await fetch(tokenUrl.toString(), {
+      method: 'GET',
       headers: {
         authorization: ASSEMBLYAI_API_KEY,
-        'content-type': 'application/json',
       },
-      body: JSON.stringify({ expires_in: 3600 }),
     })
 
+    const rawText = await res.text()
     let data: Record<string, unknown>
     try {
-      data = (await res.json()) as Record<string, unknown>
+      data = JSON.parse(rawText) as Record<string, unknown>
     } catch {
-      return json({ error: `AssemblyAI: response was not JSON (HTTP ${res.status})` })
+      return json({
+        error:
+          `AssemblyAI: response was not JSON (HTTP ${res.status})` +
+          (rawText ? ` — ${rawText.slice(0, 200)}` : ''),
+      })
     }
 
     if (!res.ok) {
