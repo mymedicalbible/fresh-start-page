@@ -80,19 +80,37 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json()
-    const patientData = (body.patientData ?? body.prompt) as string | undefined
-    const patientFocus = (body.patientFocus as string | undefined)?.trim() ?? ''
-    const mode = body.mode === 'fast' ? 'fast' : 'thorough'
+    const isExtract = body.mode === 'extract'
 
-    if (!patientData?.trim()) {
-      throw new Error('No patientData provided.')
+    let userContent: string
+    let systemPromptForRequest: string
+    let mode: 'fast' | 'thorough'
+
+    if (isExtract) {
+      const customPrompt = (body.customPrompt as string | undefined)?.trim()
+      if (!customPrompt) {
+        throw new Error('No customPrompt provided.')
+      }
+      userContent = customPrompt
+      systemPromptForRequest = 'You follow the user instructions exactly.'
+      mode = 'thorough'
+    } else {
+      const patientData = (body.patientData ?? body.prompt) as string | undefined
+      const patientFocus = (body.patientFocus as string | undefined)?.trim() ?? ''
+      mode = body.mode === 'fast' ? 'fast' : 'thorough'
+
+      if (!patientData?.trim()) {
+        throw new Error('No patientData provided.')
+      }
+
+      userContent = [
+        patientFocus ? `PATIENT PRIORITY (center the narrative on this when relevant):\n${patientFocus}\n\n` : '',
+        'PATIENT DATA (from app):\n',
+        patientData.trim(),
+      ].join('')
+
+      systemPromptForRequest = SYSTEM_PROMPT
     }
-
-    const userContent = [
-      patientFocus ? `PATIENT PRIORITY (center the narrative on this when relevant):\n${patientFocus}\n\n` : '',
-      'PATIENT DATA (from app):\n',
-      patientData.trim(),
-    ].join('')
 
     const model = modelForMode(mode)
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -112,13 +130,13 @@ serve(async (req: Request) => {
           model,
           max_tokens: 4096,
           temperature: 0.3,
-          system: SYSTEM_PROMPT,
+          system: systemPromptForRequest,
           messages: [{ role: 'user', content: userContent }],
         }),
       })
 
       if (res.status === 429) {
-        summary = await tryOpenAI(userContent, SYSTEM_PROMPT)
+        summary = await tryOpenAI(userContent, systemPromptForRequest)
         usedFallback = summary.length > 0
         if (!usedFallback) {
           const errText = await res.text()
@@ -132,9 +150,15 @@ serve(async (req: Request) => {
         summary = data.content?.[0]?.text ?? ''
       }
     } else {
-      summary = await tryOpenAI(userContent, SYSTEM_PROMPT)
+      summary = await tryOpenAI(userContent, systemPromptForRequest)
       usedFallback = summary.length > 0
       if (!summary) throw new Error('ANTHROPIC_API_KEY is not set and OpenAI fallback failed.')
+    }
+
+    if (isExtract) {
+      return new Response(JSON.stringify({ result: summary }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response(JSON.stringify({ summary, model: usedFallback ? 'openai-fallback' : model }), {

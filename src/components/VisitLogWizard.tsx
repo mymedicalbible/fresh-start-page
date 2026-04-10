@@ -18,6 +18,8 @@ import {
   type VisitWizardDraftV1,
 } from '../lib/visitWizardDraft'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
+import { VisitTranscriber } from './VisitTranscriber'
+import type { ExtractedVisitFields } from '../lib/transcriptExtract'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -648,6 +650,19 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     )
   }, [pastReasons, pinnedReasons, chipCtx, chipPressing])
 
+  function handleTranscriptExtracted (fields: ExtractedVisitFields) {
+    if (fields.findings) setFindings(fields.findings)
+    if (fields.instructions) setInstructions(fields.instructions)
+    if (fields.notes) setNotes((prev) => prev ? prev + '\n' + fields.notes : fields.notes)
+    if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
+    if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
+    if (fields.tests?.length) {
+      setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
+      setOpenTests(true)
+    }
+    if (fields.findings || fields.instructions) setOpenClinical(true)
+  }
+
   if (!user) return null
 
   return (
@@ -755,6 +770,13 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
       {step === 2 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
+          <VisitTranscriber
+            doctorName={effectiveName}
+            visitDate={visitDate}
+            existingMeds={dvMeds.map((m) => m.medication)}
+            knownDiagnoses={[]}
+            onExtracted={handleTranscriptExtracted}
+          />
           <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#475569' }}>Questions for this visit</p>
           {questionLines.map((line, i) => (
             <div key={i} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
