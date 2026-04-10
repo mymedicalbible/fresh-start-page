@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { extractVisitFieldsFromTranscript, type ExtractedVisitFields } from '../lib/transcriptExtract'
 import { downloadTranscriptPdf } from '../lib/transcriptPdf'
@@ -38,7 +39,21 @@ export function VisitTranscriber ({
 
     const { data, error: fnErr } = await supabase.functions.invoke('transcribe-visit', {})
     if (fnErr) {
-      setError(fnErr.message || 'Could not reach transcription service.')
+      let shown = fnErr.message || 'Could not reach transcription service.'
+      if (fnErr instanceof FunctionsHttpError && fnErr.context instanceof Response) {
+        try {
+          const ct = fnErr.context.headers.get('Content-Type') ?? ''
+          if (ct.includes('application/json')) {
+            const body = (await fnErr.context.json()) as { error?: string; message?: string }
+            if (typeof body.error === 'string' && body.error.trim()) shown = body.error.trim()
+            else if (typeof body.message === 'string' && body.message.trim()) shown = body.message.trim()
+          } else {
+            const text = (await fnErr.context.text()).trim()
+            if (text) shown = text.slice(0, 500)
+          }
+        } catch { /* keep shown */ }
+      }
+      setError(shown)
       setStatus('error')
       return
     }
