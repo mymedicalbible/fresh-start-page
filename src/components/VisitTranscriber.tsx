@@ -177,12 +177,12 @@ export function VisitTranscriber ({
       existingMeds,
       knownDiagnoses,
     })
-    if (!result) {
-      setError('Could not extract visit information from transcript.')
+    if (!result.ok) {
+      setError(result.message)
       setStatus('error')
       return
     }
-    setExtracted(result)
+    setExtracted(result.fields)
     setShowConfirm(true)
     setStatus('done')
   }

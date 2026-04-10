@@ -113,8 +113,10 @@ serve(async (req: Request) => {
       systemPromptForRequest = SYSTEM_PROMPT
     }
 
-    const model = modelForMode(mode)
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+    // JSON extraction uses Haiku by default (fast, reliable); override with ANTHROPIC_MODEL_EXTRACT.
+    const extractModel = Deno.env.get('ANTHROPIC_MODEL_EXTRACT') ?? 'claude-3-haiku-20240307'
+    const model = isExtract ? extractModel : modelForMode(mode)
+    const anthropicKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
 
     let summary = ''
     let usedFallback = false
