@@ -663,6 +663,25 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     if (fields.findings || fields.instructions) setOpenClinical(true)
   }
 
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('mb-pending-transcript-extract')
+      if (!raw) return
+      sessionStorage.removeItem('mb-pending-transcript-extract')
+      const fields = JSON.parse(raw) as ExtractedVisitFields
+      if (fields.findings) setFindings(fields.findings)
+      if (fields.instructions) setInstructions(fields.instructions)
+      if (fields.notes) setNotes((prev) => prev ? prev + '\n' + fields.notes : fields.notes)
+      if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
+      if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
+      if (fields.tests?.length) {
+        setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
+        setOpenTests(true)
+      }
+      if (fields.findings || fields.instructions) setOpenClinical(true)
+    } catch { /* ignore */ }
+  }, [])
+
   if (!user) return null
 
   return (

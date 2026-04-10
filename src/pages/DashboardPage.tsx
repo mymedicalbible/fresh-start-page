@@ -17,6 +17,8 @@ import { pushSummaryArchive } from '../lib/summaryArchive'
 import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
+import { VisitTranscriber } from '../components/VisitTranscriber'
+import type { ExtractedVisitFields } from '../lib/transcriptExtract'
 import {
   clearApptQsDraft,
   loadApptQsDraft,
@@ -529,6 +531,7 @@ function PendingVisitStickers ({
 // ────────────────────────────────────────────────────────────
 export function DashboardPage () {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { pathname: dashPath, search: dashSearch } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
@@ -565,6 +568,7 @@ export function DashboardPage () {
   const painChartPdfRef = useRef<HTMLDivElement>(null)
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
+  const [transcribeModalOpen, setTranscribeModalOpen] = useState(false)
 
   /** Live clock for banner label (ticks every 30 s) */
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -1105,6 +1109,14 @@ export function DashboardPage () {
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   const hasAnyPendingVisits = pendingDockEntries.length > 0
 
+  function handleDashTranscriptExtracted (fields: ExtractedVisitFields) {
+    try {
+      sessionStorage.setItem('mb-pending-transcript-extract', JSON.stringify(fields))
+    } catch { /* ignore */ }
+    setTranscribeModalOpen(false)
+    navigate(`/app/visits?new=1&returnTo=${dashReturnTo}`)
+  }
+
   return (
     <>
       {/* SUMMARY MODAL */}
@@ -1329,6 +1341,90 @@ export function DashboardPage () {
           onCancelRequest={handleSummaryCancelRequest}
           onDownload={downloadPdf}
         />
+      )}
+
+      <button
+        type="button"
+        aria-label="Open visit transcription"
+        onClick={() => setTranscribeModalOpen(true)}
+        style={{
+          position: 'fixed',
+          top: 14,
+          right: 14,
+          zIndex: 60,
+          width: 58,
+          height: 58,
+          padding: 0,
+          border: 'none',
+          background: 'none',
+          cursor: 'pointer',
+          filter: 'drop-shadow(0 3px 6px rgba(74,55,40,0.28))',
+        }}
+      >
+        <span style={{ position: 'relative', display: 'block', width: 58, height: 58 }}>
+          <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden style={{ display: 'block' }}>
+            {[0, 60, 120, 180, 240, 300].map((deg) => (
+              <ellipse
+                key={deg}
+                cx="29"
+                cy="11"
+                rx="9"
+                ry="14"
+                fill="#fbcfe8"
+                stroke="#f9a8d4"
+                strokeWidth="0.8"
+                transform={`rotate(${deg} 29 29)`}
+              />
+            ))}
+            <circle cx="29" cy="29" r="14" fill="#fecdd3" stroke="#f472b6" strokeWidth="1.2" />
+            <circle cx="29" cy="29" r="9" fill="#dc2626" stroke="#fff" strokeWidth="2.5" />
+            <circle cx="29" cy="29" r="3.5" fill="#fecaca" opacity="0.95" />
+          </svg>
+        </span>
+      </button>
+
+      {transcribeModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Visit transcription"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 205,
+            background: 'rgba(30,77,52,0.2)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setTranscribeModalOpen(false)}
+        >
+          <div
+            style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: '0.85rem' }}
+                onClick={() => setTranscribeModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <VisitTranscriber
+              doctorName=""
+              visitDate={localISODate()}
+              existingMeds={[]}
+              knownDiagnoses={[]}
+              onExtracted={handleDashTranscriptExtracted}
+            />
+          </div>
+        </div>
       )}
 
       <div className="scrapbook-dashboard">
