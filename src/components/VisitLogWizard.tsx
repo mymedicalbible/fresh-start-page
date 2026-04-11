@@ -21,6 +21,7 @@ import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsV
 import { VisitTranscriber } from './VisitTranscriber'
 import { AppConfirmDialog } from './AppConfirmDialog'
 import type { ExtractedVisitFields, TranscriptExtractPayload } from '../lib/transcriptExtract'
+import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
 import {
   buildClinicalNotesSupplement,
   mergeNotesWithTranscriptAppendix,
@@ -143,6 +144,8 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
   const finalizeInFlightRef = useRef(false)
   const transcriptBootstrappedRef = useRef(false)
+  /** Set when user applied transcript extract; grant 3 tokens on complete finalize (server-validated). */
+  const transcriptRewardPendingRef = useRef(false)
   const [showTranscriptPrefillBanner, setShowTranscriptPrefillBanner] = useState(false)
   const [incompleteSaveOpen, setIncompleteSaveOpen] = useState(false)
 
@@ -584,6 +587,15 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       }
 
       void ensureDoctorProfile(user.id, effectiveName, specialty || null)
+      if (
+        gameTokensEnabled() &&
+        !asPending &&
+        transcriptRewardPendingRef.current &&
+        visitId
+      ) {
+        await grantTranscriptVisitTokens(visitId)
+      }
+      transcriptRewardPendingRef.current = false
       clearVisitWizardDraft()
       if (onDone) {
         onDone()
@@ -656,6 +668,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   ), [pinnedReasons, reason])
 
   function handleTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
+    transcriptRewardPendingRef.current = true
     applyExtractedVisitFields(fields)
     const supplement = buildClinicalNotesSupplement(fields)
     setNotes((prev) =>

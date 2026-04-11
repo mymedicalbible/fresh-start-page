@@ -27,6 +27,7 @@ import {
 } from '../lib/apptQuestionsDraft'
 import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
 import { dismissPendingDockNorm, loadDismissedPendingDockNorms } from '../lib/pendingDockDismiss'
+import { gameTokensEnabled, tryGrantHandoffSummaryTokens } from '../lib/gameTokens'
 
 type UpcomingAppt = {
   id: string
@@ -1061,6 +1062,9 @@ export function DashboardPage () {
       episodeChart: buildEpisodeChartSeries(sympRows, 60),
     })
     setSummaryLoading(false)
+    if (gameTokensEnabled()) {
+      void tryGrantHandoffSummaryTokens()
+    }
   }
 
   function handoffTextForPdf (s: HealthSummary) {

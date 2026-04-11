@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
+import { gameTokensEnabled } from '../lib/gameTokens'
 
 function ScrapSticker ({
   to, title, sub, tone,
@@ -21,6 +22,12 @@ export function MorePage () {
         <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
         <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />
         <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
+        {gameTokensEnabled() && (
+          <Link to="/app/plushies" className="scrap-sticker scrap-sticker--cream">
+            <span className="scrap-sticker-title">Plushies</span>
+            <span className="scrap-sticker-sub">Tokens &amp; shop</span>
+          </Link>
+        )}
       </div>
     </div>
   )
