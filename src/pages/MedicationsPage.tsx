@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,6 +55,24 @@ function emptyMed (): AddForm {
 }
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
+
+/** Prescriber from `notes` prefix on current_medications */
+function parsePrescribedByCurrent (med: MedRow): string | null {
+  if (!med.notes?.startsWith('Prescribed by:')) return null
+  const s = med.notes.replace(/^Prescribed by:\s*/i, '').trim()
+  return s || null
+}
+
+function normDoctorPick (s: string): string {
+  return s.trim().toLowerCase().replace(/^dr\.?\s+/i, '')
+}
+
+function matchesDoctorFilter (prescribed: string | null | undefined, filter: string): boolean {
+  if (!filter.trim()) return true
+  const p = (prescribed ?? '').trim()
+  if (!p) return false
+  return normDoctorPick(p) === normDoctorPick(filter)
+}
 
 const popupCloseBtnStyle: CSSProperties = {
   background: 'var(--bg)',
@@ -563,9 +581,12 @@ export function MedicationsPage () {
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  /** `c:${id}` current med row, `a:${id}` archived */
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [showArchive, setShowArchive] = useState(false)
+  const [listFilter, setListFilter] = useState<'current' | 'discontinued'>('current')
+  /** Empty = all doctors; otherwise match prescribed-by (case-insensitive) */
+  const [doctorFilter, setDoctorFilter] = useState('')
 
   // Add/Edit popup
   const [addForm, setAddForm] = useState<AddForm>(emptyMed())
@@ -591,6 +612,49 @@ export function MedicationsPage () {
     supabase.from('doctors').select('id, name, specialty').eq('user_id', user.id).order('name')
       .then(({ data }) => setDoctors((data ?? []) as Doctor[]))
   }, [user])
+
+  useEffect(() => {
+    setExpandedKey(null)
+  }, [listFilter, doctorFilter])
+
+  const doctorNamesForDropdown = useMemo(() => {
+    const set = new Set<string>()
+    for (const d of doctors) {
+      if (d.name.trim()) set.add(d.name.trim())
+    }
+    for (const m of rows) {
+      const p = parsePrescribedByCurrent(m)
+      if (p) set.add(p)
+    }
+    for (const a of archived) {
+      if (a.prescribed_by?.trim()) set.add(a.prescribed_by.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [doctors, rows, archived])
+
+  const filteredSortedCurrent = useMemo(() => {
+    const list = rows.filter((m) =>
+      matchesDoctorFilter(parsePrescribedByCurrent(m), doctorFilter),
+    )
+    return [...list].sort((a, b) => {
+      const da = parsePrescribedByCurrent(a) ?? '\uFFFF'
+      const db = parsePrescribedByCurrent(b) ?? '\uFFFF'
+      const cDoc = da.localeCompare(db, undefined, { sensitivity: 'base' })
+      if (cDoc !== 0) return cDoc
+      return a.medication.localeCompare(b.medication, undefined, { sensitivity: 'base' })
+    })
+  }, [rows, doctorFilter])
+
+  const filteredSortedArchived = useMemo(() => {
+    const list = archived.filter((a) => matchesDoctorFilter(a.prescribed_by, doctorFilter))
+    return [...list].sort((a, b) => {
+      const da = (a.prescribed_by ?? '').trim() || '\uFFFF'
+      const db = (b.prescribed_by ?? '').trim() || '\uFFFF'
+      const cDoc = da.localeCompare(db, undefined, { sensitivity: 'base' })
+      if (cDoc !== 0) return cDoc
+      return a.medication.localeCompare(b.medication, undefined, { sensitivity: 'base' })
+    })
+  }, [archived, doctorFilter])
 
   async function load () {
     if (!user) return
@@ -678,7 +742,7 @@ export function MedicationsPage () {
     setEditingId(med.id)
     setFormError(null)
     setShowMedPopup(true)
-    setExpandedId(null)
+    setExpandedKey(null)
   }
 
   async function confirmDelete () {
@@ -855,17 +919,71 @@ export function MedicationsPage () {
             +
           </button>
         </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          <button
+            type="button"
+            className={`btn ${listFilter === 'current' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.85rem' }}
+            onClick={() => setListFilter('current')}
+          >
+            Current
+          </button>
+          <button
+            type="button"
+            className={`btn ${listFilter === 'discontinued' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.85rem' }}
+            onClick={() => setListFilter('discontinued')}
+          >
+            Discontinued
+          </button>
+        </div>
+        <div className="form-group" style={{ marginBottom: 0, marginTop: 12 }}>
+          <label htmlFor="meds-doctor-filter" style={{ fontSize: '0.82rem' }}>Doctor</label>
+          <select
+            id="meds-doctor-filter"
+            value={doctorFilter}
+            onChange={(e) => setDoctorFilter(e.target.value)}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', font: 'inherit' }}
+          >
+            <option value="">All doctors</option>
+            {doctorNamesForDropdown.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          <p className="muted" style={{ fontSize: '0.75rem', margin: '8px 0 0', lineHeight: 1.4 }}>
+            List is sorted by doctor, then medication. Choose a doctor to show only their prescriptions.
+          </p>
+        </div>
       </div>
 
-      {rows.length === 0 && (
+      {listFilter === 'current' && rows.length === 0 && (
         <div className="card">
-          <p className="muted">No medications yet. Tap "+ Add" to get started.</p>
+          <p className="muted">No medications yet. Tap the green + to add one.</p>
+        </div>
+      )}
+
+      {listFilter === 'current' && rows.length > 0 && filteredSortedCurrent.length === 0 && (
+        <div className="card">
+          <p className="muted">No current medications match this doctor filter.</p>
+        </div>
+      )}
+
+      {listFilter === 'discontinued' && archived.length === 0 && (
+        <div className="card">
+          <p className="muted">No discontinued medications yet. When you remove a current medication, it appears here.</p>
+        </div>
+      )}
+
+      {listFilter === 'discontinued' && archived.length > 0 && filteredSortedArchived.length === 0 && (
+        <div className="card">
+          <p className="muted">No discontinued medications match this doctor filter.</p>
         </div>
       )}
 
       {/* CURRENT MEDICATIONS */}
-      {rows.map((med) => {
-        const isOpen = expandedId === med.id
+      {listFilter === 'current' && filteredSortedCurrent.map((med) => {
+        const rowKey = `c:${med.id}`
+        const isOpen = expandedKey === rowKey
         const prescribedBy = med.notes?.startsWith('Prescribed by:')
           ? med.notes.replace('Prescribed by: ', '').trim()
           : null
@@ -876,7 +994,7 @@ export function MedicationsPage () {
           <div key={med.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
               style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-              onClick={() => setExpandedId(isOpen ? null : med.id)}
+              onClick={() => setExpandedKey(isOpen ? null : rowKey)}
             >
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -936,56 +1054,47 @@ export function MedicationsPage () {
         )
       })}
 
-      {/* MEDICATION ARCHIVE */}
-      <div style={{ marginTop: 20 }}>
-        <button
-          type="button"
-          className="btn btn-secondary btn-block"
-          style={{ justifyContent: 'space-between', marginBottom: 8 }}
-          onClick={() => setShowArchive((v) => !v)}
-        >
-          <span>Medication archive ({archived.length})</span>
-          <span style={{ fontWeight: 400 }}>{showArchive ? '▲' : '▼'}</span>
-        </button>
-
-        {showArchive && (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {archived.length === 0 && (
-              <div className="card">
-                <p className="muted">No archived medications yet.</p>
-              </div>
-            )}
-            {archived.map((a) => (
-              <div key={a.id} className="card" style={{ opacity: 0.82 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--muted)' }}>{a.medication}</div>
-                    <div className="muted" style={{ fontSize: '0.84rem' }}>
-                      {[a.dose, a.frequency].filter(Boolean).join(' · ') || '—'}
-                      {a.purpose ? ` · ${a.purpose}` : ''}
-                    </div>
-                    {a.prescribed_by && (
-                      <div className="muted" style={{ fontSize: '0.78rem' }}>Rx: {a.prescribed_by}</div>
-                    )}
-                    {a.start_date && (
-                      <div className="muted" style={{ fontSize: '0.78rem' }}>Started: {a.start_date}</div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div className="muted" style={{ fontSize: '0.75rem' }}>Stopped</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{a.stopped_date ?? '—'}</div>
-                  </div>
+      {/* DISCONTINUED (ARCHIVE) */}
+      {listFilter === 'discontinued' && filteredSortedArchived.map((a) => {
+        const rowKey = `a:${a.id}`
+        const isOpen = expandedKey === rowKey
+        return (
+          <div key={a.id} className="card" style={{ padding: 0, overflow: 'hidden', opacity: 0.95 }}>
+            <div
+              style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}
+              onClick={() => setExpandedKey(isOpen ? null : rowKey)}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--muted)' }}>{a.medication}</div>
+                <div className="muted" style={{ fontSize: '0.84rem' }}>
+                  {[a.dose, a.frequency].filter(Boolean).join(' · ') || '—'}
+                  {a.purpose ? ` · ${a.purpose}` : ''}
                 </div>
+                {a.prescribed_by && (
+                  <div className="muted" style={{ fontSize: '0.78rem' }}>Rx: {a.prescribed_by}</div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div className="muted" style={{ fontSize: '0.75rem' }}>Stopped</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{a.stopped_date ?? '—'}</div>
+                <span style={{ color: 'var(--muted)', fontSize: '0.75rem', display: 'block', marginTop: 4 }}>{isOpen ? '▲' : '▼'}</span>
+              </div>
+            </div>
+            {isOpen && (
+              <div style={{ borderTop: '1.5px solid var(--border)', padding: '12px 16px' }}>
+                {a.start_date && (
+                  <div className="muted" style={{ fontSize: '0.84rem', marginBottom: 6 }}>Started: {a.start_date}</div>
+                )}
                 {a.reason_stopped && (
-                  <div style={{ marginTop: 8, padding: '6px 10px', background: 'var(--bg)', borderRadius: 8, fontSize: '0.83rem', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, fontSize: '0.83rem', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                     Reason: {a.reason_stopped}
                   </div>
                 )}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+        )
+      })}
     </div>
   )
 }
