@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "export": "node scripts/export-codebase.mjs",
     "export:txt": "node scripts/export-project-one-file.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "supabase:push": "supabase db push"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

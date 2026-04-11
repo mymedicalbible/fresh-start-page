@@ -189,6 +189,33 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 ```
 
+### “Relation already exists” / baseline an existing database
+
+If **`supabase db push`** fails on **`20250325000000_initial.sql`** with `relation "profiles" already exists`, your **remote** database already has that schema, but Supabase’s **migration history table** does not list those files as applied—so the CLI tries to create everything again.
+
+**Option A — Mark old migrations as applied, then push only new ones** (typical when the DB was set up via SQL Editor or an older workflow):
+
+1. Ensure the database really matches what those migrations would create (you’ve been using the app successfully).
+2. From the project root, run (PowerShell):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts/supabase-baseline-then-push.ps1
+   ```
+
+   That runs `supabase migration repair --status applied` for every migration **before** `20260411120000_game_tokens_trial`, then `supabase db push` so **only pending** migrations (usually the plushie/token file) apply.
+
+   Or repair **manually** for each version you know is already reflected, then push:
+
+   ```bash
+   npx supabase migration repair --status applied 20250325000000 20250326000000
+   # ... all versions through 20260408120000, then:
+   npx supabase db push
+   ```
+
+**Option B — Only add plushie tokens:** open **SQL Editor**, paste `supabase/migrations/20260411120000_game_tokens_trial.sql`, run once. Optionally insert a row into `supabase_migrations.schema_migrations` for that version if you later want CLI history to match (advanced).
+
+**Do not** baseline migrations if your remote DB might be missing objects those files add—fix schema or apply missing migrations first.
+
 ### Migration inventory
 
 | File | Purpose |
@@ -202,6 +229,25 @@ supabase db push
 | `20250406100000_medication_change_events.sql` | `medication_change_events` table + trigger on `current_medications` (insert/update/delete) for audit + handoff correlation |
 | `20250407100000_visit_docs_storage_update.sql` | Storage policy update on `visit-docs` so objects can be updated (needed for some client upload flows) |
 | `20250408100000_doctor_questions_specialty.sql` | `doctor_questions.doctor_specialty` (optional specialty when doctor is free text) |
+| `20260408120000_doctor_questions_visit_link.sql` | `doctor_questions.doctor_visit_id` — link questions to a visit |
+| `20260411120000_game_tokens_trial.sql` | **Plushie token game (trial):** `token_ledger`, `plushie_catalog`, `user_plushie_unlocks`, `game_config`, earn triggers, RPCs `game_get_state`, `game_purchase_active_plushie`, `game_try_grant_handoff_summary_tokens`, `game_grant_transcript_visit` |
+
+### Plushie tokens (required for `/app/plushies`)
+
+The app **always** shows **More → Plushies**, but **balance, purchases, and earns** only work after this migration is applied to your Supabase project.
+
+1. **CLI (recommended)** — from the project root, with [Supabase CLI](https://supabase.com/docs/guides/cli) installed and linked:
+   ```bash
+   supabase link --project-ref YOUR_PROJECT_REF
+   supabase db push
+   ```
+   That applies any pending files under `supabase/migrations/`, including `20260411120000_game_tokens_trial.sql`.
+
+2. **Dashboard (manual)** — **SQL Editor → New query**, paste the full contents of `supabase/migrations/20260411120000_game_tokens_trial.sql`, run once. If objects already exist, fix errors (e.g. skip duplicate) or rely on migrations table only via CLI.
+
+After applying, run `supabase/verify_plushie_tokens.sql` in the SQL Editor (or check **Database → Functions** for `game_get_state`, **Table editor** for `token_ledger`, `plushie_catalog`, `user_plushie_unlocks`, `game_config`). The client calls RPCs with the **anon key + user JWT** (`authenticated` role); no Edge Function is required for tokens.
+
+To **disable** token RPC calls from the client only, set `VITE_GAME_TOKENS_ENABLED=false` in the frontend env (optional).
 
 **Tests & orders → document uploads** use the private **`visit-docs`** bucket with paths `${user_id}/tests/${test_id}/...`. Apply `20250326000000_visit_docs_storage.sql` and `20250407100000_visit_docs_storage_update.sql` on your Supabase project, or uploads will fail at the storage API.
 

@@ -4,7 +4,6 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import {
   fetchGameState,
-  gameTokensEnabled,
   purchaseActivePlushie,
   type ActivePlushie,
 } from '../lib/gameTokens'
@@ -18,7 +17,6 @@ type CatalogRow = {
 }
 
 export function PlushieShopPage () {
-  const [enabled] = useState(() => gameTokensEnabled())
   const [balance, setBalance] = useState<number | null>(null)
   const [rotationSlot, setRotationSlot] = useState(0)
   const [activePlushie, setActivePlushie] = useState<ActivePlushie | null>(null)
@@ -32,7 +30,6 @@ export function PlushieShopPage () {
   const [banner, setBanner] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!enabled) return
     setError(null)
     const [state, cat, un] = await Promise.all([
       fetchGameState(),
@@ -72,14 +69,14 @@ export function PlushieShopPage () {
     } catch {
       setLottieData(null)
     }
-  }, [enabled])
+  }, [])
 
   useEffect(() => {
     void load()
   }, [load])
 
   async function onPurchase () {
-    if (!enabled || busy) return
+    if (busy) return
     setBusy(true)
     setBanner(null)
     const r = await purchaseActivePlushie()
@@ -92,19 +89,6 @@ export function PlushieShopPage () {
     }
     setBanner(`Unlocked! Spent ${r.spent} tokens.`)
     await load()
-  }
-
-  if (!enabled) {
-    return (
-      <div>
-        <BackButton fallbackTo="/app/more" />
-        <div className="card" style={{ marginTop: 12 }}>
-          <p className="muted" style={{ margin: 0 }}>
-            Plushie collection is disabled. Set <code>VITE_GAME_TOKENS_ENABLED=true</code> and apply the game migration.
-          </p>
-        </div>
-      </div>
-    )
   }
 
   return (

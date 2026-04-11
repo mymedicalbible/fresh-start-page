@@ -1,7 +1,8 @@
 import { supabase } from './supabase'
 
+/** Plushie tokens are on by default; set `VITE_GAME_TOKENS_ENABLED=false` to disable earns + RPC calls. */
 export function gameTokensEnabled (): boolean {
-  return import.meta.env.VITE_GAME_TOKENS_ENABLED === 'true'
+  return import.meta.env.VITE_GAME_TOKENS_ENABLED !== 'false'
 }
 
 export type ActivePlushie = {
