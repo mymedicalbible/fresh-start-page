@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
+import type { ReadableExportPdfSection } from './fullDataExportPdfReadable'
 
 /** Result of rasterizing a DOM subtree for PDF embedding */
 export type CapturedChart = {
@@ -523,14 +524,12 @@ export async function downloadHealthSummaryPdf (
   doc.save(`clinical-handoff-summary-${safe}.pdf`)
 }
 
-export type FullDataExportPdfSection = { title: string; text: string }
-
 /**
- * Readable backup PDF: handoff narrative + structured JSON sections (may truncate very long tables).
+ * Readable backup PDF: handoff narrative + digest sections (paragraph, bullets, optional blocks).
  */
 export function downloadFullDataExportPdf (opts: {
   body: string
-  structuredSections: FullDataExportPdfSection[]
+  readableSections: ReadableExportPdfSection[]
   generatedAtLabel: string
   tableErrors?: Partial<Record<string, string>>
   exportedAtIso: string
@@ -559,6 +558,30 @@ export function downloadFullDataExportPdf (opts: {
     }
   }
 
+  const addAt = (
+    text: string,
+    fontSize: number,
+    color: [number, number, number],
+    lineHeight: number,
+    left: number,
+    width: number,
+  ) => {
+    doc.setFontSize(fontSize)
+    doc.setTextColor(...color)
+    const lines = wrapTextToLines(doc, text, width)
+    const textOpts = { baseline: 'top' as const }
+    for (const line of lines) {
+      if (y + lineHeight > pageH - margin) {
+        doc.addPage()
+        y = margin
+      }
+      if (line.length > 0) {
+        doc.text(line, left, y, textOpts)
+      }
+      y += lineHeight
+    }
+  }
+
   addRawLines('Medical Bible — full data export', 16, [17, 24, 39], 20)
   y += 4
   addRawLines(
@@ -579,20 +602,41 @@ export function downloadFullDataExportPdf (opts: {
   addRawLines('Clinical handoff narrative', 12, [17, 24, 39], 17)
   y += 6
   addRawLines(opts.body || '(No narrative generated.)', 10, [31, 41, 55], 14)
-  y += 12
+  y += 14
 
-  addRawLines('Structured data (JSON in PDF — full rows in .json file)', 11, [17, 24, 39], 16)
-  y += 8
+  addRawLines('Your records (readable digest — full rows in the JSON file)', 11, [17, 24, 39], 16)
+  y += 10
 
-  for (const sec of opts.structuredSections) {
-    addRawLines(sec.title, 10, [30, 50, 40], 15)
-    y += 2
-    addRawLines(sec.text, 7, [45, 55, 70], 10)
-    y += 8
+  const bulletLeft = margin + 10
+  const bulletW = maxW - 10
+  const blockLeft = margin + 18
+  const blockW = maxW - 18
+
+  for (const sec of opts.readableSections) {
+    addRawLines(sec.title.toUpperCase(), 10, [25, 45, 35], 16)
+    y += 4
+    addRawLines(sec.paragraph, 9, [45, 55, 70], 13)
+    y += 6
+
+    for (const b of sec.bullets) {
+      const line = b.startsWith('•') || b.startsWith('…') ? b : `• ${b}`
+      addAt(line, 8, [35, 45, 58], 11, bulletLeft, bulletW)
+    }
+    y += 4
+
+    if (sec.blocks?.length) {
+      for (const bl of sec.blocks) {
+        addAt(bl.heading, 8, [50, 60, 75], 12, blockLeft, blockW)
+        y += 2
+        addAt(bl.body, 7, [70, 78, 88], 10, blockLeft + 6, blockW - 6)
+        y += 6
+      }
+    }
+    y += 10
   }
 
   addRawLines(
-    'Disclaimer: This export was generated from information you entered in this app. The JSON download is the complete machine-readable backup; this PDF may truncate long sections for readability.',
+    'Disclaimer: This PDF is a reading aid. The JSON download is the complete backup with every field.',
     8,
     [107, 114, 128],
     12,

@@ -4,7 +4,8 @@
  */
 
 import { supabase } from './supabase'
-import { downloadFullDataExportPdf, type FullDataExportPdfSection } from './summaryPdf'
+import { downloadFullDataExportPdf } from './summaryPdf'
+import { buildReadableExportPdfSections } from './fullDataExportPdfReadable'
 import { buildHandoffNarrative } from './handoffNarrative'
 import {
   type MedChangeEvent,
@@ -376,54 +377,13 @@ export function downloadJsonExport (payload: FullExportPayload): void {
   URL.revokeObjectURL(a.href)
 }
 
-const PDF_SECTION_CHARS = 8000
-
-export function buildExportPdfSections (payload: FullExportPayload): FullDataExportPdfSection[] {
-  const pairs: [string, unknown[]][] = [
-    ['pain_entries', payload.supabase.pain_entries],
-    ['mcas_episodes', payload.supabase.mcas_episodes],
-    ['symptom_logs', payload.supabase.symptom_logs],
-    ['doctors', payload.supabase.doctors],
-    ['doctor_visits', payload.supabase.doctor_visits],
-    ['doctor_questions', payload.supabase.doctor_questions],
-    ['doctor_profile_notes', payload.supabase.doctor_profile_notes],
-    ['current_medications', payload.supabase.current_medications],
-    ['medications_archive', payload.supabase.medications_archive],
-    ['medication_change_events', payload.supabase.medication_change_events],
-    ['tests_ordered', payload.supabase.tests_ordered],
-    ['diagnoses_directory', payload.supabase.diagnoses_directory],
-    ['diagnosis_notes', payload.supabase.diagnosis_notes],
-    ['appointments', payload.supabase.appointments],
-    ['user_plushie_unlocks', payload.supabase.user_plushie_unlocks],
-  ]
-  const out: FullDataExportPdfSection[] = []
-  for (const [title, rows] of pairs) {
-    let text = JSON.stringify(rows, null, 2)
-    if (text.length > PDF_SECTION_CHARS) {
-      text = `${text.slice(0, PDF_SECTION_CHARS)}\n\n[Truncated for PDF — see JSON export for full rows.]`
-    }
-    out.push({ title, text })
-  }
-  let sum = JSON.stringify(payload.local.summaryArchive, null, 2)
-  if (sum.length > PDF_SECTION_CHARS) {
-    sum = `${sum.slice(0, PDF_SECTION_CHARS)}\n\n[Truncated for PDF — see JSON export.]`
-  }
-  out.push({ title: 'local_summary_archive', text: sum })
-  let tr = JSON.stringify(payload.local.transcriptArchive, null, 2)
-  if (tr.length > PDF_SECTION_CHARS) {
-    tr = `${tr.slice(0, PDF_SECTION_CHARS)}\n\n[Truncated for PDF — see JSON export.]`
-  }
-  out.push({ title: 'local_transcript_archive', text: tr })
-  return out
-}
-
 export async function runFullExportAndDownload (userId: string): Promise<FullExportPayload> {
   const payload = await buildFullExportPayload(userId)
   downloadJsonExport(payload)
   await new Promise<void>((r) => setTimeout(r, 450))
   downloadFullDataExportPdf({
     body: handoffTextForExportPdf(payload),
-    structuredSections: buildExportPdfSections(payload),
+    readableSections: buildReadableExportPdfSections(payload),
     generatedAtLabel: new Date(payload.exportedAtIso).toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
