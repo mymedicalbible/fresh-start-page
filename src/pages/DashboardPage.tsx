@@ -1343,18 +1343,26 @@ export function DashboardPage () {
           position: 'fixed',
           top: 14,
           right: 14,
-          zIndex: 60,
+          /* Above .scrap-pending-section (100) and .bottom-nav (100), below modals (205+) */
+          zIndex: 150,
           width: 58,
           height: 58,
           padding: 0,
           border: 'none',
           background: 'none',
           cursor: 'pointer',
+          overflow: 'visible',
           filter: 'drop-shadow(0 3px 6px rgba(74,55,40,0.28))',
         }}
       >
-        <span style={{ position: 'relative', display: 'block', width: 58, height: 58 }}>
-          <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden style={{ display: 'block' }}>
+        <span style={{ position: 'relative', display: 'block', width: 58, height: 58, overflow: 'visible' }}>
+          <svg
+            width="58"
+            height="58"
+            viewBox="-5 -5 68 68"
+            aria-hidden
+            style={{ display: 'block', overflow: 'visible' }}
+          >
             {[0, 60, 120, 180, 240, 300].map((deg) => (
               <ellipse
                 key={deg}
