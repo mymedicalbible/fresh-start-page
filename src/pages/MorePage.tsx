@@ -1,68 +1,50 @@
+import type { ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
+import {
+  DoodleCharts,
+  DoodleDiagnoses,
+  DoodleQuestions,
+  DoodleVisits,
+} from './morePageDoodles'
 
-function ScrapSticker ({
-  to, title, sub, tone,
-}: { to: string; title: string; sub?: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
-  return (
-    <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
-      <span className="scrap-sticker-title">{title}</span>
-      {sub ? <span className="scrap-sticker-sub">{sub}</span> : null}
-    </Link>
-  )
-}
-
-function TapeCornerCard ({
-  to,
-  title,
-  sub,
-  variant,
-}: {
+type DoodleNavItem = {
   to: string
-  title: string
-  sub: string
-  variant: 'account' | 'plushies'
-}) {
-  return (
-    <Link
-      to={to}
-      className={`scrap-more-tape-card scrap-more-tape-card--${variant}`}
-    >
-      <span className="scrap-account-corner-tape scrap-account-corner-tape--tl" aria-hidden />
-      <span className="scrap-account-corner-tape scrap-account-corner-tape--tr" aria-hidden />
-      <span className="scrap-account-corner-tape scrap-account-corner-tape--bl" aria-hidden />
-      <span className="scrap-account-corner-tape scrap-account-corner-tape--br" aria-hidden />
-      <span className="scrap-more-tape-card-title">{title}</span>
-      <span className="scrap-more-tape-card-sub">{sub}</span>
-    </Link>
-  )
+  label: string
+  Doodle: ComponentType
 }
+
+const DOODLE_NAV: DoodleNavItem[] = [
+  { to: '/app/visits', label: 'Visits', Doodle: DoodleVisits },
+  { to: '/app/questions', label: 'Questions', Doodle: DoodleQuestions },
+  { to: '/app/analytics', label: 'Charts & trends', Doodle: DoodleCharts },
+  { to: '/app/diagnoses', label: 'Diagnoses', Doodle: DoodleDiagnoses },
+]
 
 export function MorePage () {
   return (
     <div className="scrapbook-inner scrap-more-page">
       <BackButton fallbackTo="/app" />
-      <div className="scrap-sticker-grid">
-        <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
-        <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
-        <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />
-        <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
+      <div className="scrap-more-notebook-sheet">
+        <div className="scrap-more-notebook-holes" aria-hidden>
+          <span /><span /><span />
+        </div>
+        <nav className="scrap-more-doodles" aria-label="More navigation">
+          {DOODLE_NAV.map(({ to, label, Doodle }) => (
+            <Link key={to} to={to} className="scrap-more-doodle" aria-label={label}>
+              <Doodle />
+            </Link>
+          ))}
+        </nav>
+        <div className="scrap-more-marker-row" aria-label="Account and plushies">
+          <Link to="/app/profile" className="scrap-more-marker scrap-more-marker--account">
+            Account
+          </Link>
+          <Link to="/app/plushies" className="scrap-more-marker scrap-more-marker--plushies">
+            Plushies
+          </Link>
+        </div>
       </div>
-
-      <section className="scrap-more-overlap" aria-label="Account and Plushies">
-        <TapeCornerCard
-          to="/app/profile"
-          title="Account"
-          sub="profile & export"
-          variant="account"
-        />
-        <TapeCornerCard
-          to="/app/plushies"
-          title="Plushies"
-          sub="tokens & shop"
-          variant="plushies"
-        />
-      </section>
     </div>
   )
 }

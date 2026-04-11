@@ -59,6 +59,7 @@
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
   --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-scrap: 'Patrick Hand', 'Indie Flower', cursive;
+  --font-marker: 'Permanent Marker', 'Patrick Hand', cursive;
 
   /* --- Scrapbook reference (home UI) --- */
   --scrap-ink: #4a3728;
@@ -2588,87 +2589,178 @@ button.scrap-appt-q:focus-visible {
   color: rgba(74, 55, 40, 0.78);
 }
 
-/* More page: big overlapping cardstock + washi on all corners */
+/* More page: notebook paper + pencil doodles + marker links */
 .scrap-more-page {
-  padding-bottom: 48px;
+  padding-bottom: 40px;
 }
 
-.scrap-more-overlap {
+.scrap-more-notebook-sheet {
   position: relative;
-  margin-top: 32px;
-  padding: 8px 0 40px;
-  min-height: 200px;
+  margin-top: 8px;
+  padding: 28px 18px 36px 52px;
+  min-height: min(78vh, 720px);
+  border-radius: 3px;
+  background-color: #fdfcf8;
+  background-image:
+    repeating-linear-gradient(
+      transparent 0,
+      transparent 26px,
+      rgba(160, 175, 200, 0.22) 26px,
+      rgba(160, 175, 200, 0.22) 27px
+    ),
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 38px,
+      rgba(232, 160, 160, 0.45) 38px,
+      rgba(232, 160, 160, 0.45) 40px,
+      transparent 40px
+    );
+  box-shadow: var(--shadow-notebook);
+  border: 1px solid rgba(55, 50, 45, 0.08);
 }
 
-.scrap-more-tape-card {
-  position: relative;
+.scrap-more-notebook-holes {
+  position: absolute;
+  left: 10px;
+  top: 48px;
+  bottom: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.scrap-more-notebook-holes span {
   display: block;
-  width: min(94%, 400px);
-  margin-left: auto;
-  margin-right: auto;
-  padding: 44px 36px 40px;
-  text-decoration: none;
-  color: var(--scrap-ink);
-  border-radius: 4px;
-  border: 1px solid rgba(74, 55, 40, 0.22);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f5f3ef 0%, #d8d4cc 55%, #b8b3a8 100%);
   box-shadow:
-    4px 6px 0 rgba(74, 55, 40, 0.1),
-    0 16px 36px rgba(45, 35, 28, 0.16);
-  overflow: visible;
+    inset 0 1px 1px rgba(255, 255, 255, 0.65),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.scrap-more-doodles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 18px;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 8px 4px 12px;
+}
+
+.scrap-more-doodle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  padding: 14px 12px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1.5px dashed rgba(120, 110, 95, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: rotate(-0.4deg);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.scrap-more-tape-card--account {
-  z-index: 1;
-  transform: rotate(-2.8deg);
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.55) 0%, transparent 45%),
-    linear-gradient(175deg, #faf8ff 0%, #ede9fe 50%, #ddd6fe 100%);
+.scrap-more-doodle:nth-child(even) {
+  transform: rotate(0.55deg);
 }
 
-.scrap-more-tape-card--plushies {
-  z-index: 2;
-  margin-top: -76px;
-  margin-left: min(18vw, 72px);
-  margin-right: 0;
-  transform: rotate(3.2deg);
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.6) 0%, transparent 44%),
-    linear-gradient(175deg, #fffdf7 0%, #fffbeb 42%, #fef3c7 100%);
+.scrap-more-doodle:nth-child(3) {
+  transform: rotate(0.35deg);
 }
 
-.scrap-more-tape-card--account:active {
-  transform: rotate(-2.8deg) scale(0.98);
+.scrap-more-doodle:nth-child(4) {
+  transform: rotate(-0.5deg);
 }
 
-.scrap-more-tape-card--plushies:active {
-  transform: rotate(3.2deg) scale(0.98);
+.scrap-more-doodle:hover {
+  filter: saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 4px 14px rgba(60, 55, 48, 0.08);
 }
 
-.scrap-more-tape-card-title {
+.scrap-more-doodle:active {
+  transform: scale(0.96) rotate(-0.4deg);
+}
+
+.scrap-more-doodle-art {
+  width: 100%;
+  max-width: 132px;
+  height: auto;
   display: block;
-  font-family: var(--font-scrap);
-  font-size: 1.85rem;
-  font-weight: 800;
-  line-height: 1.1;
-  text-align: center;
-  letter-spacing: -0.02em;
+  filter: drop-shadow(0 2px 0 rgba(60, 50, 40, 0.06));
 }
 
-.scrap-more-tape-card-sub {
-  display: block;
-  margin-top: 12px;
-  font-family: var(--font-scrap);
-  font-size: 1.05rem;
-  line-height: 1.35;
-  text-align: center;
-  color: rgba(74, 55, 40, 0.75);
+.scrap-more-marker-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 36px 48px;
+  margin-top: 36px;
+  padding: 28px 12px 8px;
+  border-top: 2px dashed rgba(140, 130, 115, 0.28);
 }
 
-@media (max-width: 420px) {
-  .scrap-more-tape-card--plushies {
-    margin-left: 12vw;
-    margin-top: -64px;
+.scrap-more-marker {
+  font-family: var(--font-marker);
+  font-size: clamp(2.35rem, 7vw, 3rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.scrap-more-marker--account {
+  color: #1e5a8a;
+  text-shadow:
+    2px 3px 0 rgba(100, 180, 255, 0.25),
+    -1px -1px 0 rgba(255, 255, 255, 0.4);
+  transform: rotate(-2deg);
+}
+
+.scrap-more-marker--plushies {
+  color: #c2185b;
+  text-shadow:
+    2px 3px 0 rgba(255, 120, 180, 0.3),
+    -1px -1px 0 rgba(255, 255, 255, 0.35);
+  transform: rotate(1.8deg);
+}
+
+.scrap-more-marker:hover {
+  filter: brightness(1.05);
+}
+
+.scrap-more-marker:active {
+  transform: scale(0.96) rotate(-2deg);
+}
+
+.scrap-more-marker--plushies:active {
+  transform: scale(0.96) rotate(1.8deg);
+}
+
+@media (min-width: 520px) {
+  .scrap-more-doodles {
+    max-width: 460px;
+    gap: 26px 24px;
+  }
+
+  .scrap-more-doodle {
+    min-height: 148px;
+  }
+
+  .scrap-more-doodle-art {
+    max-width: 148px;
   }
 }
 
