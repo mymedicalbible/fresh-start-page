@@ -33,13 +33,26 @@ export function formatExtractedClinicalSummary (f: ExtractedVisitFields): string
   return blocks.join('\n\n')
 }
 
+/** Marker between clinical notes and appended raw transcript (must stay in sync with merge/split). */
+export const RAW_TRANSCRIPT_APPENDIX_HEADER = '— Raw transcript (reference) —'
+
 /** Combine free-text notes with optional raw transcript appendix (reference only). */
 export function mergeNotesWithTranscriptAppendix (clinicalNotes: string, rawTranscript: string): string {
   const clinical = clinicalNotes.trim()
   const raw = rawTranscript.trim()
   if (!raw) return clinical
-  const appendix = `— Raw transcript (reference) —\n${raw}`
+  const appendix = `${RAW_TRANSCRIPT_APPENDIX_HEADER}\n${raw}`
   return clinical ? `${clinical}\n\n${appendix}` : appendix
+}
+
+/** Split stored notes into clinical text vs raw transcript appendix (if present). */
+export function splitNotesAndRawTranscriptAppendix (notes: string | null): { clinical: string; rawTranscript: string | null } {
+  if (!notes?.trim()) return { clinical: '', rawTranscript: null }
+  const idx = notes.indexOf(RAW_TRANSCRIPT_APPENDIX_HEADER)
+  if (idx === -1) return { clinical: notes.trim(), rawTranscript: null }
+  const clinical = notes.slice(0, idx).trim()
+  const raw = notes.slice(idx + RAW_TRANSCRIPT_APPENDIX_HEADER.length).replace(/^\n+/, '').trim()
+  return { clinical, rawTranscript: raw || null }
 }
 
 /** Lines for the visit notes field (model “notes” + extra meds; findings/instructions stay in their own fields). */

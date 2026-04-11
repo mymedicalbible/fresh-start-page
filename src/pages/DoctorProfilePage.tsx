@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useDoctorNoteModal } from '../contexts/DoctorNoteModalContext'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
+import { formatTime12h } from '../lib/formatTime12h'
+import { VisitNotesWithTranscriptFold } from '../components/VisitNotesWithTranscriptFold'
 
 
 /* ──────────────── Types ──────────────── */
@@ -14,7 +16,8 @@ type Doctor = {
   address: string | null; notes: string | null
 }
 type VisitRow = {
-  id: string; visit_date: string; reason: string | null
+  id: string; visit_date: string; visit_time: string | null
+  reason: string | null
   findings: string | null; tests_ordered: string | null
   instructions: string | null; notes: string | null; follow_up: string | null
 }
@@ -217,7 +220,7 @@ export function DoctorProfilePage () {
 
     const [v, q, d, dd, m, t, mVisit] = await Promise.all([
       supabase.from('doctor_visits')
-        .select('id, visit_date, reason, findings, tests_ordered, instructions, notes, follow_up')
+        .select('id, visit_date, visit_time, reason, findings, tests_ordered, instructions, notes, follow_up')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
         .order('visit_date', { ascending: false }).limit(50),
       supabase.from('doctor_questions')
@@ -736,7 +739,9 @@ export function DoctorProfilePage () {
               const testsForVisit = tests.filter((t) => t.test_date === v.visit_date)
               return (
                 <div key={v.id} className="list-item">
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{v.visit_date}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                    {v.visit_date}{v.visit_time ? ` · ${formatTime12h(v.visit_time)}` : ''}
+                  </div>
                   {v.reason && <div className="muted" style={{ fontSize: '0.85rem' }}>Reason: {v.reason}</div>}
                   {v.findings && <div className="muted" style={{ fontSize: '0.85rem' }}>Findings: {v.findings}</div>}
                   {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
@@ -756,7 +761,7 @@ export function DoctorProfilePage () {
                   )}
                   {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
                   {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Follow-up: {v.follow_up}</div>}
-                  {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
+                  <VisitNotesWithTranscriptFold notes={v.notes} />
                 </div>
               )
             })}

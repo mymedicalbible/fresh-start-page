@@ -12,6 +12,8 @@ import {
   uploadVisitDocument,
   type VisitDocItem,
 } from '../lib/visitDocsStorage'
+import { formatTime12h } from '../lib/formatTime12h'
+import { VisitNotesWithTranscriptFold } from '../components/VisitNotesWithTranscriptFold'
 
 type Doctor = { id: string; name: string; specialty: string | null }
 
@@ -175,7 +177,7 @@ export function VisitsPage () {
                 }}>
                 <div>
                   <div style={{ fontWeight: 700 }}>
-                    {v.visit_date}{v.visit_time ? ` · ${v.visit_time}` : ''}
+                    {v.visit_date}{v.visit_time ? ` · ${formatTime12h(v.visit_time)}` : ''}
                     {isPending && (
                       <span style={{ marginLeft: 8, fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#fef3c7', color: '#92400e', verticalAlign: 'middle' }}>
                         Pending
@@ -219,7 +221,7 @@ export function VisitsPage () {
                   {v.tests_ordered && <div className="muted" style={{ fontSize: '0.85rem' }}>Tests: {v.tests_ordered}</div>}
                   {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
                   {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Next appt: {v.follow_up}</div>}
-                  {v.notes && <div className="muted" style={{ fontSize: '0.85rem' }}>Notes: {v.notes}</div>}
+                  <VisitNotesWithTranscriptFold notes={v.notes} />
 
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontWeight: 600, marginBottom: 8 }}>Documents / photos</div>
