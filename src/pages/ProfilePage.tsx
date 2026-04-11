@@ -171,10 +171,10 @@ export function ProfilePage () {
 
       {/* Profile + tokens */}
       <section className="scrap-account-paper scrap-account-paper--hero">
-        <span className="scrap-account-frame-tape scrap-account-frame-tape--top" aria-hidden />
-        <span className="scrap-account-frame-tape scrap-account-frame-tape--right" aria-hidden />
-        <span className="scrap-account-frame-tape scrap-account-frame-tape--bottom" aria-hidden />
-        <span className="scrap-account-frame-tape scrap-account-frame-tape--left" aria-hidden />
+        <span className="scrap-account-corner-tape scrap-account-corner-tape--tl" aria-hidden />
+        <span className="scrap-account-corner-tape scrap-account-corner-tape--tr" aria-hidden />
+        <span className="scrap-account-corner-tape scrap-account-corner-tape--bl" aria-hidden />
+        <span className="scrap-account-corner-tape scrap-account-corner-tape--br" aria-hidden />
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
             🐼
@@ -223,17 +223,14 @@ export function ProfilePage () {
         </h2>
         <div className="scrap-account-stat-grid">
           <div className="scrap-account-stat scrap-account-stat--pink scrap-account-tilt--a">
-            <span className="scrap-pin scrap-pin--tiny" aria-hidden />
             <strong>{painCount === null ? '…' : painCount}</strong>
             <span>pain logs</span>
           </div>
           <div className="scrap-account-stat scrap-account-stat--mint scrap-account-tilt--b">
-            <span className="scrap-pin scrap-pin--tiny scrap-pin--mint" aria-hidden />
             <strong>{episodeCount === null ? '…' : episodeCount}</strong>
             <span>episodes</span>
           </div>
           <div className="scrap-account-stat scrap-account-stat--butter scrap-account-tilt--c">
-            <span className="scrap-pin scrap-pin--tiny scrap-pin--butter" aria-hidden />
             <strong>{visitCount === null ? '…' : visitCount}</strong>
             <span>visits</span>
           </div>
