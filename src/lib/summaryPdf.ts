@@ -522,3 +522,82 @@ export async function downloadHealthSummaryPdf (
   const safe = generatedAtLabel.replace(/[^\d]/g, '').slice(0, 8) || String(Date.now())
   doc.save(`clinical-handoff-summary-${safe}.pdf`)
 }
+
+export type FullDataExportPdfSection = { title: string; text: string }
+
+/**
+ * Readable backup PDF: handoff narrative + structured JSON sections (may truncate very long tables).
+ */
+export function downloadFullDataExportPdf (opts: {
+  body: string
+  structuredSections: FullDataExportPdfSection[]
+  generatedAtLabel: string
+  tableErrors?: Partial<Record<string, string>>
+  exportedAtIso: string
+  userId: string
+}): void {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
+  const margin = 48
+  const pageH = doc.internal.pageSize.getHeight()
+  const maxW = doc.internal.pageSize.getWidth() - margin * 2
+  let y = margin
+
+  const addRawLines = (text: string, fontSize: number, color: [number, number, number], lineHeight: number) => {
+    doc.setFontSize(fontSize)
+    doc.setTextColor(...color)
+    const lines = wrapTextToLines(doc, text, maxW)
+    const textOpts = { baseline: 'top' as const }
+    for (const line of lines) {
+      if (y + lineHeight > pageH - margin) {
+        doc.addPage()
+        y = margin
+      }
+      if (line.length > 0) {
+        doc.text(line, margin, y, textOpts)
+      }
+      y += lineHeight
+    }
+  }
+
+  addRawLines('Medical Bible — full data export', 16, [17, 24, 39], 20)
+  y += 4
+  addRawLines(
+    `Account · ${opts.userId.slice(0, 8)}… · ${opts.generatedAtLabel}`,
+    9,
+    [75, 85, 99],
+    14,
+  )
+  y += 10
+
+  if (opts.tableErrors && Object.keys(opts.tableErrors).length > 0) {
+    addRawLines('Load warnings (some tables may be empty):', 11, [160, 70, 70], 16)
+    y += 4
+    addRawLines(JSON.stringify(opts.tableErrors, null, 2), 8, [90, 90, 90], 12)
+    y += 8
+  }
+
+  addRawLines('Clinical handoff narrative', 12, [17, 24, 39], 17)
+  y += 6
+  addRawLines(opts.body || '(No narrative generated.)', 10, [31, 41, 55], 14)
+  y += 12
+
+  addRawLines('Structured data (JSON in PDF — full rows in .json file)', 11, [17, 24, 39], 16)
+  y += 8
+
+  for (const sec of opts.structuredSections) {
+    addRawLines(sec.title, 10, [30, 50, 40], 15)
+    y += 2
+    addRawLines(sec.text, 7, [45, 55, 70], 10)
+    y += 8
+  }
+
+  addRawLines(
+    'Disclaimer: This export was generated from information you entered in this app. The JSON download is the complete machine-readable backup; this PDF may truncate long sections for readability.',
+    8,
+    [107, 114, 128],
+    12,
+  )
+
+  const safe = opts.exportedAtIso.replace(/[:.]/g, '-').slice(0, 19) || String(Date.now())
+  doc.save(`medical-bible-export-${safe}.pdf`)
+}

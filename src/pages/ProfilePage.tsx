@@ -1,27 +1,22 @@
 import { Link } from 'react-router-dom'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import Lottie, { type LottieRefCurrentProps } from 'lottie-react'
+import { useCallback, useEffect, useState } from 'react'
+import Lottie from 'lottie-react'
 import type { User } from '@supabase/supabase-js'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
+import { runFullExportAndDownload } from '../lib/fullDataExport'
 
 const PANDA_LOTTIE_PATH = '/lottie/panda-popcorn.json'
 
-function PandaStaticFrame ({ data }: { data: object }) {
-  const lottieRef = useRef<LottieRefCurrentProps | null>(null)
+function PandaLottieLoop ({ data, className }: { data: object; className?: string }) {
   return (
     <Lottie
-      lottieRef={lottieRef}
+      className={className}
       animationData={data}
-      loop={false}
-      autoplay={false}
-      onDOMLoaded={() => {
-        lottieRef.current?.goToAndStop(0, true)
-      }}
-      rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-      style={{ width: '100%', height: '100%', maxHeight: 58 }}
+      loop
+      rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
     />
   )
 }
@@ -29,7 +24,6 @@ function PandaStaticFrame ({ data }: { data: object }) {
 const NOTIFY_KEYS = {
   appt: 'mb-profile-notify-appt',
   log: 'mb-profile-notify-log',
-  streak: 'mb-profile-notify-streak',
 } as const
 
 function readNotify (key: string, defaultOn: boolean): boolean {
@@ -91,9 +85,9 @@ export function ProfilePage () {
 
   const [notifyAppt, setNotifyAppt] = useState(() => readNotify(NOTIFY_KEYS.appt, true))
   const [notifyLog, setNotifyLog] = useState(() => readNotify(NOTIFY_KEYS.log, true))
-  const [notifyStreak, setNotifyStreak] = useState(() => readNotify(NOTIFY_KEYS.streak, false))
 
   const [accountBanner, setAccountBanner] = useState<string | null>(null)
+  const [exportBusy, setExportBusy] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
 
   const loadStats = useCallback(async () => {
@@ -111,14 +105,15 @@ export function ProfilePage () {
   const loadGameAndPlushies = useCallback(async () => {
     if (!user) return
     const [cat, un] = await Promise.all([
-      supabase.from('plushie_catalog').select('id, name, slot_index').order('slot_index').limit(8),
+      supabase.from('plushie_catalog').select('id, name, slot_index, slug').order('slot_index').limit(12),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
     ])
     if (!cat.error) {
       const unlocked = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
-      const rows = (cat.data ?? []) as { id: string; name: string; slot_index: number }[]
+      const rows = (cat.data ?? []) as { id: string; name: string; slot_index: number; slug?: string }[]
+      const withoutPanda = rows.filter((r) => (r.slug ?? '') !== 'panda-popcorn')
       setPlushieSlots(
-        rows.slice(0, 5).map((r) => ({
+        withoutPanda.slice(0, 5).map((r) => ({
           id: r.id,
           name: r.name,
           unlocked: unlocked.has(r.id),
@@ -176,6 +171,20 @@ export function ProfilePage () {
     else setAccountBanner('Check your email for a password reset link.')
   }
 
+  async function onExportData () {
+    if (!user || exportBusy) return
+    setExportBusy(true)
+    setAccountBanner(null)
+    try {
+      await runFullExportAndDownload(user.id)
+      setAccountBanner('Downloaded JSON and PDF export to your device.')
+    } catch (e) {
+      setAccountBanner(`Export failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
   async function onChangeEmail () {
     setAccountBanner(null)
     const next = window.prompt('New email address', email)
@@ -216,12 +225,7 @@ export function ProfilePage () {
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
             {pandaLottieData ? (
-              <Lottie
-                className="scrap-account-avatar-lottie"
-                animationData={pandaLottieData}
-                loop
-                rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-              />
+              <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
             ) : (
               <span aria-hidden>🐼</span>
             )}
@@ -296,7 +300,7 @@ export function ProfilePage () {
             {pandaLottieData ? (
               <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
                 <div className="scrap-account-plushie-panda-static">
-                  <PandaStaticFrame data={pandaLottieData} />
+                  <PandaLottieLoop data={pandaLottieData} className="scrap-account-plushie-panda-lottie" />
                 </div>
                 <span className="scrap-account-plushie-name">panda</span>
               </div>
@@ -377,25 +381,6 @@ export function ProfilePage () {
               {notifyLog ? 'on' : 'off'}
             </button>
           </div>
-          <div className="scrap-account-notify-row">
-            <div>
-              <div className="scrap-account-notify-title">streak reminder</div>
-              <div className="scrap-account-notify-sub">don&apos;t break the chain</div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={notifyStreak}
-              className={`scrap-account-switch${notifyStreak ? ' is-on' : ''}`}
-              onClick={() => {
-                const n = !notifyStreak
-                setNotifyStreak(n)
-                writeNotify(NOTIFY_KEYS.streak, n)
-              }}
-            >
-              {notifyStreak ? 'on' : 'off'}
-            </button>
-          </div>
           <p className="scrap-account-notify-footnote">These toggles are saved on this device only.</p>
         </div>
       </section>
@@ -408,10 +393,24 @@ export function ProfilePage () {
         </h2>
         <div className="scrap-account-paper scrap-account-paper--actions">
           <span className="scrap-account-tape scrap-account-tape--tan" aria-hidden />
-          <Link className="scrap-account-action-row" to="/app/records">
+          <button
+            type="button"
+            className="scrap-account-action-row scrap-account-action-row--btn"
+            disabled={exportBusy}
+            onClick={() => void onExportData()}
+          >
             <div>
               <div className="scrap-account-action-title">export my data</div>
-              <div className="scrap-account-action-sub">PDF or CSV from records</div>
+              <div className="scrap-account-action-sub">
+                {exportBusy ? 'preparing…' : 'downloads JSON backup + readable PDF'}
+              </div>
+            </div>
+            <span aria-hidden className="scrap-account-chevron">›</span>
+          </button>
+          <Link className="scrap-account-action-row" to="/app/records">
+            <div>
+              <div className="scrap-account-action-title">records</div>
+              <div className="scrap-account-action-sub">browse pain, episodes, archives</div>
             </div>
             <span aria-hidden className="scrap-account-chevron">›</span>
           </Link>
