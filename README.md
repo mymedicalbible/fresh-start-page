@@ -97,8 +97,7 @@ You can **log a visit** in a guided **wizard** (step by step) or using fuller fo
 
 **Useful tips:**
 
-- **Reason for visit** — you can pick from **past reasons** or type a new one.
-- **Save as quick button** — if you type a reason you want to reuse, you can **pin** it so it stays at the top of your quick picks (saved on **this device/browser**).
+- **Reason for visit** — choose a **quick pill** (for example follow-up or new symptoms), type your own wording, or **pin** a custom reason so it stays in your short list (pins are saved on **this device/browser**).
 - You can save a visit as **complete** or **pending** and finish details later.
 
 ---
@@ -120,7 +119,9 @@ You can **log a visit** in a guided **wizard** (step by step) or using fuller fo
 
 The **Questions** area is where you write things you want to remember to ask.
 
-- You can track **priority**, **whether it was answered**, and sometimes tie a question to an **appointment date**.
+- The **Questions** screen lists everything you saved; use **All / Open / Answered** to filter. To **add** a new question, tap the **green +** in the corner of the **All Questions** banner (the add form stays tucked away until you open it).
+- You can also add questions from **Quick log** on the Dashboard (same flow, optimized for a fast entry).
+- You can track **priority**, **whether it was answered**, and sometimes tie a question to an **appointment date**. You can tap an **open** question and type an answer right on the list when your app supports it.
 - On the **Dashboard**, upcoming appointments can show if you still have **open questions** for that doctor—so you remember to bring them up or to log answers after the visit.
 
 ---
@@ -198,6 +199,18 @@ The summary is a **draft meant to help you communicate**. Always **double-check*
 | Big summary for a visit   | **Clinical handoff** on Dashboard |
 
 Names on the buttons might match these ideas even if the exact label is slightly different in your version.
+
+---
+
+## If you maintain or back up the project files
+
+This guide is for **using** the app. If you are the person who keeps a copy of the **source code** (for example to run your own server or archive the project), see **[DEVELOPERS.md](./DEVELOPERS.md)** for setup, database migrations, and scripts.
+
+To produce **one text file** that bundles application source, **Supabase SQL migrations**, Edge Function sources, and key configs (no `node_modules`), from the project folder run:
+
+`npm run export:txt`
+
+That writes a timestamped file under the **`exports/`** folder, for example `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt`.
 
 ---
 

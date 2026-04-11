@@ -61,7 +61,7 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 | **Doctor profile** | `/app/doctors/:id` | Full-width sections: visits, questions, diagnoses, medications, tests for one provider |
 | **Tests & orders** | `/app/tests` | Pending vs archived; completing can move items out of “current” |
 | **Medications** | `/app/meds` | List with **PRN vs scheduled** toggle on add/edit, **Log dose change** modal (events + optional med field updates), archive on remove |
-| **Questions** | `/app/questions` | Archive with add-first layout and filters (e.g. open / unanswered) |
+| **Questions** | `/app/questions` | Archive with **All / Open / Answered** filters; **green +** on the banner opens **add question**; Quick log (`/app/log?tab=questions`) for fast capture |
 | **Diagnoses** | `/app/diagnoses` | Diagnosis directory |
 | **Auth** | `/login` | Supabase email auth; `/app/*` is protected |
 
@@ -367,8 +367,15 @@ package.json
 | `npm run dev` | Vite dev server |
 | `npm run build` | `tsc -b` + production bundle to `dist/` |
 | `npm run preview` | Serve `dist/` locally |
+| `npm run export:txt` | One **`.txt`** under `exports/` with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, etc. (skips `node_modules`, `dist`, `ExportedProject`, older `exports` dumps) |
+| `npm run export` | **`git archive`** of tracked files as a **`.zip`** at repo root (requires Git) |
+| `npm run test:e2e` | Playwright tests |
 
-**Playwright** is listed in `devDependencies`; add or document test commands if you introduce a standard `npm test` workflow.
+**Playwright** is listed in `devDependencies`; use `test:e2e` for the configured E2E suite.
+
+### Full codebase text export
+
+Use **`npm run export:txt`** when you want a single file to search, diff, or archive—especially to review **all SQL migrations** and app code together. Output path is printed when the script finishes (for example `exports/project-code-and-sql-2026-04-11-06-26-50.txt`).
 
 ---
 

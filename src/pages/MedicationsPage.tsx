@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
@@ -56,6 +56,21 @@ function emptyMed (): AddForm {
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 
+const popupCloseBtnStyle: CSSProperties = {
+  background: 'var(--bg)',
+  border: '1.5px solid rgba(220, 38, 38, 0.45)',
+  borderRadius: 999,
+  width: 32,
+  height: 32,
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '1rem',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#dc2626',
+}
+
 // ─────────────────────────────────────────────
 // POPUP: Add / Edit medication
 // ─────────────────────────────────────────────
@@ -73,28 +88,47 @@ function MedFormPopup ({
   onClose: () => void
 }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
+    <div
+      role="presentation"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 8000,
+        background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="med-form-popup-title"
+        style={{
         background: 'var(--surface)', borderRadius: 20,
         border: '1.5px solid var(--border)',
         width: '100%', maxWidth: 460,
         maxHeight: '90dvh', overflow: 'auto',
         boxShadow: '0 8px 40px rgba(30,77,52,0.18)',
         padding: '20px 20px 24px',
-      }}>
+      }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--mint-ink)' }}>
+          <h3 id="med-form-popup-title" style={{ margin: 0, fontSize: '1rem', color: 'var(--mint-ink)' }}>
             {editingId ? 'Edit medication' : 'Add medication'}
           </h3>
-          <button type="button" onClick={onClose} style={{
-            background: 'var(--bg)', border: '1.5px solid var(--border)', borderRadius: 999,
-            width: 32, height: 32, cursor: 'pointer', fontWeight: 700, fontSize: '1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
-          }}>x</button>
+          <button
+            type="button"
+            aria-label="Close"
+            style={popupCloseBtnStyle}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            ×
+          </button>
         </div>
 
         {error && <div className="banner error" style={{ marginBottom: 12 }}>{error}</div>}
@@ -197,10 +231,30 @@ function MedFormPopup ({
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button type="button" className="btn btn-primary" onClick={onSave} disabled={busy} style={{ flex: 1 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy}
+            style={{ flex: 1 }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onSave()
+            }}
+          >
             {busy ? 'Saving...' : 'Save'}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -247,26 +301,45 @@ function DoseChangePopup ({
   onClose: () => void
 }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
+    <div
+      role="presentation"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 8000,
+        background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dose-change-popup-title"
+        style={{
         background: 'var(--surface)', borderRadius: 20,
         border: '1.5px solid var(--border)',
         width: '100%', maxWidth: 420,
         maxHeight: '90dvh', overflow: 'auto',
         boxShadow: '0 8px 40px rgba(30,77,52,0.18)',
         padding: '20px 20px 24px',
-      }}>
+      }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--sky-ink)' }}>Log dose change</h3>
-          <button type="button" onClick={onClose} style={{
-            background: 'var(--bg)', border: '1.5px solid var(--border)', borderRadius: 999,
-            width: 32, height: 32, cursor: 'pointer', fontWeight: 700, fontSize: '1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
-          }}>x</button>
+          <h3 id="dose-change-popup-title" style={{ margin: 0, fontSize: '1rem', color: 'var(--sky-ink)' }}>Log dose change</h3>
+          <button
+            type="button"
+            aria-label="Close"
+            style={popupCloseBtnStyle}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            ×
+          </button>
         </div>
         <div className="muted" style={{ fontSize: '0.8rem', marginBottom: 16 }}>{med.medication}</div>
 
@@ -335,10 +408,30 @@ function DoseChangePopup ({
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button type="button" className="btn btn-sky" onClick={onSave} disabled={busy} style={{ flex: 1 }}>
+          <button
+            type="button"
+            className="btn btn-sky"
+            disabled={busy}
+            style={{ flex: 1 }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onSave()
+            }}
+          >
             {busy ? 'Saving...' : 'Save change'}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -363,25 +456,44 @@ function RemovePopup ({
   onClose: () => void
 }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{
+    <div
+      role="presentation"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 8000,
+        background: 'rgba(30,77,52,0.18)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="remove-med-popup-title"
+        style={{
         background: 'var(--surface)', borderRadius: 20,
         border: '1.5px solid var(--border)',
         width: '100%', maxWidth: 400,
         boxShadow: '0 8px 40px rgba(30,77,52,0.18)',
         padding: '20px 20px 24px',
-      }}>
+      }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--danger)' }}>Remove {med.medication}?</h3>
-          <button type="button" onClick={onClose} style={{
-            background: 'var(--bg)', border: '1.5px solid var(--border)', borderRadius: 999,
-            width: 32, height: 32, cursor: 'pointer', fontWeight: 700, fontSize: '1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
-          }}>x</button>
+          <h3 id="remove-med-popup-title" style={{ margin: 0, fontSize: '1rem', color: 'var(--danger)' }}>Remove {med.medication}?</h3>
+          <button
+            type="button"
+            aria-label="Close"
+            style={popupCloseBtnStyle}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            ×
+          </button>
         </div>
         <p className="muted" style={{ marginBottom: 16, fontSize: '0.85rem' }}>
           This archives the medication. You can view it in the archive below.
@@ -411,10 +523,30 @@ function RemovePopup ({
           />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="btn btn-blush" onClick={onConfirm} disabled={busy || !reason} style={{ flex: 1 }}>
+          <button
+            type="button"
+            className="btn btn-blush"
+            disabled={busy || !reason}
+            style={{ flex: 1 }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onConfirm()
+            }}
+          >
             {busy ? 'Archiving...' : 'Archive'}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onClose()
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -434,9 +566,6 @@ export function MedicationsPage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
-  const navigate = useNavigate()
-  const { pathname, search } = useLocation()
-  const medsSelf = `${pathname}${search}`
 
   // Add/Edit popup
   const [addForm, setAddForm] = useState<AddForm>(emptyMed())
@@ -638,8 +767,8 @@ export function MedicationsPage () {
   return (
     <div style={{ paddingBottom: 40 }}>
 
-      {/* POPUPS */}
-      {showMedPopup && (
+      {/* POPUPS — portal to body so clicks never hit page chrome / bottom nav / stray header buttons */}
+      {showMedPopup && typeof document !== 'undefined' && createPortal(
         <MedFormPopup
           form={addForm}
           editingId={editingId}
@@ -649,10 +778,11 @@ export function MedicationsPage () {
           onChange={setAddForm}
           onSave={saveMed}
           onClose={() => { setShowMedPopup(false); setEditingId(null); setAddForm(emptyMed()) }}
-        />
+        />,
+        document.body,
       )}
 
-      {doseChangeTarget && doseChangeForm && (
+      {doseChangeTarget && doseChangeForm && typeof document !== 'undefined' && createPortal(
         <DoseChangePopup
           med={doseChangeTarget}
           form={doseChangeForm}
@@ -661,10 +791,11 @@ export function MedicationsPage () {
           onChange={setDoseChangeForm}
           onSave={saveDoseChange}
           onClose={() => { setDoseChangeTarget(null); setDoseChangeForm(null) }}
-        />
+        />,
+        document.body,
       )}
 
-      {deleteTarget && (
+      {deleteTarget && typeof document !== 'undefined' && createPortal(
         <RemovePopup
           med={deleteTarget}
           reason={deleteReason}
@@ -675,7 +806,8 @@ export function MedicationsPage () {
           onNotesChange={setDeleteNotes}
           onConfirm={confirmDelete}
           onClose={() => { setDeleteTarget(null); setDeleteReason(''); setDeleteNotes('') }}
-        />
+        />,
+        document.body,
       )}
 
       {/* BANNERS */}
@@ -693,22 +825,35 @@ export function MedicationsPage () {
             <BackButton />
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Medications</h2>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => navigate(`/app/log?tab=pain&returnTo=${encodeURIComponent(medsSelf)}`)}
-            >
-              Log
-            </button>
-            <button
-              type="button"
-              className="btn btn-mint"
-              onClick={() => { setAddForm(emptyMed()); setEditingId(null); setFormError(null); setShowMedPopup(true) }}
-            >
-              + Add
-            </button>
-          </div>
+          <button
+            type="button"
+            aria-label="Add medication"
+            title="Add medication"
+            onClick={() => {
+              setAddForm(emptyMed())
+              setEditingId(null)
+              setFormError(null)
+              setShowMedPopup(true)
+            }}
+            style={{
+              flexShrink: 0,
+              width: 48,
+              height: 48,
+              minHeight: 48,
+              padding: 0,
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              fontSize: '1.45rem',
+              fontWeight: 700,
+              lineHeight: 1,
+              color: '#065f46',
+              background: 'linear-gradient(180deg, #d1fae5 0%, #a7f3d0 100%)',
+              boxShadow: '0 2px 0 #6ee7b7',
+            }}
+          >
+            +
+          </button>
         </div>
       </div>
 
