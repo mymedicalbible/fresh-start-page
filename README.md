@@ -1,217 +1,165 @@
-# Medical Bible — User guide
+# Medical Bible (Medical Tracker)
 
-Welcome. This guide is written for **anyone using the app**, not for programmers. If you need technical setup (installing on a server, database steps), see **[DEVELOPERS.md](./DEVELOPERS.md)**.
+**Medical Bible** is a personal health journal you use in the **browser** (phone, tablet, or desktop). It helps you capture **pain**, **symptom episodes**, **doctor visits**, **medications**, **tests and orders**, **diagnoses**, **questions for clinicians**, and **appointments**—then find them again by time or by doctor, spot patterns in **charts**, and build a **clinical handoff narrative** (optionally polished with AI) that you can **save as a PDF**.
 
----
-
-## What is this app?
-
-**Medical Bible** (also called **Medical Tracker** in the project) is a **private notebook for your health**. You use it in a **web browser** on a phone, tablet, or computer. It helps you:
-
-- Remember **pain**, **symptom episodes**, **doctor visits**, **medications**, **tests**, **diagnoses**, and **questions** you want to ask.
-- See **simple charts** so patterns are easier to spot over time.
-- Build a **written summary** you can read before an appointment or **save as a PDF** to share (for example with a doctor—only if *you* choose to).
-
-It is **not** a replacement for medical care. It does **not** diagnose you or tell you what treatment to do. **You** and your care team make medical decisions.
+The running name in code is `medical-tracker-web`; data lives in **Supabase** (your own project). This app **does not** diagnose, prescribe, or replace care from a licensed professional. **You** decide what to log and what to share.
 
 ---
 
-## What you need to use it
+## What you can do (features)
 
-1. **Internet** — the app loads from the web and saves your entries to a secure account online.
-2. **An account** — usually **email and password** (whoever set up your copy of the app will tell you how to sign up or log in).
-3. **The website address (URL)** — the link you open to reach *your* copy of the app (for example a custom link if someone deployed it for you).
+### Dashboard (home)
 
-Your data is stored in a service called **Supabase** (think of it as a private locker for your account). **Only you** (when logged in) should see your own entries, when the system is set up correctly.
+- **Upcoming appointments** — see what is on your calendar; open **open questions** for that doctor when the app has them stored.
+- **Pending visits** — visits you logged as not yet finished (e.g. tests or follow-up still outstanding); jump back into the visit flow.
+- **Log today** — shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
+- **Doctor handoff summary** — opens a panel that builds a **first-person narrative** from your saved data (recent pain/episodes, meds, changes, visits, questions). You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and each generation can be **archived on this device** for later.
+- **Visit transcription** — record audio for a visit, get live transcription, then **extract structured fields** (findings, instructions, tests, meds, follow-up, etc.) into the visit log when you confirm.
+- **Browser notifications** (optional) — if you enable them, reminders tied to appointments can nudge you after visit times (behavior depends on the device and browser).
+- **Your records** — links into doctors, medications, tests, diagnoses, visits, questions, charts, appointments, and profile.
 
----
+### Quick log (`/app/log`)
 
-## Signing in and staying safe
+Fast paths to log **pain** (intensity, location, time, notes, triggers, relief) and **symptom episodes** (features/severity, activity, etc.) without drilling through every screen. Add **questions for your doctor** from here. Drafts can be **saved for later** if you leave mid-entry.
 
-- Use a **strong password** and do not share it.
-- **Log out** if you use a shared computer.
-- This app can hold **sensitive health information**. Treat it like any other private medical notes.
-- Laws about health data (**HIPAA**, **GDPR**, and others) depend on **who runs the app** and **how** it is hosted. This README is **not legal advice**. If you need formal compliance, talk to a professional.
+### Records (`/app/records` or **flares** in the nav)
 
----
+Searchable history with tabs:
 
-## The home screen (Dashboard)
+- **Pain** — past pain entries.
+- **Episodes** — past symptom episodes; you can remove individual **features** from an entry without deleting the whole episode.
+- **Summaries** — **device-local archive** of generated handoff summaries (same idea as in the handoff panel; not a second cloud list).
+- **Transcripts** — **device-local archive** of visit transcripts you chose to save from the transcription flow.
 
-When you open the app after logging in, you usually land on the **Dashboard**. You may see:
+### Charts & trends (`/app/analytics`)
 
-- **Upcoming appointments** — dates and doctors you have saved.
-  - If you have **unanswered questions** saved for that doctor, you may see a **badge** reminding you how many are still open.
-  - You may see **Enable reminders** — this asks your browser for permission to show a **notification** (for example after an appointment time) so you remember to log how the visit went. Notifications work best if you **add the app to your phone’s home screen** (on some phones this is required for alerts).
-- **Pending visits** — visits you started but have not finished yet.
-- **Log today** — shortcuts to **Pain**, **Episodes**, **Questions**, and **Visit log**.
-- **Clinical handoff summary** — builds a story-style summary from your saved data (more below).
-- **Links** to the rest of your records (medications, doctors, tests, and so on).
+- **Pain over time** — average intensity by day.
+- **Top pain areas** — from location text you entered.
+- **Common episode features** — frequency of features across episodes.
+- **Pain / episodes by time of day** — heatmaps when entries include times.
 
----
+Charts are for **your awareness** and for **conversation with your care team**, not for self-diagnosis.
 
-## Quick log (Pain and Episodes)
+### Visits (`/app/visits`)
 
-**Quick log** is for fast entries without hunting through menus.
+- **List** all visits or filter to **pending**; expand rows for details.
+- **Visit wizard** — step-by-step visit log (reason, notes, diagnoses, meds, tests, documents when configured, etc.). Visits can be **complete** or **pending** to finish later.
+- **Transcript** — optional recording + extraction flow integrated into logging.
 
-### Pain
+### Doctors (`/app/doctors` and `/app/doctors/:id`)
 
-- You can note **date, time, intensity, where it hurts**, and optional details (triggers, what helped, notes).
-- Saved pain appears in **Records** (Pain tab), newest first.
-- It also feeds **Charts & trends** (see below).
+- **Directory** of providers; open a **profile** with **visits**, **questions**, **diagnoses**, **medications**, and **tests** linked to that doctor.
+- **Archive** a doctor (with optional reason) instead of losing history; restore later.
 
-### Episodes (symptom episodes)
+### Medications (`/app/meds`)
 
-- Episodes are for logging things like **flare-ups** or **clusters of symptoms** you care about.
-- You can list **features** (individual symptoms or bullet points).  
-- In **Records**, under each episode, each **feature** can show a small **✕** so you can remove one feature from that entry if you tapped the wrong one—without deleting the whole episode.
+- **Current** vs **discontinued** lists; filter by prescriber when that data is present.
+- **PRN** (as needed) vs scheduled-style frequency on add/edit.
+- **Dose change** logging with **change events** and optional updates to the med record.
+- Removing a current med moves it to **discontinued** with a reason.
 
----
+### Tests & orders (`/app/tests`)
 
-## Records (Pain & episodes archive)
+Track labs/imaging and similar with status; **pending** vs **archived** style workflows.
 
-**Records** is a searchable list of what you already saved:
+### Questions (`/app/questions`)
 
-- **Pain** tab — your pain log.
-- **Episodes** tab — your episode log.
+- List questions with **All / Open / Answered** views; priority; optional ties to appointment dates.
+- Answer inline when supported.
 
-Use **Search** to filter by text (for example a body area or a word in your notes).
+### Diagnoses (`/app/diagnoses`)
 
----
+- Central directory of conditions (confirmed/suspected, dates, linked doctor where applicable).
 
-## Charts & trends (Analytics)
+### Appointments (`/app/appointments`)
 
-**Charts & trends** turns your saved pain and episodes into **pictures**, not doctor’s orders:
+- Manage upcoming (and related) appointment records tied to your workflow.
 
-- **Pain over time** — simple bars by average intensity per day so you can see ups and downs even if some entries do not have every optional field filled in.
-- **Top pain areas** — uses the **locations** you typed (left/right and areas are counted separately if you wrote them that way).
-- **Common episode features** — how often each feature showed up in your episode log.
-- **Time of day** grids — only fill in if you logged **times** with your entries; that is normal if you sometimes skip the clock.
+### More (`/app/more`)
 
-Charts are for **your awareness** and for **talking with your clinician**—not for self-diagnosis.
+- Shortcuts to **Visits**, **Questions**, **Charts & trends**, **Diagnoses**.
 
----
+### Doctor note (bottom nav)
 
-## Visits
+- **Note for a doctor** — quick capture tied to the doctor-note flow (modal), separate from full visit logging.
 
-You can **log a visit** in a guided **wizard** (step by step) or using fuller forms on the visit pages, depending on how your screen is set up.
+### Profile (`/app/profile`)
 
-**Useful tips:**
+- Account-oriented screen (per your setup).
 
-- **Reason for visit** — choose a **quick pill** (for example follow-up or new symptoms), type your own wording, or **pin** a custom reason so it stays in your short list (pins are saved on **this device/browser**).
-- You can save a visit as **complete** or **pending** and finish details later.
+### Sign-in (`/login`)
 
----
-
-## Doctors
-
-**My Doctors** is your address book of providers.
-
-- Tap a doctor to open a **profile** with visits, questions, diagnoses, medications, and tests linked to that name.
-- **Phone** — tap to start a **call** on your phone (uses your phone’s dialer).
-- **Address** — tap to open **Google Maps** (or your map app) with directions search.
-- **Archive** — instead of deleting someone forever, you can **archive** them and optionally note why (retired, switched clinics, and so on). Archived doctors move to an **Archived** section; you can **restore** them later.
-
-**Diagnoses** you log on a doctor’s profile are meant to stay in sync with your main **Diagnoses directory** when the app can match the names—so you are not maintaining two totally separate lists by hand.
+- Email/password auth via **Supabase**; the `/app/*` area is protected.
 
 ---
 
-## Questions for your doctor
+## Optional AI and transcription (hosted backend)
 
-The **Questions** area is where you write things you want to remember to ask.
+These need **Supabase Edge Functions** and **secrets** on the project (never put API keys in `VITE_*` client env vars):
 
-- The **Questions** screen lists everything you saved; use **All / Open / Answered** to filter. To **add** a new question, tap the **green +** in the corner of the **All Questions** banner (the add form stays tucked away until you open it).
-- You can also add questions from **Quick log** on the Dashboard (same flow, optimized for a fast entry).
-- You can track **priority**, **whether it was answered**, and sometimes tie a question to an **appointment date**. You can tap an **open** question and type an answer right on the list when your app supports it.
-- On the **Dashboard**, upcoming appointments can show if you still have **open questions** for that doctor—so you remember to bring them up or to log answers after the visit.
+| Function | What it does | Typical secret |
+|----------|----------------|------------------|
+| **`generate-summary`** | Builds or polishes the handoff narrative; **extract** mode structures visit transcripts into JSON for the visit log. | `ANTHROPIC_API_KEY` (Claude); optional OpenAI fallback |
+| **`transcribe-visit`** | Returns a short-lived token for **AssemblyAI** live transcription. | `ASSEMBLYAI_API_KEY` |
 
----
-
-## Medications
-
-Track **current medications**, doses, how often you take them, and notes (for example who prescribed them). You can log **dose changes** over time so your summary can mention what changed and when.
-
-**PRN** means “as needed”—your app may let you mark that separately from scheduled doses.
+If these are not deployed or keys are missing, handoff still works from **rule-based narrative**; AI polish and live transcription simply will not run until configured.
 
 ---
 
-## Tests & orders
+## Tech stack (short)
 
-List **tests** (labs, imaging, and similar) with **status** (pending, completed, and so on) and optional documents if your setup supports uploads.
-
----
-
-## Diagnoses directory
-
-A **single place** to see conditions you are tracking, their **status** (for example suspected vs confirmed), **dates**, and **which doctor** they are linked to—grouped so you can expand or collapse by provider.
-
-**Quick add** chips can speed up common diagnosis names; you can still type your own.
+| Layer | Choice |
+|-------|--------|
+| UI | React 18, React Router 6, TypeScript |
+| Build | Vite 6 |
+| Backend | Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions) |
+| Charts | Recharts |
+| PDF | jsPDF |
 
 ---
 
-## Clinical handoff summary
+## Local development
 
-This feature **reads the information you already saved** and writes a **first-person story**—as if you are speaking to a clinician—covering recent pain/episodes, medications, changes, visits, and your questions.
+```bash
+npm install
+# Add .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY — see DEVELOPERS.md
+npm run dev
+npm run build
+```
 
-- You can often choose **short** vs **more thorough** wording inside the app.
-- You may optionally use **AI** to polish the text **if** whoever hosts the app turned that on (it uses a secure server; you do not paste API keys yourself).
-- You can **download a PDF** of the summary on your device.
-
-The summary is a **draft meant to help you communicate**. Always **double-check** facts before sharing; **do not** treat it as a prescription or a diagnosis.
-
----
-
-## Privacy in plain words
-
-- Your entries are tied to **your login**.
-- **Do not** post screenshots of the app in public places if they show private information.
-- If you use **optional AI**, a compact version of your summary context may be sent to an AI provider **through the app’s backend** when that feature is enabled—only the person hosting the app can confirm exactly what is sent.
+Full setup, migrations, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOPERS.md)**.
 
 ---
 
-## If something looks wrong
+## Exporting all code and SQL to one file
 
-- **Blank charts** — you may need more entries, or **fill in time** for time-of-day charts and **location** for area rankings.
-- **Errors after an update** — whoever maintains your database may need to run the latest **SQL migrations** (technical step—see **DEVELOPERS.md**).
-- **Notifications** — phones differ; you may need to allow notifications in **system settings** and, on iPhone, sometimes add the site to your **Home Screen** first.
+```bash
+npm run export:txt
+```
 
----
-
-## Where to get help
-
-- **Day-to-day use** — refer back to this guide.
-- **Hosting, passwords reset by admin, or database errors** — talk to whoever **set up** your copy of Medical Bible, or read **DEVELOPERS.md** if you are that person.
+Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supabase/migrations`, Edge Functions, configs; skips `node_modules`, `dist`, etc.). Git-based zip: `npm run export`.
 
 ---
 
-## Quick map of the app (optional)
+## Route map
 
-| You want to…              | Look for…                          |
-|---------------------------|------------------------------------|
-| Log pain or an episode fast | Dashboard → Quick log, or **Log** |
-| See old pain/episodes     | **Records**                        |
-| See graphs                | **Charts & trends**                |
-| Log or finish a visit     | **Visits**                         |
-| Manage doctors            | **My Doctors**                     |
-| List questions            | **Questions**                      |
-| Meds list                 | **Medications**                    |
-| Labs / imaging            | **Tests** (wording may vary)       |
-| Conditions list           | **Diagnoses**                      |
-| Big summary for a visit   | **Clinical handoff** on Dashboard |
-
-Names on the buttons might match these ideas even if the exact label is slightly different in your version.
-
----
-
-## If you maintain or back up the project files
-
-This guide is for **using** the app. If you are the person who keeps a copy of the **source code** (for example to run your own server or archive the project), see **[DEVELOPERS.md](./DEVELOPERS.md)** for setup, database migrations, and scripts.
-
-To produce **one text file** that bundles application source, **Supabase SQL migrations**, Edge Function sources, and key configs (no `node_modules`), from the project folder run:
-
-`npm run export:txt`
-
-That writes a timestamped file under the **`exports/`** folder, for example `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt`.
+| Path | Area |
+|------|------|
+| `/app` | Dashboard |
+| `/app/log` | Quick log |
+| `/app/records`, `/app/flares` | Records |
+| `/app/analytics` | Charts & trends |
+| `/app/meds` | Medications |
+| `/app/doctors`, `/app/doctors/:id` | Doctors / profile |
+| `/app/tests` | Tests & orders |
+| `/app/questions` | Questions |
+| `/app/diagnoses` | Diagnoses |
+| `/app/visits` | Visits |
+| `/app/appointments` | Appointments |
+| `/app/more` | More |
+| `/app/profile` | Profile |
+| `/login` | Sign in |
 
 ---
 
-*This project is a personal health organizer. It does not provide medical advice.*
+*Personal health organizer—not a substitute for professional medical advice.*
