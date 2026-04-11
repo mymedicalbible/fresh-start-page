@@ -19,6 +19,17 @@ import {
   type PainAreaSelection
 } from '../lib/parse'
 import { parseAppReturnPath, safeAppReturnPath } from '../lib/safeReturnPath'
+import { normDoctorKey } from '../lib/doctorNameNorm'
+
+type PickerDoctorQuestionRow = {
+  id: string
+  question: string
+  priority: string | null
+  status: string | null
+  answer: string | null
+  date_created: string
+  doctor: string | null
+}
 
 const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
 
@@ -114,6 +125,8 @@ export function QuickLogPage () {
   const [resumePrompt, setResumePrompt] = useState(false)
   const [leavePrompt, setLeavePrompt] = useState(false)
   const resumeCheckedRef = useRef(false)
+  /** Questions already saved for the doctor selected in the picker (this screen is for logging new ones only). */
+  const [pickerDoctorQuestions, setPickerDoctorQuestions] = useState<PickerDoctorQuestionRow[]>([])
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
     setScreen(d.screen)
@@ -258,6 +271,30 @@ export function QuickLogPage () {
     else setScreen('hub')
   }, [searchParams])
 
+  const loadPickerDoctorQuestions = useCallback(async () => {
+    if (!user || screen !== 'questions' || !form.doctor.trim()) {
+      setPickerDoctorQuestions([])
+      return
+    }
+    const doc = form.doctor.trim()
+    const { data, error: e } = await supabase
+      .from('doctor_questions')
+      .select('id, question, priority, status, answer, date_created, doctor')
+      .eq('user_id', user.id)
+      .order('date_created', { ascending: false })
+      .limit(120)
+    if (e) return
+    const key = normDoctorKey(doc)
+    const filtered = (data ?? []).filter((row: { doctor: string | null }) =>
+      !!row.doctor && normDoctorKey(row.doctor) === key,
+    ) as PickerDoctorQuestionRow[]
+    setPickerDoctorQuestions(filtered)
+  }, [user, screen, form.doctor])
+
+  useEffect(() => {
+    void loadPickerDoctorQuestions()
+  }, [loadPickerDoctorQuestions])
+
   useEffect(() => {
     if (screen !== 'pain' || painStep !== 1 || !scrollRef.current) return
     const el = scrollRef.current
@@ -355,6 +392,7 @@ export function QuickLogPage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     if (form.doctor.trim()) void ensureDoctorProfile(user.id, form.doctor, form.doctor_specialty || null)
+    void loadPickerDoctorQuestions()
     clearQuickLogDraft()
     setPostSave({ archive: '/app/questions', title: 'Questions archive' })
   }
@@ -719,6 +757,48 @@ export function QuickLogPage () {
             label="Doctor (optional)"
             id="quicklog-q-doctor"
           />
+          <details
+            style={{
+              marginBottom: 14,
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '10px 12px',
+              background: 'var(--surface-alt, #f8fafc)',
+            }}
+          >
+            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', userSelect: 'none' }}>
+              Saved questions for this doctor
+              {form.doctor.trim() && pickerDoctorQuestions.length > 0
+                ? ` (${pickerDoctorQuestions.length})`
+                : ''}
+            </summary>
+            {!form.doctor.trim() ? (
+              <p className="muted" style={{ fontSize: '0.85rem', margin: '10px 0 0', lineHeight: 1.45 }}>
+                Choose or type a doctor above to see questions you already saved for them.
+              </p>
+            ) : pickerDoctorQuestions.length === 0 ? (
+              <p className="muted" style={{ fontSize: '0.85rem', margin: '10px 0 0', lineHeight: 1.45 }}>
+                No saved questions for this doctor yet. Add one below.
+              </p>
+            ) : (
+              <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: '0.85rem', lineHeight: 1.45 }}>
+                {pickerDoctorQuestions.map((q) => {
+                  const open = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
+                  return (
+                    <li key={q.id} style={{ marginBottom: 10 }}>
+                      <div>{q.question}</div>
+                      <div className="muted" style={{ fontSize: '0.78rem', marginTop: 2 }}>
+                        {q.priority ?? '—'} · {open ? 'Open' : 'Answered'}
+                        {q.date_created
+                          ? ` · ${new Date(q.date_created).toLocaleDateString()}`
+                          : ''}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </details>
           <div className="form-group">
             <label>Priority</label>
             <div style={{ display: 'flex', gap: 8 }}>

@@ -529,7 +529,6 @@ export function DashboardPage () {
   /** Latest pending `doctor_visits.id` per doctor (norm key) — opens visit wizard to finish. */
   const [pendingResumeIdByNorm, setPendingResumeIdByNorm] = useState<Record<string, string>>({})
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
-  const [openQsCount, setOpenQsCount] = useState<number | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryScope, setSummaryScope] = useState<'full' | 'symptomsPainMeds'>(() => {
@@ -848,13 +847,6 @@ export function DashboardPage () {
       setPendingVisitsByNorm(pendMap)
       setPendingVisitLabelByNorm(pendLabels)
       setPendingResumeIdByNorm(resumeByNorm)
-
-      const { count: oq } = await supabase
-        .from('doctor_questions')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user!.id)
-        .eq('status', 'Unanswered')
-      setOpenQsCount(oq ?? 0)
     }
     void load()
   }, [user])
@@ -1559,9 +1551,6 @@ export function DashboardPage () {
           </Link>
           <Link to={`/app/log?tab=questions&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--blue">
             <span className="scrap-tape scrap-tape--sky" aria-hidden />
-            {openQsCount != null && openQsCount > 0 && (
-              <span className="scrap-log-badge">{openQsCount > 99 ? '99+' : openQsCount}</span>
-            )}
             <span className="scrap-log-title">Questions</span>
             <span className="scrap-log-sub">Add for your doctor</span>
           </Link>

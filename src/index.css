@@ -1262,6 +1262,9 @@ button.scrap-appt-q:focus-visible {
   align-items: center;
   gap: 10px;
   margin: 16px 0 6px;
+  position: relative;
+  z-index: 100;
+  isolation: isolate;
 }
 
 /* Notes sit side-by-side */
@@ -1453,13 +1456,14 @@ button.scrap-appt-q:focus-visible {
   background: rgba(100,120,95,0.22);
 }
 
-/* Context menu for long-press dismiss */
+/* Context menu for long-press dismiss — opens upward so it stays above “log today” tiles */
 .scrap-pending-ctx {
   position: absolute;
-  top: calc(100% + 4px);
+  bottom: calc(100% + 6px);
+  top: auto;
   left: 0;
   min-width: 200px;
-  z-index: 50;
+  z-index: 200;
   background: #fff;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;

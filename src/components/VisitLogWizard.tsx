@@ -25,6 +25,7 @@ import {
   buildClinicalNotesSupplement,
   mergeNotesWithTranscriptAppendix,
 } from '../lib/transcriptVisitFormat'
+import { formatVisitDateLong } from '../lib/formatTime12h'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -924,6 +925,22 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
       {step === 2 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
+          <div
+            style={{
+              marginBottom: 14,
+              padding: '12px 14px',
+              background: 'var(--surface-alt, #f8fafc)',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: '1.02rem', color: 'var(--text, #1e293b)' }}>
+              {effectiveName || 'Doctor'}
+            </div>
+            <div className="muted" style={{ fontSize: '0.88rem', marginTop: 2 }}>
+              {formatVisitDateLong(visitDate)}
+            </div>
+          </div>
           <VisitTranscriber
             doctorName={effectiveName}
             visitDate={visitDate}
@@ -992,6 +1009,22 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
       {step === 3 && (
         <div className="card shadow" style={{ borderRadius: 16, padding: 16 }}>
+          <div
+            style={{
+              marginBottom: 14,
+              padding: '12px 14px',
+              background: 'var(--surface-alt, #f8fafc)',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: '1.02rem', color: 'var(--text, #1e293b)' }}>
+              {effectiveName || 'Doctor'}
+            </div>
+            <div className="muted" style={{ fontSize: '0.88rem', marginTop: 2 }}>
+              {formatVisitDateLong(visitDate)}
+            </div>
+          </div>
           <p style={{ margin: '0 0 14px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds & follow-up</p>
 
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
