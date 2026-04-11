@@ -1261,10 +1261,11 @@ button.scrap-appt-q:focus-visible {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin: 16px 0 6px;
+  margin: 4px 0 8px;
   position: relative;
-  z-index: 100;
+  z-index: 130;
   isolation: isolate;
+  width: 100%;
 }
 
 /* Notes sit side-by-side */
@@ -1411,12 +1412,13 @@ button.scrap-appt-q:focus-visible {
   overflow: hidden;
 }
 
-/* Visit count */
+/* Visit count / finish hint */
 .scrap-pending-sticker__count {
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   color: #3d4a38;
   font-style: italic;
-  margin-top: 4px;
+  margin-top: 6px;
+  line-height: 1.25;
 }
 
 /* "hold to dismiss" bottom hint */
@@ -1696,26 +1698,30 @@ button.scrap-appt-q:focus-visible {
   text-decoration: underline;
 }
 
-/* ── Account / profile page (scrapbook mockup) ───────────── */
+/* ── Account / profile page (scrapbook — cohesive w/ dashboard) ───────────── */
 .scrap-account-page {
-  padding-bottom: 32px;
+  padding-bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
 .scrap-account-banner {
   font-family: var(--font-scrap);
-  font-size: 0.95rem;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  border-radius: 12px;
+  font-size: 1.05rem;
+  padding: 12px 14px;
+  margin-bottom: 0;
+  border-radius: 14px;
   background: rgba(254, 243, 199, 0.65);
   border: 1px solid rgba(180, 140, 80, 0.35);
   color: var(--scrap-ink);
+  line-height: 1.45;
 }
 
 .scrap-account-paper {
   position: relative;
   border-radius: 22px;
-  padding: 18px 16px 16px;
+  padding: 20px 18px 18px;
   background: linear-gradient(165deg, #fffefb 0%, #faf6ed 48%, #f3ead8 100%);
   border: 1.5px solid rgba(74, 55, 40, 0.14);
   box-shadow:
@@ -1725,8 +1731,79 @@ button.scrap-appt-q:focus-visible {
 }
 
 .scrap-account-paper--hero {
-  margin-bottom: 22px;
-  padding-top: 22px;
+  margin-bottom: 0;
+  padding: 28px 22px 24px;
+  background: linear-gradient(180deg, #fff8dc 0%, #fffbeb 100%);
+  border: 1px solid rgba(74, 55, 40, 0.12);
+  box-shadow:
+    0 6px 22px rgba(74, 55, 40, 0.12),
+    0 2px 6px rgba(74, 55, 40, 0.06);
+}
+
+/* Long washi strips on all four edges (frame — no pin) */
+.scrap-account-frame-tape {
+  position: absolute;
+  pointer-events: none;
+  z-index: 4;
+  border-radius: 2px;
+  opacity: 0.9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+}
+
+.scrap-account-frame-tape--top {
+  top: -4px;
+  left: -5px;
+  right: -5px;
+  height: 26px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 188, 168, 0.95) 0%,
+    rgba(255, 218, 200, 0.82) 40%,
+    rgba(255, 200, 178, 0.92) 100%
+  );
+  transform: rotate(-0.35deg);
+}
+
+.scrap-account-frame-tape--bottom {
+  bottom: -4px;
+  left: -5px;
+  right: -5px;
+  height: 26px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 210, 188, 0.9) 0%,
+    rgba(255, 228, 210, 0.78) 55%,
+    rgba(255, 195, 170, 0.93) 100%
+  );
+  transform: rotate(0.4deg);
+}
+
+.scrap-account-frame-tape--left {
+  left: -4px;
+  top: 22px;
+  bottom: 22px;
+  width: 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(190, 220, 175, 0.88) 0%,
+    rgba(165, 200, 155, 0.74) 45%,
+    rgba(175, 210, 160, 0.86) 100%
+  );
+  transform: rotate(-0.25deg);
+}
+
+.scrap-account-frame-tape--right {
+  right: -4px;
+  top: 22px;
+  bottom: 22px;
+  width: 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(225, 205, 240, 0.88) 0%,
+    rgba(200, 175, 225, 0.72) 50%,
+    rgba(215, 195, 235, 0.85) 100%
+  );
+  transform: rotate(0.3deg);
 }
 
 .scrap-account-paper--plushies,
@@ -1794,12 +1871,6 @@ button.scrap-appt-q:focus-visible {
     inset 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
-.scrap-pin--rose {
-  top: -10px;
-  right: 22px;
-  background: radial-gradient(circle at 32% 28%, #fff0f5 0%, #f8a8c4 38%, #e56b93 72%, #b83d6a 100%);
-}
-
 .scrap-pin--tiny {
   width: 14px;
   height: 14px;
@@ -1817,20 +1888,22 @@ button.scrap-appt-q:focus-visible {
 }
 
 .scrap-account-profile-row {
+  position: relative;
+  z-index: 6;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .scrap-account-avatar {
   flex-shrink: 0;
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
+  width: 84px;
+  height: 84px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.4rem;
+  font-size: 2.75rem;
   line-height: 1;
   background: linear-gradient(145deg, #fff 0%, #f1e9dc 100%);
   border: 2px solid rgba(74, 55, 40, 0.12);
@@ -1839,8 +1912,8 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-display-name {
   font-family: var(--font-scrap);
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--scrap-ink);
   line-height: 1.15;
@@ -1848,27 +1921,29 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-email {
   font-family: var(--font-scrap);
-  font-size: 0.92rem;
+  font-size: 1.08rem;
   color: var(--scrap-muted);
-  margin-top: 2px;
+  margin-top: 4px;
   word-break: break-all;
 }
 
 .scrap-account-badge {
   display: inline-block;
-  margin-top: 8px;
-  padding: 4px 12px;
+  margin-top: 10px;
+  padding: 6px 14px;
   border-radius: 999px;
   font-family: var(--font-scrap);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   background: rgba(255, 252, 245, 0.95);
   border: 1px solid rgba(74, 55, 40, 0.18);
   color: var(--scrap-muted);
 }
 
 .scrap-account-token-block {
-  margin-top: 18px;
-  padding-top: 14px;
+  position: relative;
+  z-index: 6;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px dashed rgba(74, 55, 40, 0.18);
 }
 
@@ -1881,7 +1956,7 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-token-num {
   font-family: var(--font-scrap);
-  font-size: 2.1rem;
+  font-size: 2.35rem;
   font-weight: 800;
   color: var(--scrap-ink);
   line-height: 1;
@@ -1889,15 +1964,15 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-token-label {
   font-family: var(--font-scrap);
-  font-size: 1rem;
+  font-size: 1.12rem;
   color: var(--scrap-muted);
 }
 
 .scrap-account-token-hint {
   font-family: var(--font-scrap);
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: var(--scrap-muted);
-  margin: 6px 0 10px;
+  margin: 8px 0 12px;
 }
 
 .scrap-account-progress-track {
@@ -1917,41 +1992,41 @@ button.scrap-appt-q:focus-visible {
 .scrap-account-progress-meta {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
   font-family: var(--font-scrap);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--scrap-muted);
 }
 
 .scrap-account-token-disabled {
   font-family: var(--font-scrap);
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--scrap-muted);
   margin: 12px 0 0;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .scrap-account-block {
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .scrap-account-heading {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
+  gap: 10px;
+  margin: 0 0 14px;
   font-family: var(--font-scrap);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: lowercase;
   color: var(--scrap-ink);
 }
 
 .scrap-account-heading-bar {
-  width: 6px;
-  height: 18px;
-  border-radius: 3px;
+  width: 8px;
+  height: 22px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -1989,16 +2064,16 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-stat strong {
   display: block;
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 800;
   line-height: 1.1;
   color: var(--scrap-ink);
 }
 
 .scrap-account-stat span:last-child {
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--scrap-muted);
-  margin-top: 4px;
+  margin-top: 6px;
   display: block;
 }
 
@@ -2108,28 +2183,28 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-notify-title {
   font-family: var(--font-scrap);
-  font-size: 1rem;
+  font-size: 1.12rem;
   font-weight: 600;
   color: var(--scrap-ink);
 }
 
 .scrap-account-notify-sub {
   font-family: var(--font-scrap);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--scrap-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .scrap-account-switch {
   flex-shrink: 0;
-  min-width: 52px;
-  padding: 6px 12px;
+  min-width: 58px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: 1.5px solid rgba(74, 55, 40, 0.2);
   background: rgba(120, 120, 120, 0.15);
   color: var(--scrap-muted);
   font-family: var(--font-scrap);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2179,16 +2254,16 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-action-title {
   font-family: var(--font-scrap);
-  font-size: 1.02rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--scrap-ink);
 }
 
 .scrap-account-action-sub {
   font-family: var(--font-scrap);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--scrap-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .scrap-account-chevron {
@@ -2208,7 +2283,7 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-quick-link {
   font-family: var(--font-scrap);
-  font-size: 0.95rem;
+  font-size: 1.08rem;
   color: var(--scrap-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -2217,14 +2292,14 @@ button.scrap-appt-q:focus-visible {
 .scrap-account-signout {
   display: block;
   width: 100%;
-  margin-top: 8px;
-  padding: 14px 20px;
+  margin-top: 4px;
+  padding: 16px 22px;
   border-radius: 999px;
   border: 2px solid rgba(234, 88, 12, 0.35);
   background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
   color: #c2410c;
   font-family: var(--font-scrap);
-  font-size: 1.15rem;
+  font-size: 1.28rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(194, 65, 12, 0.12);

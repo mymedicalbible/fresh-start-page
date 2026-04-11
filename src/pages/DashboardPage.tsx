@@ -466,9 +466,9 @@ function PendingVisitStickers ({
               onClick={() => { if (openCtx === norm) setOpenCtx(null) }}
             >
               <div className="scrap-pending-sticker__doctor">{label}</div>
-              {count > 1 && (
-                <div className="scrap-pending-sticker__count">{count} unfinished</div>
-              )}
+              <div className="scrap-pending-sticker__count">
+                {count > 1 ? `${count} unfinished` : 'finish visit log'}
+              </div>
             </button>
             {openCtx === norm && (
               <div className="scrap-pending-ctx" role="menu">
@@ -1581,6 +1581,24 @@ export function DashboardPage () {
           </div>
         </header>
 
+        {/* Pending visit sticky notes — above appointments so they stay visible */}
+        {hasAnyPendingVisits && (
+          <PendingVisitStickers
+            entries={pendingDockEntries}
+            onNavigate={(resumeId, label) => {
+              void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
+            }}
+            onDismiss={(norm) => {
+              if (user?.id) dismissPendingDockNorm(user.id, norm)
+              setPendingVisitsByNorm((prev) => {
+                const next = { ...prev }
+                delete next[norm]
+                return next
+              })
+            }}
+          />
+        )}
+
         {(() => {
           // Label: upcoming / in progress / just finished (timing), or most recent past when nothing is upcoming
           const a = upcoming[0]
@@ -1689,24 +1707,6 @@ export function DashboardPage () {
         </section>
           )
         })()}
-
-        {/* Pending visit stickers — always outside/below the banner */}
-        {hasAnyPendingVisits && (
-          <PendingVisitStickers
-            entries={pendingDockEntries}
-            onNavigate={(resumeId, label) => {
-              void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
-            }}
-            onDismiss={(norm) => {
-              if (user?.id) dismissPendingDockNorm(user.id, norm)
-              setPendingVisitsByNorm((prev) => {
-                const next = { ...prev }
-                delete next[norm]
-                return next
-              })
-            }}
-          />
-        )}
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">

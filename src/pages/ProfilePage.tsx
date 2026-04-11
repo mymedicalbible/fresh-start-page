@@ -171,8 +171,10 @@ export function ProfilePage () {
 
       {/* Profile + tokens */}
       <section className="scrap-account-paper scrap-account-paper--hero">
-        <span className="scrap-account-tape scrap-account-tape--coral" aria-hidden />
-        <span className="scrap-pin scrap-pin--rose" aria-hidden />
+        <span className="scrap-account-frame-tape scrap-account-frame-tape--top" aria-hidden />
+        <span className="scrap-account-frame-tape scrap-account-frame-tape--right" aria-hidden />
+        <span className="scrap-account-frame-tape scrap-account-frame-tape--bottom" aria-hidden />
+        <span className="scrap-account-frame-tape scrap-account-frame-tape--left" aria-hidden />
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
             🐼
