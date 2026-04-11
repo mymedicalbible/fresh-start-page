@@ -12,27 +12,28 @@ function ScrapSticker ({
   )
 }
 
-function CorkPinCard ({
+function TapeCornerCard ({
   to,
   title,
   sub,
   variant,
-  tilt,
 }: {
   to: string
   title: string
   sub: string
-  variant: 'lavender' | 'cream'
-  tilt: 'a' | 'b'
+  variant: 'account' | 'plushies'
 }) {
   return (
     <Link
       to={to}
-      className={`scrap-more-pin-card scrap-more-pin-card--${variant} scrap-more-pin-card--tilt-${tilt}`}
+      className={`scrap-more-tape-card scrap-more-tape-card--${variant}`}
     >
-      <span className="scrap-more-pin-card-pin" aria-hidden />
-      <span className="scrap-more-pin-card-title">{title}</span>
-      <span className="scrap-more-pin-card-sub">{sub}</span>
+      <span className="scrap-account-corner-tape scrap-account-corner-tape--tl" aria-hidden />
+      <span className="scrap-account-corner-tape scrap-account-corner-tape--tr" aria-hidden />
+      <span className="scrap-account-corner-tape scrap-account-corner-tape--bl" aria-hidden />
+      <span className="scrap-account-corner-tape scrap-account-corner-tape--br" aria-hidden />
+      <span className="scrap-more-tape-card-title">{title}</span>
+      <span className="scrap-more-tape-card-sub">{sub}</span>
     </Link>
   )
 }
@@ -48,29 +49,19 @@ export function MorePage () {
         <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
       </div>
 
-      <section className="scrap-more-cork" aria-label="Pinned shortcuts">
-        <div className="scrap-more-cork-frame">
-          <span className="scrap-more-cork-tack scrap-more-cork-tack--tl" aria-hidden />
-          <span className="scrap-more-cork-tack scrap-more-cork-tack--tr" aria-hidden />
-          <div className="scrap-more-cork-board">
-            <div className="scrap-more-cork-pins">
-              <CorkPinCard
-                to="/app/profile"
-                title="Account"
-                sub="profile & export"
-                variant="lavender"
-                tilt="a"
-              />
-              <CorkPinCard
-                to="/app/plushies"
-                title="Plushies"
-                sub="tokens & shop"
-                variant="cream"
-                tilt="b"
-              />
-            </div>
-          </div>
-        </div>
+      <section className="scrap-more-overlap" aria-label="Account and Plushies">
+        <TapeCornerCard
+          to="/app/profile"
+          title="Account"
+          sub="profile & export"
+          variant="account"
+        />
+        <TapeCornerCard
+          to="/app/plushies"
+          title="Plushies"
+          sub="tokens & shop"
+          variant="plushies"
+        />
       </section>
     </div>
   )

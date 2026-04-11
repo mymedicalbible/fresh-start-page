@@ -2123,13 +2123,13 @@ button.scrap-appt-q:focus-visible {
 .scrap-account-plushie-cell {
   flex: 1 1 52px;
   max-width: 72px;
-  min-height: 76px;
+  min-height: 72px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 0;
   text-decoration: none;
   color: var(--scrap-ink);
   background: rgba(255, 255, 255, 0.45);
@@ -2588,168 +2588,88 @@ button.scrap-appt-q:focus-visible {
   color: rgba(74, 55, 40, 0.78);
 }
 
-/* More page: cork board + pinned cardstock (Account / Plushies) */
+/* More page: big overlapping cardstock + washi on all corners */
 .scrap-more-page {
-  padding-bottom: 40px;
+  padding-bottom: 48px;
 }
 
-.scrap-more-cork {
-  margin-top: 28px;
-}
-
-.scrap-more-cork-frame {
+.scrap-more-overlap {
   position: relative;
-  padding: 10px 12px 12px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #d4a574 0%, #a67c52 48%, #8b6239 100%);
-  box-shadow:
-    0 6px 18px rgba(45, 35, 28, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  border: 2px solid rgba(60, 42, 28, 0.35);
+  margin-top: 32px;
+  padding: 8px 0 40px;
+  min-height: 200px;
 }
 
-.scrap-more-cork-tack {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  z-index: 2;
-  background: radial-gradient(circle at 35% 30%, #f5e6c8 0%, #c9a227 45%, #8b6914 100%);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.35),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-}
-
-.scrap-more-cork-tack--tl {
-  top: 6px;
-  left: 10px;
-}
-
-.scrap-more-cork-tack--tr {
-  top: 6px;
-  right: 10px;
-}
-
-.scrap-more-cork-board {
+.scrap-more-tape-card {
   position: relative;
-  border-radius: 8px;
-  padding: 18px 16px 22px;
-  min-height: 148px;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(60, 40, 20, 0.04) 3px,
-      rgba(60, 40, 20, 0.04) 4px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 3px,
-      rgba(40, 25, 10, 0.035) 3px,
-      rgba(40, 25, 10, 0.035) 4px
-    ),
-    linear-gradient(165deg, #c9a06c 0%, #a67c52 42%, #8f6844 100%);
-  border: 1px solid rgba(50, 35, 22, 0.35);
-  box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.12);
-}
-
-.scrap-more-cork-pins {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 22px 32px;
-}
-
-.scrap-more-pin-card {
-  position: relative;
-  flex: 0 1 auto;
-  width: 100%;
-  max-width: 168px;
-  padding: 18px 14px 14px;
-  border-radius: 3px 5px 4px 3px;
+  display: block;
+  width: min(94%, 400px);
+  margin-left: auto;
+  margin-right: auto;
+  padding: 44px 36px 40px;
   text-decoration: none;
   color: var(--scrap-ink);
+  border-radius: 4px;
   border: 1px solid rgba(74, 55, 40, 0.22);
   box-shadow:
-    2px 3px 0 rgba(74, 55, 40, 0.12),
-    0 6px 14px rgba(45, 35, 28, 0.12);
+    4px 6px 0 rgba(74, 55, 40, 0.1),
+    0 16px 36px rgba(45, 35, 28, 0.16);
+  overflow: visible;
   -webkit-tap-highlight-color: transparent;
 }
 
-.scrap-more-pin-card--tilt-a:active {
-  transform: rotate(-2.2deg) scale(0.97);
-}
-
-.scrap-more-pin-card--tilt-b:active {
-  transform: rotate(1.6deg) scale(0.97);
-}
-
-.scrap-more-pin-card--tilt-a {
-  transform: rotate(-2.2deg);
-}
-
-.scrap-more-pin-card--tilt-b {
-  transform: rotate(1.6deg);
-}
-
-.scrap-more-pin-card--lavender {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
-    linear-gradient(165deg, #faf8ff 0%, #ede9fe 55%, #ddd6fe 100%);
-}
-
-.scrap-more-pin-card--cream {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.55) 0%, transparent 42%),
-    linear-gradient(165deg, #fffdf7 0%, #fffbeb 45%, #fef3c7 100%);
-}
-
-/* Round push pin — matches dashboard pending stickers */
-.scrap-more-pin-card-pin {
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  pointer-events: none;
+.scrap-more-tape-card--account {
   z-index: 1;
-  background: radial-gradient(
-    circle at 32% 28%,
-    #fff0f5 0%,
-    #f8a8c4 38%,
-    #e56b93 72%,
-    #b83d6a 100%
-  );
-  box-shadow:
-    0 2px 4px rgba(120, 30, 60, 0.28),
-    0 2px 6px rgba(120, 30, 60, 0.12),
-    inset 0 1px 1px rgba(255, 255, 255, 0.55),
-    inset 0 -2px 3px rgba(90, 20, 45, 0.16);
+  transform: rotate(-2.8deg);
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.55) 0%, transparent 45%),
+    linear-gradient(175deg, #faf8ff 0%, #ede9fe 50%, #ddd6fe 100%);
 }
 
-.scrap-more-pin-card-title {
-  display: block;
-  font-family: var(--font-scrap);
-  font-size: 1.12rem;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
+.scrap-more-tape-card--plushies {
+  z-index: 2;
+  margin-top: -76px;
+  margin-left: min(18vw, 72px);
+  margin-right: 0;
+  transform: rotate(3.2deg);
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.6) 0%, transparent 44%),
+    linear-gradient(175deg, #fffdf7 0%, #fffbeb 42%, #fef3c7 100%);
 }
 
-.scrap-more-pin-card-sub {
+.scrap-more-tape-card--account:active {
+  transform: rotate(-2.8deg) scale(0.98);
+}
+
+.scrap-more-tape-card--plushies:active {
+  transform: rotate(3.2deg) scale(0.98);
+}
+
+.scrap-more-tape-card-title {
   display: block;
-  margin-top: 6px;
   font-family: var(--font-scrap);
-  font-size: 0.78rem;
-  line-height: 1.25;
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.1;
   text-align: center;
-  color: rgba(74, 55, 40, 0.72);
+  letter-spacing: -0.02em;
+}
+
+.scrap-more-tape-card-sub {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--font-scrap);
+  font-size: 1.05rem;
+  line-height: 1.35;
+  text-align: center;
+  color: rgba(74, 55, 40, 0.75);
+}
+
+@media (max-width: 420px) {
+  .scrap-more-tape-card--plushies {
+    margin-left: 12vw;
+    margin-top: -64px;
+  }
 }
 
 .scrap-dash-footer {

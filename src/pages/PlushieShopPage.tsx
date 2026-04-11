@@ -221,16 +221,24 @@ export function PlushieShopPage () {
                 style={{
                   borderRadius: 12,
                   border: isWeek ? '2px solid var(--mint-dark, #065f46)' : '1px solid var(--border)',
-                  padding: 10,
-                  textAlign: 'center',
-                  opacity: owned ? 1 : 0.38,
-                  filter: owned ? undefined : 'grayscale(1)',
+                  padding: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 88,
                   background: isWeek ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg)',
                 }}
               >
-                <div style={{ fontSize: '2rem' }} aria-hidden>{owned ? '✓' : '?'}</div>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, marginTop: 6 }}>{p.name}</div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: 4 }}>slot {p.slot_index}</div>
+                {owned
+                  ? (
+                    <span className="scrap-account-plushie-emoji" style={{ fontSize: '2rem' }} aria-hidden>🧸</span>
+                    )
+                  : (
+                    <span className="scrap-account-plushie-mystery" aria-hidden style={{ minHeight: '2.75rem', width: '100%' }}>
+                      <span className="scrap-account-plushie-mystery-blur">🧸</span>
+                      <span className="scrap-account-plushie-mystery-mark">?</span>
+                    </span>
+                    )}
               </div>
             )
           })}

@@ -303,12 +303,10 @@ export function ProfilePage () {
                 <div className="scrap-account-plushie-panda-static">
                   <PandaLottieLoop data={pandaLottieData} className="scrap-account-plushie-panda-lottie" />
                 </div>
-                <span className="scrap-account-plushie-name">panda</span>
               </div>
             ) : (
               <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
                 <span className="scrap-account-plushie-emoji" aria-hidden>🐼</span>
-                <span className="scrap-account-plushie-name">panda</span>
               </div>
             )}
             {plushieSlots.length === 0
@@ -333,7 +331,6 @@ export function ProfilePage () {
                           <span className="scrap-account-plushie-mystery-mark">?</span>
                         </span>
                       )}
-                      <span className="scrap-account-plushie-name">{p.name.slice(0, 8)}</span>
                     </Link>
                   ))
                 )}
