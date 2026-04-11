@@ -980,7 +980,7 @@ export function MedicationsPage () {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <BackButton />
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Medications</h2>
+            <h2 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Medications</h2>
           </div>
           <button
             type="button"

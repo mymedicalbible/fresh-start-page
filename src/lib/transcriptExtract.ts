@@ -73,6 +73,8 @@ Patient's known diagnoses: ${context.knownDiagnoses.join(', ') || 'none provided
 Transcript:
 ${transcript}
 
+Important: In "medications", include one object for every distinct medication the doctor discussed (new starts, dose changes, or continuations). Do not omit a medication just because another was already listed. Put dose and frequency in the structured fields when spoken (e.g. separate 500 mg and twice daily).
+
 Return ONLY a JSON object with exactly these fields. No preamble, no markdown, no backticks:
 {
   "findings": "what the doctor found or observed",

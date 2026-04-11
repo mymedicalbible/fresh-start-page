@@ -222,7 +222,9 @@ export function DoctorProfilePage () {
       supabase.from('doctor_visits')
         .select('id, visit_date, visit_time, reason, findings, tests_ordered, instructions, notes, follow_up')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
-        .order('visit_date', { ascending: false }).limit(50),
+        .order('visit_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(50),
       supabase.from('doctor_questions')
         .select('id, date_created, appointment_date, question, priority, answer, status')
         .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)

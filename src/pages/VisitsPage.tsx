@@ -76,6 +76,7 @@ export function VisitsPage () {
       .from('doctor_visits').select('*')
       .eq('user_id', user!.id)
       .order('visit_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50)
     if (e) setError(e.message)
     else setVisits((data ?? []) as VisitRow[])

@@ -166,20 +166,47 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       setOpenTests(true)
     }
     if (fields.medications?.length) {
-      const [first] = fields.medications
-      if (first?.medication?.trim()) {
-        setNewMedEntry({
-          medication: first.medication.trim(),
-          dose: (first.dose ?? '').trim(),
-          frequency: (first.frequency ?? '').trim(),
-          prn: false,
-        })
-        setOpenMeds(true)
-      }
+      setDvMeds((prev) => {
+        const byKey = new Map<string, { medication: string; dose: string; action: 'keep' | 'remove' }>()
+        for (const m of prev) {
+          byKey.set(m.medication.trim().toLowerCase(), { ...m })
+        }
+        for (const raw of fields.medications) {
+          const name = raw.medication?.trim()
+          if (!name) continue
+          const key = name.toLowerCase()
+          const dosePart = [raw.dose?.trim(), raw.frequency?.trim()].filter(Boolean).join(' · ')
+          const existing = byKey.get(key)
+          if (existing) {
+            if (dosePart) byKey.set(key, { ...existing, dose: dosePart })
+          } else {
+            byKey.set(key, { medication: name, dose: dosePart, action: 'keep' })
+          }
+        }
+        return [...byKey.values()]
+      })
+      setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
+      setOpenMeds(true)
     }
     if (fields.findings || fields.instructions) setOpenClinical(true)
     if (fields.follow_up_date?.trim() || fields.follow_up_time?.trim()) setOpenNextAppt(true)
   }, [])
+
+  const addNewMedEntryToList = useCallback(() => {
+    const name = newMedEntry.medication.trim()
+    if (!name) return
+    const sched = newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || '')
+    const dosePart = [newMedEntry.dose.trim(), sched].filter(Boolean).join(' · ')
+    const key = name.toLowerCase()
+    setDvMeds((p) => {
+      const i = p.findIndex((m) => m.medication.trim().toLowerCase() === key)
+      if (i >= 0) {
+        return p.map((m, j) => (j === i ? { ...m, dose: dosePart, action: 'keep' as const } : m))
+      }
+      return [...p, { medication: name, dose: dosePart, action: 'keep' as const }]
+    })
+    setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
+  }, [newMedEntry])
 
   const buildDraftSnapshot = useCallback((): VisitWizardDraftV1 | null => {
     if (!user) return null
@@ -1032,6 +1059,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             </button>
             {openMeds && (
               <div style={{ padding: '0 12px 12px' }}>
+                <p style={{ margin: '0 0 10px', fontSize: '0.76rem', color: '#64748b', lineHeight: 1.4 }}>
+                  Review medications from your transcript below. Add anything that was missed (including dose) — use Add to list for each extra medication.
+                </p>
                 {dvMeds.map((m, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontSize: '0.85rem' }}>{m.medication}{m.dose ? ` · ${m.dose}` : ''}</span>
@@ -1044,6 +1074,14 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                   <input style={{ ...WIZARD_TX_INLINE, flex: '2 1 130px' }} placeholder="New med name" value={newMedEntry.medication} onChange={(e) => setNewMedEntry((p) => ({ ...p, medication: e.target.value }))} />
                   <input style={{ ...WIZARD_TX_INLINE, flex: '1 1 80px' }} placeholder="Dose" value={newMedEntry.dose} onChange={(e) => setNewMedEntry((p) => ({ ...p, dose: e.target.value }))} />
                 </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.8rem', marginTop: 8, width: '100%' }}
+                  onClick={() => addNewMedEntryToList()}
+                >
+                  Add to medication list
+                </button>
                 <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569' }}>Schedule</span>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

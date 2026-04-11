@@ -930,6 +930,7 @@ export function DashboardPage () {
         .eq('user_id', user.id)
         .gte('visit_date', since90Str)
         .order('visit_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(15),
       supabase.from('doctor_questions')
         .select('question, priority, date_created, doctor')
