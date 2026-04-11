@@ -658,9 +658,10 @@ export function MedicationsPage () {
     if (!user) return
     setMedHistoryLoading(medId)
     setMedHistoryErrorById((prev) => ({ ...prev, [medId]: null }))
+    // Use * so older DBs without change_reason column still load (no "column does not exist").
     const { data, error } = await supabase
       .from('medication_change_events')
-      .select('id, event_date, event_type, dose_previous, dose_new, frequency_previous, frequency_new, created_at, change_reason')
+      .select('*')
       .eq('user_id', user.id)
       .eq('medication', medication)
       .order('event_date', { ascending: false })
@@ -854,7 +855,7 @@ export function MedicationsPage () {
     const freqNew = doseChangeForm.frequency_new.trim() || null
     const reasonTrim = doseChangeForm.change_reason.trim() || null
 
-    const rpcRes = await supabase.rpc('insert_medication_change_event', {
+    const basePayload = {
       p_event_date: doseChangeForm.event_date,
       p_medication: doseChangeTarget.medication,
       p_event_type: doseChangeForm.event_type,
@@ -862,11 +863,18 @@ export function MedicationsPage () {
       p_dose_new: doseNew,
       p_frequency_previous: freqPrev,
       p_frequency_new: freqNew,
+    } as const
+
+    let rpcRes = await supabase.rpc('insert_medication_change_event', {
+      ...basePayload,
       p_change_reason: reasonTrim,
     })
     if (rpcRes.error) {
-      // RPC not available yet — fall back to direct table insert
-      const { error: e } = await supabase.from('medication_change_events').insert({
+      // Older DB: RPC without change_reason param
+      rpcRes = await supabase.rpc('insert_medication_change_event', { ...basePayload })
+    }
+    if (rpcRes.error) {
+      const rowBase = {
         user_id: user!.id,
         event_date: doseChangeForm.event_date,
         medication: doseChangeTarget.medication,
@@ -875,9 +883,18 @@ export function MedicationsPage () {
         dose_new: doseNew,
         frequency_previous: freqPrev,
         frequency_new: freqNew,
-        change_reason: reasonTrim,
+      }
+      let ins = await supabase.from('medication_change_events').insert({
+        ...rowBase,
+        ...(reasonTrim != null ? { change_reason: reasonTrim } : {}),
       })
-      if (e) { setDoseChangeError(e.message); setBusy(false); return }
+      if (ins.error && reasonTrim != null) {
+        const m = ins.error.message.toLowerCase()
+        if (m.includes('change_reason') || m.includes('does not exist') || m.includes('schema cache')) {
+          ins = await supabase.from('medication_change_events').insert(rowBase)
+        }
+      }
+      if (ins.error) { setDoseChangeError(ins.error.message); setBusy(false); return }
     }
 
     // If there's effectiveness / side_effects, also update the current med record

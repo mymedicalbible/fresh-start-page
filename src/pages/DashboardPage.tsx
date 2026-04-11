@@ -968,7 +968,7 @@ export function DashboardPage () {
     if (medEventsRes.error) {
       // RPC failed — try direct table as fallback
       const fallback = await supabase.from('medication_change_events')
-        .select('id, event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new, created_at, change_reason')
+        .select('*')
         .eq('user_id', user.id)
         .gte('event_date', since120Str)
         .order('event_date', { ascending: false })
