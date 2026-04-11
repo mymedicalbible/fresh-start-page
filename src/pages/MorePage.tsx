@@ -17,6 +17,7 @@ export function MorePage () {
     <div>
       <BackButton fallbackTo="/app" />
       <div className="scrap-sticker-grid">
+        <ScrapSticker to="/app/profile" title="Account" sub="Profile &amp; export" tone="lavender" />
         <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
         <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
         <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />

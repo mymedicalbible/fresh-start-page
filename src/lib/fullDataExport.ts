@@ -377,21 +377,27 @@ export function downloadJsonExport (payload: FullExportPayload): void {
   URL.revokeObjectURL(a.href)
 }
 
-export async function runFullExportAndDownload (userId: string): Promise<FullExportPayload> {
+/** Build once, then download a single format (avoids browser blocking a second download). */
+export async function runExportDownload (
+  userId: string,
+  format: 'json' | 'pdf',
+): Promise<FullExportPayload> {
   const payload = await buildFullExportPayload(userId)
-  downloadJsonExport(payload)
-  await new Promise<void>((r) => setTimeout(r, 450))
-  downloadFullDataExportPdf({
-    body: handoffTextForExportPdf(payload),
-    readableSections: buildReadableExportPdfSections(payload),
-    generatedAtLabel: new Date(payload.exportedAtIso).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    tableErrors: payload.tableErrors,
-    exportedAtIso: payload.exportedAtIso,
-    userId: payload.userId,
-  })
+  if (format === 'json') {
+    downloadJsonExport(payload)
+  } else {
+    downloadFullDataExportPdf({
+      body: handoffTextForExportPdf(payload),
+      readableSections: buildReadableExportPdfSections(payload),
+      generatedAtLabel: new Date(payload.exportedAtIso).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      tableErrors: payload.tableErrors,
+      exportedAtIso: payload.exportedAtIso,
+      userId: payload.userId,
+    })
+  }
   return payload
 }

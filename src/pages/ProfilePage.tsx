@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
-import { runFullExportAndDownload } from '../lib/fullDataExport'
+import { runExportDownload } from '../lib/fullDataExport'
 
 const PANDA_LOTTIE_PATH = '/lottie/panda-popcorn.json'
 
@@ -88,6 +88,7 @@ export function ProfilePage () {
 
   const [accountBanner, setAccountBanner] = useState<string | null>(null)
   const [exportBusy, setExportBusy] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
 
   const loadStats = useCallback(async () => {
@@ -171,13 +172,13 @@ export function ProfilePage () {
     else setAccountBanner('Check your email for a password reset link.')
   }
 
-  async function onExportData () {
+  async function confirmExport (format: 'json' | 'pdf') {
     if (!user || exportBusy) return
     setExportBusy(true)
     setAccountBanner(null)
+    setExportDialogOpen(false)
     try {
-      await runFullExportAndDownload(user.id)
-      setAccountBanner('Downloaded JSON and PDF export to your device.')
+      await runExportDownload(user.id, format)
     } catch (e) {
       setAccountBanner(`Export failed: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -324,9 +325,14 @@ export function ProfilePage () {
                       className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}`}
                       title={p.name}
                     >
-                      <span className="scrap-account-plushie-emoji" aria-hidden>
-                        {p.unlocked ? '🧸' : '🔒'}
-                      </span>
+                      {p.unlocked ? (
+                        <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>
+                      ) : (
+                        <span className="scrap-account-plushie-mystery" aria-hidden>
+                          <span className="scrap-account-plushie-mystery-blur">🧸</span>
+                          <span className="scrap-account-plushie-mystery-mark">?</span>
+                        </span>
+                      )}
                       <span className="scrap-account-plushie-name">{p.name.slice(0, 8)}</span>
                     </Link>
                   ))
@@ -397,23 +403,19 @@ export function ProfilePage () {
             type="button"
             className="scrap-account-action-row scrap-account-action-row--btn"
             disabled={exportBusy}
-            onClick={() => void onExportData()}
+            onClick={() => {
+              setAccountBanner(null)
+              setExportDialogOpen(true)
+            }}
           >
             <div>
               <div className="scrap-account-action-title">export my data</div>
               <div className="scrap-account-action-sub">
-                {exportBusy ? 'preparing…' : 'downloads JSON backup + readable PDF'}
+                {exportBusy ? 'preparing…' : 'choose JSON or PDF'}
               </div>
             </div>
             <span aria-hidden className="scrap-account-chevron">›</span>
           </button>
-          <Link className="scrap-account-action-row" to="/app/records">
-            <div>
-              <div className="scrap-account-action-title">records</div>
-              <div className="scrap-account-action-sub">browse pain, episodes, archives</div>
-            </div>
-            <span aria-hidden className="scrap-account-chevron">›</span>
-          </Link>
           <button type="button" className="scrap-account-action-row scrap-account-action-row--btn" onClick={() => void onChangeEmail()}>
             <div>
               <div className="scrap-account-action-title">change email</div>
@@ -442,6 +444,60 @@ export function ProfilePage () {
       <button type="button" className="scrap-account-signout" onClick={() => signOut()}>
         sign out
       </button>
+
+      {exportDialogOpen ? (
+        <div
+          className="scrap-export-overlay"
+          role="presentation"
+          onClick={() => !exportBusy && setExportDialogOpen(false)}
+        >
+          <div
+            className="scrap-export-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scrap-export-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="scrap-export-title" className="scrap-export-title">
+              Export your data
+            </h3>
+            <p className="scrap-export-lead">Pick one format. You can run export again anytime for the other.</p>
+            <div className="scrap-export-options">
+              <button
+                type="button"
+                className="scrap-export-option"
+                disabled={exportBusy}
+                onClick={() => void confirmExport('json')}
+              >
+                <span className="scrap-export-option-label">JSON file</span>
+                <span className="scrap-export-option-desc">
+                  Full backup of every database field plus local archives—best for moving to another device, long-term
+                  storage, or tools that read JSON.
+                </span>
+              </button>
+              <button
+                type="button"
+                className="scrap-export-option"
+                disabled={exportBusy}
+                onClick={() => void confirmExport('pdf')}
+              >
+                <span className="scrap-export-option-label">PDF file</span>
+                <span className="scrap-export-option-desc">
+                  Handoff narrative plus readable digests with bullets—easier to skim, share, or print than raw data.
+                </span>
+              </button>
+            </div>
+            <button
+              type="button"
+              className="scrap-export-cancel"
+              disabled={exportBusy}
+              onClick={() => setExportDialogOpen(false)}
+            >
+              cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

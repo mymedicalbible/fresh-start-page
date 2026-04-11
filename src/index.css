@@ -2190,6 +2190,43 @@ button.scrap-appt-q:focus-visible {
   line-height: 1;
 }
 
+.scrap-account-plushie-mystery {
+  position: relative;
+  width: 100%;
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scrap-account-plushie-mystery-blur {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  line-height: 1;
+  opacity: 0.4;
+  filter: blur(6px);
+  transform: scale(1.2);
+  user-select: none;
+  pointer-events: none;
+}
+
+.scrap-account-plushie-mystery-mark {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-scrap);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: rgba(74, 55, 55, 0.88);
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.95),
+    0 1px 0 rgba(255, 255, 255, 0.85);
+  line-height: 1;
+}
+
 .scrap-account-plushie-name {
   font-family: var(--font-scrap);
   font-size: 0.62rem;
@@ -2336,6 +2373,112 @@ button.scrap-appt-q:focus-visible {
   color: var(--scrap-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Export format chooser (profile) */
+.scrap-export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(45, 35, 28, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.scrap-export-dialog {
+  width: 100%;
+  max-width: 420px;
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  background: linear-gradient(165deg, #fffefb 0%, #faf6ed 100%);
+  border: 1.5px solid rgba(74, 55, 40, 0.18);
+  box-shadow:
+    0 12px 40px rgba(45, 35, 28, 0.2),
+    0 2px 8px rgba(45, 35, 28, 0.08);
+}
+
+.scrap-export-title {
+  font-family: var(--font-scrap);
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--scrap-ink);
+}
+
+.scrap-export-lead {
+  font-family: var(--font-scrap);
+  font-size: 0.98rem;
+  color: var(--scrap-muted);
+  margin: 0 0 16px;
+  line-height: 1.45;
+}
+
+.scrap-export-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scrap-export-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(74, 55, 40, 0.15);
+  background: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.scrap-export-option:hover:not(:disabled) {
+  border-color: rgba(74, 55, 40, 0.28);
+  background: rgba(255, 252, 245, 0.95);
+}
+
+.scrap-export-option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.scrap-export-option-label {
+  display: block;
+  font-family: var(--font-scrap);
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--scrap-ink);
+  margin-bottom: 6px;
+}
+
+.scrap-export-option-desc {
+  display: block;
+  font-family: var(--font-scrap);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--scrap-muted);
+}
+
+.scrap-export-cancel {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-scrap);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--scrap-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.scrap-export-cancel:hover:not(:disabled) {
+  color: var(--scrap-ink);
 }
 
 .scrap-account-signout {
