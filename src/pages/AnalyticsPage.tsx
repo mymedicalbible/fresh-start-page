@@ -280,7 +280,7 @@ export function AnalyticsPage () {
           {/* PAIN OVER TIME */}
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Pain over time</h2>
-            <p className="muted" style={{ fontSize: '0.85rem', marginTop: -8 }}>Avg intensity per day logged. Tap a bar for details.</p>
+            <p className="muted" style={{ fontSize: '0.85rem', marginTop: -8 }}>Avg intensity per day.</p>
             {painOverTime.length === 0
               ? <p className="muted">No pain entries yet.</p>
               : (
@@ -326,7 +326,6 @@ export function AnalyticsPage () {
                 <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandPainAreas ? '▲' : '▼'}</span>
               </h2>
             </button>
-            <p className="muted" style={{ fontSize: '0.85rem', marginTop: -8 }}>Left and right tracked separately.</p>
             {areaStats.length === 0
               ? <p className="muted">No pain data yet.</p>
               : (
@@ -389,7 +388,6 @@ export function AnalyticsPage () {
           {/* PAIN TIME HEATMAP */}
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Pain by time of day</h2>
-            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged at that time.</p>
             {!hasPainHourData
               ? <p className="muted">No timed pain entries yet.</p>
               : (
@@ -417,7 +415,6 @@ export function AnalyticsPage () {
           {/* SYMPTOMS TIME HEATMAP — replaces MCAS by time */}
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Episodes by time of day</h2>
-            <p className="muted" style={{ fontSize: '0.85rem' }}>Tap a cell to see what was logged in episode entries at that time.</p>
             {!hasSympHourData
               ? <p className="muted">No timed episode entries yet.</p>
               : (

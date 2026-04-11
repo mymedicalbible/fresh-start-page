@@ -142,9 +142,6 @@ export function DoctorsPage () {
             {showForm && !editingId ? 'Cancel' : '+ Add doctor'}
           </button>
         </div>
-        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 6, marginBottom: 0 }}>
-          Tap a doctor to open their full profile.
-        </p>
       </div>
 
 
@@ -192,9 +189,6 @@ export function DoctorsPage () {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <div className="card" style={{ maxWidth: 380, width: '100%' }}>
             <h3 style={{ marginTop: 0 }}>Archive {archiveModal.name}?</h3>
-            <p className="muted" style={{ fontSize: '0.88rem' }}>
-              Archived doctors are hidden from your main list but their records are preserved. You can restore them later.
-            </p>
             <div className="form-group">
               <label>Reason (optional)</label>
               <input

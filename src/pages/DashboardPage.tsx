@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
@@ -74,7 +75,7 @@ function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<s
         const doctorParam = appt.doctor ? encodeURIComponent(appt.doctor) : ''
         const deepLink = `/app/questions?tab=open${doctorParam ? `&doctor=${doctorParam}` : ''}`
         const n = new Notification('Medical Bible — Review your questions', {
-          body: `Appointment with ${appt.doctor ?? 'your doctor'} just finished. You have ${q} unanswered question${q !== 1 ? 's' : ''} — tap to review.`,
+          body: `Appointment with ${appt.doctor ?? 'your doctor'} just finished. ${q} unanswered question${q !== 1 ? 's' : ''}.`,
           icon: '/icon-192.png',
           tag: `appt-q-${appt.id}`,
         })
@@ -386,18 +387,11 @@ function SummaryModal ({
           )}
 
           {!summary && !loading && (
-            <div className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '24px 0' }}>
-              Tap Generate to build your clinical handoff narrative from all your logs.
-            </div>
+            <div style={{ minHeight: 48 }} aria-hidden />
           )}
           {loading && (
             <div style={{ textAlign: 'center', padding: '24px 12px' }}>
-              <p className="muted" style={{ fontSize: '0.88rem', lineHeight: 1.55, margin: '0 0 8px' }}>
-                Pulling your last ~90 days of visits, medications, pain logs, episodes, and questions from the app…
-              </p>
-              <p className="muted" style={{ fontSize: '0.8rem', lineHeight: 1.5, margin: 0, opacity: 0.9 }}>
-                Then assembling your handoff narrative in the app.
-              </p>
+              <p className="muted" style={{ fontSize: '0.88rem', margin: 0 }}>Loading…</p>
             </div>
           )}
         </div>
@@ -474,7 +468,6 @@ function PendingVisitStickers ({
               {count > 1 && (
                 <div className="scrap-pending-sticker__count">{count} unfinished</div>
               )}
-              <span className="scrap-pending-sticker__hold">hold to dismiss</span>
             </button>
             {openCtx === norm && (
               <div className="scrap-pending-ctx" role="menu">
@@ -521,8 +514,14 @@ export function DashboardPage () {
   const [searchParams, setSearchParams] = useSearchParams()
   const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
+  /** All future (non–visit-logged) appointments from the same query — for long-press sheet; banner still shows [0] only */
+  const [upcomingAllFull, setUpcomingAllFull] = useState<UpcomingAppt[]>([])
   /** `upcoming` row is from future schedule vs most recent ended appointment when nothing is upcoming */
   const [apptBannerSource, setApptBannerSource] = useState<'upcoming' | 'past' | 'none'>('none')
+  /** Long-press appointments banner → full list */
+  const [allApptsSheetOpen, setAllApptsSheetOpen] = useState(false)
+  const apptBannerLongPressTimerRef = useRef<number | null>(null)
+  const suppressApptBannerClickRef = useRef(false)
   /** Pending `doctor_visits` counts keyed by `normDoctorName(doctor)` */
   const [pendingVisitsByNorm, setPendingVisitsByNorm] = useState<Record<string, number>>({})
   /** First-seen display name per norm key (for links / copy when there is no upcoming row). */
@@ -559,6 +558,12 @@ export function DashboardPage () {
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 30_000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (apptBannerLongPressTimerRef.current) clearTimeout(apptBannerLongPressTimerRef.current)
+    }
   }, [])
 
   /** Bottom sheet: open questions for upcoming appt doctor — with inline answering */
@@ -751,6 +756,7 @@ export function DashboardPage () {
       if (apptErr) {
         console.warn('appointments:', apptErr.message)
         setUpcoming([])
+        setUpcomingAllFull([])
         setApptBannerSource('none')
       } else {
         const rows = (apptData ?? []) as (UpcomingAppt & { visit_logged?: boolean | null })[]
@@ -759,9 +765,10 @@ export function DashboardPage () {
         const enriched = enrichedAll.slice(0, 1)
 
         if (enriched.length > 0) {
+          setUpcomingAllFull(enrichedAll)
           setUpcoming(enriched)
           setApptBannerSource('upcoming')
-          const doctorNames = [...new Set(enriched.map((a) => a.doctor).filter(Boolean))]
+          const doctorNames = [...new Set(enrichedAll.map((a) => a.doctor).filter(Boolean))]
           const { data: qRows } = await supabase
             .from('doctor_questions')
             .select('doctor')
@@ -773,8 +780,9 @@ export function DashboardPage () {
             if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
           }
           setApptPendingQ(qMap)
-          scheduleApptNotifications(enriched, qMap)
+          scheduleApptNotifications(enrichedAll, qMap)
         } else {
+          setUpcomingAllFull([])
           const { data: pastData, error: pastErr } = await supabase
             .from('appointments')
             .select('id, doctor, specialty, appointment_date, appointment_time, visit_logged')
@@ -785,6 +793,7 @@ export function DashboardPage () {
           if (pastErr) {
             console.warn('appointments (past banner):', pastErr.message)
             setUpcoming([])
+            setUpcomingAllFull([])
             setApptBannerSource('none')
             setApptPendingQ({})
           } else {
@@ -797,6 +806,7 @@ export function DashboardPage () {
             const pick = ended[0]
             if (pick) {
               const pastEnriched = enrichApptRows([pick])
+              setUpcomingAllFull([])
               setUpcoming(pastEnriched)
               setApptBannerSource('past')
               const doctorNames = [...new Set(pastEnriched.map((a) => a.doctor).filter(Boolean))]
@@ -813,6 +823,7 @@ export function DashboardPage () {
               setApptPendingQ(qMap)
             } else {
               setUpcoming([])
+              setUpcomingAllFull([])
               setApptBannerSource('none')
               setApptPendingQ({})
             }
@@ -1111,6 +1122,35 @@ export function DashboardPage () {
     dashTranscriberRef.current?.tryCloseParent(() => setTranscribeModalOpen(false))
   }
 
+  function clearApptBannerLongPressTimer () {
+    if (apptBannerLongPressTimerRef.current) {
+      clearTimeout(apptBannerLongPressTimerRef.current)
+      apptBannerLongPressTimerRef.current = null
+    }
+  }
+
+  function onApptBannerPointerDown (e: React.PointerEvent) {
+    if (e.button !== 0) return
+    clearApptBannerLongPressTimer()
+    apptBannerLongPressTimerRef.current = window.setTimeout(() => {
+      setAllApptsSheetOpen(true)
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12)
+      suppressApptBannerClickRef.current = true
+    }, 520)
+  }
+
+  function onApptBannerPointerEnd () {
+    clearApptBannerLongPressTimer()
+  }
+
+  function onApptBannerClickCapture (e: React.MouseEvent) {
+    if (suppressApptBannerClickRef.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      suppressApptBannerClickRef.current = false
+    }
+  }
+
   return (
     <>
       {/* SUMMARY MODAL */}
@@ -1179,8 +1219,8 @@ export function DashboardPage () {
                   {!apptOpenQsPopup.loading && (
                     <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--scrap-muted)' }}>
                       {apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size > 0
-                        ? `${apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size} unanswered — type your answers below`
-                        : 'All answers logged ✓'}
+                        ? `${apptOpenQsPopup.rows.length - apptOpenQsPopup.savedIds.size} unanswered`
+                        : 'All answered.'}
                     </p>
                   )}
                 </div>
@@ -1191,7 +1231,7 @@ export function DashboardPage () {
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px', background: '#fffef8', display: 'grid', gap: 20 }}>
               {apptOpenQsPopup.loading && (
                 <p style={{ textAlign: 'center', color: 'var(--scrap-muted)', padding: '28px 0' }}>
-                  Loading your open questions for this doctor…
+                  Loading…
                 </p>
               )}
               {apptOpenQsPopup.loadError && (
@@ -1428,6 +1468,100 @@ export function DashboardPage () {
         </div>
       )}
 
+      {allApptsSheetOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="all-appts-sheet-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 8200,
+            background: 'rgba(15, 23, 42, 0.35)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setAllApptsSheetOpen(false)}
+        >
+          <div
+            className="card shadow"
+            style={{
+              maxWidth: 420,
+              width: '100%',
+              maxHeight: '85dvh',
+              overflow: 'auto',
+              borderRadius: 16,
+              padding: 20,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="all-appts-sheet-title" style={{ margin: '0 0 12px', fontSize: '1.05rem' }}>
+              All upcoming appointments
+            </h2>
+            {upcomingAllFull.length === 0 ? (
+              <p className="muted" style={{ fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>
+                {apptBannerSource === 'past'
+                  ? 'No upcoming appointments.'
+                  : apptBannerSource === 'none'
+                    ? 'None scheduled.'
+                    : 'None.'}
+              </p>
+            ) : (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+                {upcomingAllFull.map((ap) => (
+                  <li
+                    key={ap.id}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface-alt, #fffef9)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                      {ap.doctorId
+                        ? (
+                          <Link to={`/app/doctors/${ap.doctorId}`} onClick={() => setAllApptsSheetOpen(false)}>
+                            {ap.doctor?.trim() || 'Doctor'}
+                          </Link>
+                          )
+                        : (ap.doctor?.trim() || 'Doctor')}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                      {ap.specialty?.trim() ? `${ap.specialty.trim()} · ` : ''}
+                      {format(new Date(`${ap.appointment_date}T12:00:00`), 'EEEE, MMM d')}
+                      {ap.appointment_time ? ` · ${String(ap.appointment_time).slice(0, 5)}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+              <Link
+                className="btn btn-primary"
+                style={{ flex: 1, minWidth: 140, justifyContent: 'center', display: 'inline-flex' }}
+                to="/app/appointments"
+                onClick={() => setAllApptsSheetOpen(false)}
+              >
+                Appointments page
+              </Link>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1, minWidth: 100 }}
+                onClick={() => setAllApptsSheetOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       <div className="scrapbook-dashboard">
 
         <header className="scrap-dash-header">
@@ -1453,7 +1587,16 @@ export function DashboardPage () {
             else bannerLabel = 'UPCOMING'
           }
           return (
-        <section className="scrap-sticky scrap-sticky--upcoming">
+        <section
+          className="scrap-sticky scrap-sticky--upcoming"
+          aria-label="Appointments"
+          style={{ touchAction: 'manipulation' }}
+          onPointerDown={onApptBannerPointerDown}
+          onPointerUp={onApptBannerPointerEnd}
+          onPointerLeave={onApptBannerPointerEnd}
+          onPointerCancel={onApptBannerPointerEnd}
+          onClickCapture={onApptBannerClickCapture}
+        >
           <span className="scrap-tape scrap-tape--green" aria-hidden />
           <div className="scrap-sticky-label">{bannerLabel}</div>
           {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
@@ -1462,18 +1605,20 @@ export function DashboardPage () {
               className="btn btn-ghost scrap-reminders-prompt"
               onClick={() => {
                 void Notification.requestPermission().then((p) => {
-                  if (p === 'granted') scheduleApptNotifications(upcoming, apptPendingQ)
+                  if (p === 'granted') {
+                    scheduleApptNotifications(
+                      upcomingAllFull.length ? upcomingAllFull : upcoming,
+                      apptPendingQ,
+                    )
+                  }
                 })
               }}
             >
               Enable visit reminders
             </button>
           )}
-          {apptBannerSource === 'none' && !hasAnyPendingVisits && (
-            <p className="scrap-body scrap-body--muted">Nothing scheduled yet.</p>
-          )}
-          {apptBannerSource === 'none' && hasAnyPendingVisits && (
-            <p className="scrap-body scrap-body--muted">No upcoming appointments — see unfinished logs below.</p>
+          {apptBannerSource === 'none' && (
+            <p className="scrap-body scrap-body--muted">No upcoming appointments.</p>
           )}
           {upcoming.length > 0 && (
             <div className="scrap-upcoming-hero">

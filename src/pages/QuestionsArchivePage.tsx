@@ -242,17 +242,6 @@ export function QuestionsArchivePage () {
             {showForm ? '×' : '+'}
           </button>
         </div>
-        <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 10px', lineHeight: 1.5 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <PriorityTackIcon color={priorityTackFill('Low')} size={16} /> Low
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <PriorityTackIcon color={priorityTackFill('Medium')} size={16} /> Medium
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <PriorityTackIcon color={priorityTackFill('High')} size={16} /> High
-          </span>
-        </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button type="button"
             className={`btn ${viewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}

@@ -169,9 +169,6 @@ export function VisitsPage () {
             style={{ fontSize: '0.85rem', padding: '6px 12px' }}
             onClick={() => setListTab('pending')}>Pending</button>
         </div>
-        <p className="muted" style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.45 }}>
-          Tap <strong>Log visit</strong> to add a visit step by step. <strong>Pending</strong> lists visits you have not finished yet (tests, follow-up, etc.).
-        </p>
       </div>
 
       {(() => {
@@ -194,8 +191,8 @@ export function VisitsPage () {
                 {listTab === 'pending'
                   ? (pendingDoctorFilter
                       ? `No pending visits for ${pendingDoctorFilter}.`
-                      : 'No pending visits. All caught up!')
-                  : 'No visits logged yet.'}
+                      : 'No pending visits.')
+                  : 'No visits yet.'}
               </p>
             </div>
           )

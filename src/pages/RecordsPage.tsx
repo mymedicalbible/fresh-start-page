@@ -219,15 +219,8 @@ export function RecordsPage () {
       {tab === 'summaries' && (
         <div className="card">
           <h3>Generated summary archive</h3>
-          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
-            Clinical handoff summaries from the dashboard (each <strong>Generate</strong> is kept here). This device only — same list as in the handoff modal.
-            {' '}
-            <Link to="/app?handoff=1">Open handoff</Link> to run a new one.
-          </p>
           {summaries.length === 0 ? (
-            <p className="muted">
-              No summaries in this archive yet. Open <Link to="/app?handoff=1">Doctor handoff</Link> on the dashboard and tap <strong>Generate</strong> — each run is saved here automatically (this device).
-            </p>
+            <p className="muted">No summaries.</p>
           ) : null}
           {summaries.map((a) => {
             const open = expandedSummaryId === a.id
@@ -287,13 +280,8 @@ export function RecordsPage () {
       {tab === 'transcripts' && (
         <div className="card">
           <h3>Transcript archive</h3>
-          <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
-            When you choose to save from visit transcription (dashboard mic or visit log), a copy is kept here. This device only.
-          </p>
           {transcripts.length === 0 ? (
-            <p className="muted">
-              No saved transcripts yet. After you record a visit, confirm saving when prompted — or use <strong>Add to visit log</strong> / <strong>Close</strong> and choose to save a copy.
-            </p>
+            <p className="muted">No transcripts.</p>
           ) : null}
           {transcripts.map((a) => {
             const open = expandedTranscriptId === a.id

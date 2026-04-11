@@ -532,19 +532,11 @@ export function QuickLogPage () {
             style={{ maxWidth: 380, width: '100%', borderRadius: 16, padding: 20 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="quicklog-leave-title" style={{ margin: '0 0 8px', fontSize: '1.05rem' }}>
+            <h2 id="quicklog-leave-title" style={{ margin: '0 0 18px', fontSize: '1.05rem' }}>
               {dirty ? 'Save for later or discard?' : 'Leave quick log?'}
             </h2>
             {dirty ? (
               <>
-                <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.88rem', lineHeight: 1.5 }}>
-                  You can pick this up again from the same screen. If you discard, what you entered here will be cleared.
-                </p>
-                {leaveDir && (
-                  <p className="muted" style={{ margin: '0 0 18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
-                    You can also open the <strong>{leaveDir.title}</strong> directory; your progress will be saved if you do.
-                  </p>
-                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {leaveDir && (
                     <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
@@ -567,9 +559,6 @@ export function QuickLogPage () {
               </>
             ) : (
               <>
-                <p className="muted" style={{ margin: '0 0 10px', fontSize: '0.88rem', lineHeight: 1.5 }}>
-                  Nothing here needs saving right now. Go home, open the directory for this log, or keep editing.
-                </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {leaveDir && (
                     <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
@@ -597,11 +586,8 @@ export function QuickLogPage () {
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>
           <div className="card" style={{ maxWidth: 360, width: '100%', borderRadius: 20 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--mint-ink)' }}>Saved</div>
-            <p className="muted" style={{ fontSize: '0.88rem', marginTop: 0 }}>
-              Want to open the directory for this log (same list as <strong>{postSave.title}</strong>)? Use the first button. <strong>Done</strong> returns where you started without opening it. <strong>Cancel</strong> closes this and keeps you on quick log to log something else.
-            </p>
-            <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 16, color: 'var(--mint-ink)' }}>Saved</div>
+            <div style={{ display: 'grid', gap: 10 }}>
               <button type="button" className="btn btn-mint btn-block"
                 onClick={() => { navigate(postSave.archive); setPostSave(null) }}>
                 Open {postSave.title}
@@ -993,11 +979,7 @@ export function QuickLogPage () {
                                 </button>
                               </div>
                             </>
-                          ) : (
-                            <p className="muted" style={{ fontSize: '0.78rem', margin: '8px 0 0' }}>
-                              Tap the question above to answer.
-                            </p>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </div>

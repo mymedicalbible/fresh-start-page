@@ -359,7 +359,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                 </div>
               ))}
               {extracted.summary.length === 0 && (
-                <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>Nothing specific was extracted. You can still use the transcript as notes.</p>
+                <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>No fields extracted.</p>
               )}
             </div>
 

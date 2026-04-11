@@ -31,16 +31,13 @@ export function PainSummaryChart ({ data, title = 'Pain intensity' }: { data: Pa
   if (data.length === 0) {
     return (
       <div className="muted" style={{ fontSize: '0.82rem', padding: '12px 0' }}>
-        No pain logs in this window — chart will appear once you log pain.
+        No data.
       </div>
     )
   }
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 4, color: '#1e4d34' }}>{title}</div>
-      <p className="muted" style={{ fontSize: '0.78rem', margin: '0 0 8px', lineHeight: 1.45 }}>
-        Each point is a logged entry (0–10). Larger orange dots are flares at 7/10 or higher so you can see spikes at a glance.
-      </p>
+      <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: '#1e4d34' }}>{title}</div>
       <div className="charts-wrap" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: 4 }}>
@@ -81,10 +78,7 @@ export function EpisodeSummaryChart ({ data, title = 'Episode activity' }: { dat
   }
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 4, color: '#1e4d34' }}>{title}</div>
-      <p className="muted" style={{ fontSize: '0.78rem', margin: '0 0 8px', lineHeight: 1.45 }}>
-        Rough score per logged episode (mild → severe mapped to 3 / 6 / 9). Height shows how intense logged episodes were over time, not a clinical diagnosis.
-      </p>
+      <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 8, color: '#1e4d34' }}>{title}</div>
       <div className="charts-wrap" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: 4 }}>

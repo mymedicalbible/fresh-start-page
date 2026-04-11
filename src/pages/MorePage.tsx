@@ -3,11 +3,11 @@ import { BackButton } from '../components/BackButton'
 
 function ScrapSticker ({
   to, title, sub, tone,
-}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
+}: { to: string; title: string; sub?: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
   return (
     <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
       <span className="scrap-sticker-title">{title}</span>
-      <span className="scrap-sticker-sub">{sub}</span>
+      {sub ? <span className="scrap-sticker-sub">{sub}</span> : null}
     </Link>
   )
 }
@@ -17,10 +17,10 @@ export function MorePage () {
     <div>
       <BackButton fallbackTo="/app" />
       <div className="scrap-sticker-grid">
-        <ScrapSticker to="/app/visits" title="Visits" sub="All visit history" tone="mint" />
-        <ScrapSticker to="/app/questions" title="Questions" sub="Open & answered" tone="sky" />
-        <ScrapSticker to="/app/tests" title="Tests & orders" sub="Pending & results" tone="cream" />
-        <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Confirmed & suspected" tone="pink" />
+        <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
+        <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
+        <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />
+        <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
       </div>
     </div>
   )

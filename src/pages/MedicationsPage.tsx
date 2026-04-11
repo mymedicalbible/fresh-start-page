@@ -513,9 +513,6 @@ function RemovePopup ({
             ×
           </button>
         </div>
-        <p className="muted" style={{ marginBottom: 16, fontSize: '0.85rem' }}>
-          This archives the medication. You can view it in the archive below.
-        </p>
         {error && <div className="banner error" style={{ marginBottom: 12 }}>{error}</div>}
         <div className="form-group">
           <label>Reason for stopping</label>
@@ -950,15 +947,12 @@ export function MedicationsPage () {
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
-          <p className="muted" style={{ fontSize: '0.75rem', margin: '8px 0 0', lineHeight: 1.4 }}>
-            List is sorted by doctor, then medication. Choose a doctor to show only their prescriptions.
-          </p>
         </div>
       </div>
 
       {listFilter === 'current' && rows.length === 0 && (
         <div className="card">
-          <p className="muted">No medications yet. Tap the green + to add one.</p>
+          <p className="muted">No medications.</p>
         </div>
       )}
 
@@ -970,7 +964,7 @@ export function MedicationsPage () {
 
       {listFilter === 'discontinued' && archived.length === 0 && (
         <div className="card">
-          <p className="muted">No discontinued medications yet. When you remove a current medication, it appears here.</p>
+          <p className="muted">No discontinued medications.</p>
         </div>
       )}
 
