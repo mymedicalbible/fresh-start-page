@@ -493,12 +493,22 @@ export function QuickLogPage () {
             setResumePrompt(false)
           }}
           onFresh={() => {
+            const before = user ? loadQuickLogDraft(user.id) : null
+            const was = before?.screen
             clearQuickLogDraft()
             setResumePrompt(false)
             const p = new URLSearchParams()
             if (returnRaw) p.set('returnTo', returnRaw)
+            if (was === 'symptoms') p.set('tab', 'symptoms')
+            else if (was === 'questions') p.set('tab', 'questions')
+            else if (was === 'pain') p.set('tab', 'pain')
+            else if (was === 'visit') p.set('tab', 'visit')
             navigate({ pathname: '/app/log', search: p.toString() }, { replace: true })
-            setScreen('hub')
+            if (was === 'symptoms') setScreen('symptoms')
+            else if (was === 'questions') setScreen('questions')
+            else if (was === 'pain') setScreen('pain')
+            else if (was === 'visit') setScreen('visit')
+            else setScreen('hub')
           }}
         />
       )}

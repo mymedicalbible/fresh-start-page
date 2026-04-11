@@ -44,8 +44,8 @@ export function QuestionsArchivePage () {
     urlTabOpen ? 'unanswered' : 'all',
   )
   const [doctorFilter, setDoctorFilter] = useState(urlDoctor)
-  /** Always show add form so doctor picker and fields are usable (deep links still pre-fill doctor filter). */
-  const [showForm, setShowForm] = useState(true)
+  /** Add-question form opens from the green + on the All Questions banner. */
+  const [showForm, setShowForm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
@@ -130,6 +130,7 @@ export function QuestionsArchivePage () {
       priority: 'Medium',
     })
     setTimeout(() => setBanner(null), 4000)
+    setShowForm(false)
     loadQuestions()
   }
 
@@ -212,20 +213,62 @@ export function QuestionsArchivePage () {
         </div>
       )}
 
-      {/* ADD QUESTION FORM — visible at top by default */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showForm ? 16 : 0 }}>
-          <h2 style={{ margin: 0 }}>❓ Add Question</h2>
-          <button type="button" className="btn btn-ghost"
-            style={{ fontSize: '0.82rem' }}
-            onClick={() => setShowForm((v) => !v)}>
-            {showForm ? 'Hide ▲' : 'Show ▼'}
+      {/* ARCHIVE — filter tabs + list */}
+      <div className="card" style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}>❓ All Questions</h3>
+          <button
+            type="button"
+            aria-label={showForm ? 'Close add question form' : 'Log a new question'}
+            title={showForm ? 'Close' : 'Log a new question'}
+            onClick={() => setShowForm((v) => !v)}
+            style={{
+              flexShrink: 0,
+              width: 44,
+              height: 44,
+              minHeight: 44,
+              padding: 0,
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              fontSize: showForm ? '1.65rem' : '1.45rem',
+              fontWeight: 700,
+              lineHeight: 1,
+              color: '#fff',
+              background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)',
+              boxShadow: '0 2px 0 #15803d',
+            }}
+          >
+            {showForm ? '×' : '+'}
           </button>
         </div>
+        <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 10px', lineHeight: 1.5 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+            <PriorityTackIcon color={priorityTackFill('Low')} size={16} /> Low
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+            <PriorityTackIcon color={priorityTackFill('Medium')} size={16} /> Medium
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <PriorityTackIcon color={priorityTackFill('High')} size={16} /> High
+          </span>
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button"
+            className={`btn ${viewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('all')}>All</button>
+          <button type="button"
+            className={`btn ${viewMode === 'unanswered' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('unanswered')}>Open</button>
+          <button type="button"
+            className={`btn ${viewMode === 'answered' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('answered')}>Answered</button>
+        </div>
+      </div>
 
       {showForm && (
-        <>
-          <h3 style={{ marginTop: 0, display: 'none' }}>Add question</h3>
+        <div className="card">
+          <h2 style={{ margin: '0 0 16px', fontSize: '1.15rem' }}>❓ Add question</h2>
           <div className="form-row">
             <div className="form-group">
               <label>Date logged</label>
@@ -277,36 +320,8 @@ export function QuestionsArchivePage () {
           <button type="button" className="btn btn-primary btn-block" onClick={() => void saveNewQuestions()} disabled={busy}>
             Save question
           </button>
-        </>
-      )}
-      </div>
-
-      {/* ARCHIVE — filter tabs + list */}
-      <div className="card" style={{ padding: '12px 16px' }}>
-        <h3 style={{ margin: '0 0 10px' }}>❓ All Questions</h3>
-        <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 10px', lineHeight: 1.5 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <PriorityTackIcon color={priorityTackFill('Low')} size={16} /> Low
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <PriorityTackIcon color={priorityTackFill('Medium')} size={16} /> Medium
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <PriorityTackIcon color={priorityTackFill('High')} size={16} /> High
-          </span>
-        </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button type="button"
-            className={`btn ${viewMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('all')}>All</button>
-          <button type="button"
-            className={`btn ${viewMode === 'unanswered' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('unanswered')}>Open</button>
-          <button type="button"
-            className={`btn ${viewMode === 'answered' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setViewMode('answered')}>Answered</button>
         </div>
-      </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="card">
