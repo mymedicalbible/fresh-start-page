@@ -968,10 +968,11 @@ export function DashboardPage () {
     if (medEventsRes.error) {
       // RPC failed — try direct table as fallback
       const fallback = await supabase.from('medication_change_events')
-        .select('event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new')
+        .select('id, event_date, medication, event_type, dose_previous, dose_new, frequency_previous, frequency_new, created_at, change_reason')
         .eq('user_id', user.id)
         .gte('event_date', since120Str)
         .order('event_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50)
 
       if (fallback.error) {
@@ -1002,6 +1003,8 @@ export function DashboardPage () {
         dose_new: m.dose != null ? String(m.dose) : null,
         frequency_previous: null,
         frequency_new: m.frequency != null ? String(m.frequency) : null,
+        created_at: null,
+        change_reason: null,
       }))
     const allMedEvents = medEventsLoadError ? [] : [...medChangeEvents, ...syntheticStarts]
 

@@ -4,6 +4,8 @@
  */
 
 export type MedChangeEvent = {
+  /** Present when loaded from DB */
+  id?: string | null
   event_date: string
   medication: string
   event_type: 'start' | 'adjustment' | 'stop'
@@ -11,6 +13,9 @@ export type MedChangeEvent = {
   dose_new?: string | null
   frequency_previous?: string | null
   frequency_new?: string | null
+  /** When the row was written (distinct from clinical event_date) */
+  created_at?: string | null
+  change_reason?: string | null
 }
 
 const MS_DAY = 86_400_000
@@ -149,22 +154,66 @@ function fmtDate (iso: string): string {
   } catch { return iso }
 }
 
-function fmtEventLabel (ev: MedChangeEvent): string {
+/** Logged time + optional reason (for handoff / correlation lines). */
+export function fmtEventMeta (ev: MedChangeEvent): string {
+  const parts: string[] = []
+  if (ev.created_at) {
+    try {
+      const t = new Date(ev.created_at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+      parts.push(`logged ${t}`)
+    } catch { /* ignore */ }
+  }
+  const r = ev.change_reason?.trim()
+  if (r) {
+    parts.push(`Reason: ${r.length > 120 ? `${r.slice(0, 117)}…` : r}`)
+  }
+  return parts.length ? ` · ${parts.join(' · ')}` : ''
+}
+
+/** Single-line label for a medication change (dose transition + optional logged time / reason). */
+export function formatMedChangeEventLine (ev: MedChangeEvent): string {
   const name = ev.medication
   const dose = ev.dose_new ?? ev.dose_previous ?? ''
   const freq = ev.frequency_new ?? ev.frequency_previous ?? ''
   const bits = [dose, freq].filter(Boolean).join(' · ')
 
-  if (ev.event_type === 'start') return bits ? `${name} · ${bits}` : name
-  if (ev.event_type === 'stop')  return bits ? `${name} (stopped · ${bits})` : `${name} (stopped)`
+  let core: string
+  if (ev.event_type === 'start') core = bits ? `${name} · ${bits}` : name
+  else if (ev.event_type === 'stop') core = bits ? `${name} (stopped · ${bits})` : `${name} (stopped)`
+  else {
+    // adjustment — show direction and what changed
+    const a = firstDoseNumber(ev.dose_previous)
+    const b = firstDoseNumber(ev.dose_new)
+    const from = [ev.dose_previous, ev.frequency_previous].filter(Boolean).join(' · ') || '(prior)'
+    const to   = [ev.dose_new,      ev.frequency_new     ].filter(Boolean).join(' · ') || '(updated)'
+    const dir  = a != null && b != null ? (b > a ? 'increased' : b < a ? 'reduced' : 'adjusted') : 'adjusted'
+    core = `${name} · ${dir} (${from} → ${to})`
+  }
+  return `${core}${fmtEventMeta(ev)}`
+}
 
-  // adjustment — show direction and what changed
-  const a = firstDoseNumber(ev.dose_previous)
-  const b = firstDoseNumber(ev.dose_new)
-  const from = [ev.dose_previous, ev.frequency_previous].filter(Boolean).join(' · ') || '(prior)'
-  const to   = [ev.dose_new,      ev.frequency_new     ].filter(Boolean).join(' · ') || '(updated)'
-  const dir  = a != null && b != null ? (b > a ? 'increased' : b < a ? 'reduced' : 'adjusted') : 'adjusted'
-  return `${name} · ${dir} (${from} → ${to})`
+/** Sort by clinical date (newest first), then logged time (newest first). */
+export function sortMedChangeEvents (a: MedChangeEvent, b: MedChangeEvent): number {
+  const c = b.event_date.localeCompare(a.event_date)
+  if (c !== 0) return c
+  const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+  const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+  return tb - ta
+}
+
+function eventDedupeKey (ev: MedChangeEvent): string {
+  if (ev.id) return String(ev.id)
+  return [
+    ev.event_date,
+    ev.medication,
+    ev.event_type,
+    ev.created_at ?? '',
+    ev.dose_previous ?? '',
+    ev.dose_new ?? '',
+    ev.frequency_previous ?? '',
+    ev.frequency_new ?? '',
+    ev.change_reason ?? '',
+  ].join('\u0001')
 }
 
 export type CorrelationLine = { event: MedChangeEvent; line: string }
@@ -195,15 +244,15 @@ export function buildMedSymptomCorrelationLines (
   const todayIso = new Date().toISOString().slice(0, 10)
   const out: CorrelationLine[] = []
   const seen = new Set<string>()
-  const sorted = [...events].sort((a, b) => b.event_date.localeCompare(a.event_date))
+  const sorted = [...events].sort(sortMedChangeEvents)
 
   for (const ev of sorted) {
-    const key = `${ev.event_date}:${ev.medication}:${ev.event_type}`
+    const key = eventDedupeKey(ev)
     if (seen.has(key)) continue
     seen.add(key)
 
     const evt   = ev.event_date
-    const label = fmtEventLabel(ev)
+    const label = formatMedChangeEventLine(ev)
     const actionPart = ev.event_type === 'stop'
       ? `stopped ${fmtDate(evt)}`
       : ev.event_type === 'adjustment'

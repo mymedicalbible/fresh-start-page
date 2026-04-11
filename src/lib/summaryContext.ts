@@ -6,6 +6,8 @@ import {
   type MedChangeEvent,
   buildMedSymptomCorrelationLines,
   formatCorrelationBlock,
+  formatMedChangeEventLine,
+  sortMedChangeEvents,
 } from './medSymptomCorrelation'
 
 export type SymptomLogRow = {
@@ -219,6 +221,11 @@ export function buildCompactPatientData (input: SummaryInput): string {
   const medCorrLines = buildMedSymptomCorrelationLines(medChangeEvents, painRows, sympRows, 21)
   const medCorrText = formatCorrelationBlock(medCorrLines)
 
+  const medChangeLogText = medChangeEvents.length
+    ? [...medChangeEvents].sort(sortMedChangeEvents).slice(0, 25).map((ev) =>
+      `• ${formatMedChangeEventLine(ev)}`).join('\n')
+    : '(No medication change events in the supplied window.)'
+
   return [
     '=== APP-GENERATED SUMMARY STATS (use with raw excerpts; do not recite as a bullet list in output) ===',
     trendLine,
@@ -232,6 +239,9 @@ export function buildCompactPatientData (input: SummaryInput): string {
     '',
     '=== MEDICATIONS (complete list from app) ===',
     medText,
+    '',
+    '=== MEDICATION CHANGE LOG (dates; logged time and reason when recorded) ===',
+    medChangeLogText,
     '',
     '=== MEDICATION CHANGES vs SYMPTOM/PAIN (~21d before vs after each event; interpret cautiously) ===',
     medCorrText,

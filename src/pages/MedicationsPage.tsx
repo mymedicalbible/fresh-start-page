@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -33,6 +33,19 @@ type ArchivedMed = {
 
 type Doctor = { id: string; name: string; specialty?: string | null }
 
+/** Row from medication_change_events (history list) */
+type MedChangeHistoryRow = {
+  id: string
+  event_date: string
+  event_type: string
+  dose_previous: string | null
+  dose_new: string | null
+  frequency_previous: string | null
+  frequency_new: string | null
+  created_at: string | null
+  change_reason: string | null
+}
+
 type AddForm = {
   medication: string
   dose: string
@@ -55,6 +68,15 @@ function emptyMed (): AddForm {
 }
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
+
+function formatHistoryLoggedAt (iso: string | null): string {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+  } catch {
+    return iso
+  }
+}
 
 /** Prescriber from `notes` prefix on current_medications */
 function parsePrescribedByCurrent (med: MedRow): string | null {
@@ -289,6 +311,7 @@ type DoseChangeForm = {
   frequency_new: string
   effectiveness: string
   side_effects: string
+  change_reason: string
   event_date: string
   event_type: 'adjustment' | 'start' | 'stop'
 }
@@ -301,6 +324,7 @@ function emptyDoseChange (med: MedRow): DoseChangeForm {
     frequency_new: '',
     effectiveness: '',
     side_effects: '',
+    change_reason: '',
     event_date: todayISO(),
     event_type: 'adjustment',
   }
@@ -422,6 +446,17 @@ function DoseChangePopup ({
             value={form.side_effects}
             onChange={(e) => onChange({ ...form, side_effects: e.target.value })}
             placeholder="e.g. More fatigue, headache..."
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Reason for change (optional)</label>
+          <textarea
+            value={form.change_reason}
+            onChange={(e) => onChange({ ...form, change_reason: e.target.value })}
+            placeholder="e.g. Doctor titration, side effects, planned increase…"
+            rows={3}
+            style={{ width: '100%', resize: 'vertical', font: 'inherit', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)' }}
           />
         </div>
 
@@ -596,6 +631,11 @@ export function MedicationsPage () {
   const [doseChangeForm, setDoseChangeForm] = useState<DoseChangeForm | null>(null)
   const [doseChangeError, setDoseChangeError] = useState<string | null>(null)
 
+  /** Per current-med id: change history rows */
+  const [medHistoryById, setMedHistoryById] = useState<Record<string, MedChangeHistoryRow[]>>({})
+  const [medHistoryLoading, setMedHistoryLoading] = useState<string | null>(null)
+  const [medHistoryErrorById, setMedHistoryErrorById] = useState<Record<string, string | null>>({})
+
   // Remove popup
   const [deleteTarget, setDeleteTarget] = useState<MedRow | null>(null)
   const [deleteReason, setDeleteReason] = useState('')
@@ -613,6 +653,34 @@ export function MedicationsPage () {
   useEffect(() => {
     setExpandedKey(null)
   }, [listFilter, doctorFilter])
+
+  const fetchMedHistoryForMed = useCallback(async (medId: string, medication: string) => {
+    if (!user) return
+    setMedHistoryLoading(medId)
+    setMedHistoryErrorById((prev) => ({ ...prev, [medId]: null }))
+    const { data, error } = await supabase
+      .from('medication_change_events')
+      .select('id, event_date, event_type, dose_previous, dose_new, frequency_previous, frequency_new, created_at, change_reason')
+      .eq('user_id', user.id)
+      .eq('medication', medication)
+      .order('event_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(30)
+    setMedHistoryLoading(null)
+    if (error) {
+      setMedHistoryErrorById((prev) => ({ ...prev, [medId]: error.message }))
+      return
+    }
+    setMedHistoryById((prev) => ({ ...prev, [medId]: (data ?? []) as MedChangeHistoryRow[] }))
+  }, [user])
+
+  useEffect(() => {
+    if (!user || !expandedKey?.startsWith('c:')) return
+    const medId = expandedKey.slice(2)
+    const med = rows.find((m) => m.id === medId)
+    if (!med) return
+    void fetchMedHistoryForMed(medId, med.medication)
+  }, [expandedKey, user, rows, fetchMedHistoryForMed])
 
   const doctorNamesForDropdown = useMemo(() => {
     const set = new Set<string>()
@@ -780,14 +848,21 @@ export function MedicationsPage () {
     if (!doseChangeTarget || !doseChangeForm) return
     setBusy(true)
     setDoseChangeError(null)
+    const dosePrev = doseChangeForm.dose_previous.trim() || doseChangeTarget.dose?.trim() || null
+    const freqPrev = doseChangeForm.frequency_previous.trim() || doseChangeTarget.frequency?.trim() || null
+    const doseNew = doseChangeForm.dose_new.trim() || null
+    const freqNew = doseChangeForm.frequency_new.trim() || null
+    const reasonTrim = doseChangeForm.change_reason.trim() || null
+
     const rpcRes = await supabase.rpc('insert_medication_change_event', {
       p_event_date: doseChangeForm.event_date,
       p_medication: doseChangeTarget.medication,
       p_event_type: doseChangeForm.event_type,
-      p_dose_previous: doseChangeForm.dose_previous || null,
-      p_dose_new: doseChangeForm.dose_new || null,
-      p_frequency_previous: doseChangeForm.frequency_previous || null,
-      p_frequency_new: doseChangeForm.frequency_new || null,
+      p_dose_previous: dosePrev,
+      p_dose_new: doseNew,
+      p_frequency_previous: freqPrev,
+      p_frequency_new: freqNew,
+      p_change_reason: reasonTrim,
     })
     if (rpcRes.error) {
       // RPC not available yet — fall back to direct table insert
@@ -796,10 +871,11 @@ export function MedicationsPage () {
         event_date: doseChangeForm.event_date,
         medication: doseChangeTarget.medication,
         event_type: doseChangeForm.event_type,
-        dose_previous: doseChangeForm.dose_previous || null,
-        dose_new: doseChangeForm.dose_new || null,
-        frequency_previous: doseChangeForm.frequency_previous || null,
-        frequency_new: doseChangeForm.frequency_new || null,
+        dose_previous: dosePrev,
+        dose_new: doseNew,
+        frequency_previous: freqPrev,
+        frequency_new: freqNew,
+        change_reason: reasonTrim,
       })
       if (e) { setDoseChangeError(e.message); setBusy(false); return }
     }
@@ -807,20 +883,23 @@ export function MedicationsPage () {
     // If there's effectiveness / side_effects, also update the current med record
     if (doseChangeForm.effectiveness || doseChangeForm.side_effects) {
       await supabase.from('current_medications').update({
-        dose: doseChangeForm.dose_new || doseChangeTarget.dose,
-        frequency: doseChangeForm.frequency_new || doseChangeTarget.frequency,
+        dose: doseNew || doseChangeTarget.dose,
+        frequency: freqNew || doseChangeTarget.frequency,
         effectiveness: doseChangeForm.effectiveness || doseChangeTarget.effectiveness,
         side_effects: doseChangeForm.side_effects || doseChangeTarget.side_effects,
         updated_at: new Date().toISOString(),
       }).eq('id', doseChangeTarget.id)
     }
 
+    const loggedMedId = doseChangeTarget.id
+    const loggedMedName = doseChangeTarget.medication
     setBusy(false)
     setBanner('Dose change logged.')
     setDoseChangeTarget(null)
     setDoseChangeForm(null)
     setTimeout(() => setBanner(null), 4000)
     load()
+    void fetchMedHistoryForMed(loggedMedId, loggedMedName)
   }
 
   if (!user) return null
@@ -983,6 +1062,9 @@ export function MedicationsPage () {
           : null
         const isPrn = med.frequency?.toLowerCase().includes('prn') ||
           med.frequency?.toLowerCase().includes('as needed')
+        const historyRows = medHistoryById[med.id] ?? []
+        const historyLoadingThis = medHistoryLoading === med.id
+        const historyErrThis = medHistoryErrorById[med.id]
 
         return (
           <div key={med.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -1042,6 +1124,62 @@ export function MedicationsPage () {
                     Remove
                   </button>
                 </div>
+
+                {historyErrThis && (
+                  <div className="banner error" style={{ marginTop: 10, fontSize: '0.82rem' }}>
+                    Could not load change history: {historyErrThis}
+                  </div>
+                )}
+                {historyLoadingThis && (
+                  <div className="muted" style={{ fontSize: '0.78rem', marginTop: 10 }}>Loading change history…</div>
+                )}
+                {!historyLoadingThis && historyRows.length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.82rem', marginBottom: 8, color: 'var(--sky-ink)' }}>
+                      Change history
+                    </div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+                      {historyRows.map((ev) => {
+                        const typeLabel =
+                          ev.event_type === 'start' ? 'Started' :
+                            ev.event_type === 'stop' ? 'Stopped' : 'Adjustment'
+                        let doseLine = ''
+                        if (ev.event_type === 'start') {
+                          doseLine = [ev.dose_new, ev.frequency_new].filter(Boolean).join(' · ') || '—'
+                        } else if (ev.event_type === 'stop') {
+                          doseLine = [ev.dose_previous, ev.frequency_previous].filter(Boolean).join(' · ') || '—'
+                        } else {
+                          const from = [ev.dose_previous, ev.frequency_previous].filter(Boolean).join(' · ') || '—'
+                          const to = [ev.dose_new, ev.frequency_new].filter(Boolean).join(' · ') || '—'
+                          doseLine = `${from} → ${to}`
+                        }
+                        const logged = formatHistoryLoggedAt(ev.created_at)
+                        return (
+                          <li
+                            key={ev.id}
+                            style={{
+                              fontSize: '0.78rem',
+                              padding: '10px 12px',
+                              background: 'var(--bg)',
+                              borderRadius: 10,
+                              border: '1px solid var(--border)',
+                              color: 'var(--muted)',
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, color: 'var(--sky-ink)' }}>
+                              {ev.event_date} · {typeLabel}
+                              {logged ? <span className="muted" style={{ fontWeight: 400 }}> · Logged {logged}</span> : null}
+                            </div>
+                            <div style={{ marginTop: 4 }}>{doseLine}</div>
+                            {ev.change_reason ? (
+                              <div style={{ marginTop: 6, fontStyle: 'italic' }}>Reason: {ev.change_reason}</div>
+                            ) : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
