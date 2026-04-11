@@ -31,8 +31,9 @@ export function MorePage () {
         </div>
         <nav className="scrap-more-doodles" aria-label="More navigation">
           {DOODLE_NAV.map(({ to, label, Doodle }) => (
-            <Link key={to} to={to} className="scrap-more-doodle" aria-label={label}>
+            <Link key={to} to={to} className="scrap-more-doodle">
               <Doodle />
+              <span className="scrap-more-doodle-label">{label}</span>
             </Link>
           ))}
         </nav>

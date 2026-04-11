@@ -1,103 +1,125 @@
-/** Decorative doodles for the More page — colored-pencil look (soft fills + ink strokes). */
-
-function PencilFilter ({ id }: { id: string }) {
-  return (
-    <defs>
-      <filter id={id} x="-8%" y="-8%" width="116%" height="116%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.35" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </defs>
-  )
-}
+/** Decorative doodles for the More page — clear icons; labels are in the UI below each doodle. */
 
 export function DoodleVisits () {
-  const f = 'more-pencil-visits'
   return (
     <svg className="scrap-more-doodle-art" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <PencilFilter id={f} />
-      <g filter={`url(#${f})`} strokeLinecap="round" strokeLinejoin="round">
-        <rect x="22" y="36" width="84" height="76" rx="10" fill="#e6f7ed" stroke="#2f8f5f" strokeWidth="2.4" />
-        <path d="M22 58h84" fill="none" stroke="#5ec99a" strokeWidth="2.2" opacity="0.9" />
-        <circle cx="40" cy="46" r="4" fill="#f9a8d4" stroke="#e879a9" strokeWidth="1.6" />
-        <circle cx="58" cy="46" r="4" fill="#fde68a" stroke="#f59e0b" strokeWidth="1.6" />
-        <circle cx="76" cy="46" r="4" fill="#c4b5fd" stroke="#8b5cf6" strokeWidth="1.6" />
-        <path d="M46 82c4-6 10-6 14 0s10 6 14 0" fill="none" stroke="#22a36b" strokeWidth="2.6" />
-        <path d="M50 78l8 8 16-16" fill="none" stroke="#16a34a" strokeWidth="3" />
-        <rect x="34" y="24" width="12" height="14" rx="2" fill="#a7f3d0" stroke="#059669" strokeWidth="1.8" />
-        <rect x="82" y="24" width="12" height="14" rx="2" fill="#a7f3d0" stroke="#059669" strokeWidth="1.8" />
+      <g strokeLinecap="round" strokeLinejoin="round">
+        {/* Wall calendar */}
+        <rect x="18" y="26" width="92" height="90" rx="8" fill="#ecfdf5" stroke="#15803d" strokeWidth="2.5" />
+        <rect x="18" y="26" width="92" height="28" rx="8" fill="#6ee7b7" stroke="#15803d" strokeWidth="2.5" />
+        <path d="M18 48h92" fill="none" stroke="#15803d" strokeWidth="2" />
+        <text
+          x="64"
+          y="46"
+          textAnchor="middle"
+          fontFamily="Patrick Hand, 'Indie Flower', cursive"
+          fontSize="17"
+          fontWeight="700"
+          fill="#14532d"
+        >
+          April
+        </text>
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+          <text
+            key={`w-${i}`}
+            x={25 + i * 12}
+            y="62"
+            textAnchor="middle"
+            fontFamily="Patrick Hand, cursive"
+            fontSize="9"
+            fill="#166534"
+          >
+            {d}
+          </text>
+        ))}
+        {Array.from({ length: 35 }).map((_, i) => {
+          const col = i % 7
+          const row = Math.floor(i / 7)
+          const x = 23 + col * 12
+          const y = 68 + row * 11
+          const isAppt = i === 17
+          return (
+            <rect
+              key={`d-${i}`}
+              x={x}
+              y={y}
+              width="10"
+              height="9"
+              rx="1.5"
+              fill={isAppt ? '#34d399' : 'rgba(255,255,255,0.7)'}
+              stroke={isAppt ? '#059669' : '#86efac'}
+              strokeWidth={isAppt ? 2 : 1}
+            />
+          )
+        })}
+        {/* Small person = patient at visit */}
+        <circle cx="104" cy="80" r="7" fill="#fef3c7" stroke="#d97706" strokeWidth="1.8" />
+        <path d="M97 90c2 5 8 8 14 8s12-3 14-8" fill="none" stroke="#d97706" strokeWidth="2" />
       </g>
     </svg>
   )
 }
 
 export function DoodleQuestions () {
-  const f = 'more-pencil-questions'
   return (
     <svg className="scrap-more-doodle-art" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <PencilFilter id={f} />
-      <g filter={`url(#${f})`} strokeLinecap="round" strokeLinejoin="round">
+      <g strokeLinecap="round" strokeLinejoin="round">
         <path
-          d="M30 48c2-18 18-28 36-28s34 10 36 28v22c0 14-12 22-28 22h-8l-12 14v-16c-12-4-20-14-22-28z"
+          d="M28 40c0-12 14-20 36-20s36 8 36 20v28c0 10-8 16-20 16H62l-16 18V88c-10-2-18-10-18-20z"
           fill="#dbeafe"
-          stroke="#2563eb"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M58 44q0-10 12-10t12 10q0 8-8 12-4 2-4 8"
-          fill="none"
           stroke="#1d4ed8"
-          strokeWidth="3.2"
+          strokeWidth="2.8"
         />
-        <circle cx="66" cy="86" r="4.5" fill="#1d4ed8" stroke="#1e40af" strokeWidth="1.2" />
-        <path d="M44 36c8-6 20-8 32-6" fill="none" stroke="#93c5fd" strokeWidth="2" opacity="0.85" />
+        <text
+          x="64"
+          y="78"
+          textAnchor="middle"
+          fontFamily="Patrick Hand, cursive"
+          fontSize="50"
+          fontWeight="700"
+          fill="#1e40af"
+        >
+          ?
+        </text>
+        <path d="M40 32c10-6 24-8 38-6" fill="none" stroke="#93c5fd" strokeWidth="2.2" opacity="0.9" />
       </g>
     </svg>
   )
 }
 
 export function DoodleCharts () {
-  const f = 'more-pencil-charts'
   return (
     <svg className="scrap-more-doodle-art" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <PencilFilter id={f} />
-      <g filter={`url(#${f})`} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 98h84" fill="none" stroke="#a78bfa" strokeWidth="2.6" />
-        <rect x="26" y="58" width="22" height="40" rx="5" fill="#ede9fe" stroke="#7c3aed" strokeWidth="2.2" />
-        <rect x="53" y="42" width="22" height="56" rx="5" fill="#ddd6fe" stroke="#6d28d9" strokeWidth="2.2" />
-        <rect x="80" y="50" width="22" height="48" rx="5" fill="#e9d5ff" stroke="#7c3aed" strokeWidth="2.2" />
-        <path d="M26 36c10-4 22 2 32-6s20 4 30-2 18 2 24-6" fill="none" stroke="#c084fc" strokeWidth="2.8" />
-        <circle cx="26" cy="36" r="3.5" fill="#f9a8d4" stroke="#db2777" strokeWidth="1.2" />
-        <circle cx="58" cy="30" r="3.5" fill="#f9a8d4" stroke="#db2777" strokeWidth="1.2" />
-        <circle cx="88" cy="28" r="3.5" fill="#f9a8d4" stroke="#db2777" strokeWidth="1.2" />
-        <circle cx="110" cy="34" r="3.5" fill="#f9a8d4" stroke="#db2777" strokeWidth="1.2" />
+      <g strokeLinecap="round" strokeLinejoin="round">
+        <path d="M24 100h88" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
+        <path d="M28 100V44" fill="none" stroke="#a78bfa" strokeWidth="2.2" />
+        <rect x="34" y="72" width="16" height="28" rx="3" fill="#e9d5ff" stroke="#6d28d9" strokeWidth="2" />
+        <rect x="56" y="56" width="16" height="44" rx="3" fill="#ddd6fe" stroke="#6d28d9" strokeWidth="2" />
+        <rect x="78" y="64" width="16" height="36" rx="3" fill="#ede9fe" stroke="#7c3aed" strokeWidth="2" />
+        <rect x="100" y="48" width="16" height="52" rx="3" fill="#f3e8ff" stroke="#6d28d9" strokeWidth="2" />
+        <path d="M32 52l20 8 22-12 20 6 18-10" fill="none" stroke="#c026d3" strokeWidth="2.8" />
+        <circle cx="32" cy="52" r="3.5" fill="#fff" stroke="#a855f7" strokeWidth="1.8" />
+        <circle cx="52" cy="60" r="3.5" fill="#fff" stroke="#a855f7" strokeWidth="1.8" />
+        <circle cx="74" cy="48" r="3.5" fill="#fff" stroke="#a855f7" strokeWidth="1.8" />
+        <circle cx="94" cy="54" r="3.5" fill="#fff" stroke="#a855f7" strokeWidth="1.8" />
+        <circle cx="112" cy="44" r="3.5" fill="#fff" stroke="#a855f7" strokeWidth="1.8" />
       </g>
     </svg>
   )
 }
 
 export function DoodleDiagnoses () {
-  const f = 'more-pencil-dx'
   return (
     <svg className="scrap-more-doodle-art" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <PencilFilter id={f} />
-      <g filter={`url(#${f})`} strokeLinecap="round" strokeLinejoin="round">
-        <path
-          d="M64 28c-18 0-32 14-32 32 0 24 32 44 32 44s32-20 32-44c0-18-14-32-32-32z"
-          fill="#ffe4e8"
-          stroke="#e11d48"
-          strokeWidth="2.6"
-        />
-        <path d="M64 48v24M52 60h24" fill="none" stroke="#be123c" strokeWidth="3.2" />
-        <path
-          d="M38 88c6 8 16 12 26 12s20-4 26-12"
-          fill="none"
-          stroke="#fb7185"
-          strokeWidth="2"
-          opacity="0.85"
-        />
-        <circle cx="48" cy="52" r="5" fill="#fecdd3" stroke="#f43f5e" strokeWidth="1.6" />
-        <circle cx="80" cy="52" r="5" fill="#fecdd3" stroke="#f43f5e" strokeWidth="1.6" />
+      <g strokeLinecap="round" strokeLinejoin="round">
+        {/* Clipboard = medical chart / diagnosis list */}
+        <rect x="22" y="38" width="84" height="74" rx="6" fill="#fff7ed" stroke="#c2410c" strokeWidth="2.6" />
+        <rect x="48" y="28" width="32" height="14" rx="4" fill="#fdba74" stroke="#c2410c" strokeWidth="2" />
+        <ellipse cx="64" cy="32" rx="8" ry="4" fill="#fed7aa" stroke="#c2410c" strokeWidth="1.5" />
+        <path d="M34 54h60M34 66h52M34 78h58M34 90h44" fill="none" stroke="#78716c" strokeWidth="2.2" />
+        {/* Medical cross = health record */}
+        <circle cx="92" cy="60" r="14" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" />
+        <path d="M92 54v12M86 60h12" fill="none" stroke="#15803d" strokeWidth="2.8" strokeLinecap="square" />
       </g>
     </svg>
   )
