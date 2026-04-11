@@ -11,7 +11,7 @@ create table public.plushie_catalog (
 );
 
 insert into public.plushie_catalog (slug, name, lottie_path, slot_index) values
-  ('panda-popcorn', 'Panda & popcorn', '/lottie/plushie-0.json', 0),
+  ('panda-popcorn', 'Panda & popcorn', '/lottie/panda-popcorn.json', 0),
   ('rustle-plant', 'Rustle plant', '/lottie/plushie-1.json', 1),
   ('plushie-two', 'Plushie 3', '/lottie/plushie-2.json', 2),
   ('plushie-three', 'Plushie 4', '/lottie/plushie-3.json', 3),

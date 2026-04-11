@@ -231,6 +231,7 @@ If **`supabase db push`** fails on **`20250325000000_initial.sql`** with `relati
 | `20250408100000_doctor_questions_specialty.sql` | `doctor_questions.doctor_specialty` (optional specialty when doctor is free text) |
 | `20260408120000_doctor_questions_visit_link.sql` | `doctor_questions.doctor_visit_id` — link questions to a visit |
 | `20260411120000_game_tokens_trial.sql` | **Plushie token game (trial):** `token_ledger`, `plushie_catalog`, `user_plushie_unlocks`, `game_config`, earn triggers, RPCs `game_get_state`, `game_purchase_active_plushie`, `game_try_grant_handoff_summary_tokens`, `game_grant_transcript_visit` |
+| `20260411140000_panda_popcorn_lottie_path.sql` | Sets panda plushie `lottie_path` to `/lottie/panda-popcorn.json` (for DBs that already ran the trial migration) |
 
 ### Plushie tokens (required for `/app/plushies`)
 

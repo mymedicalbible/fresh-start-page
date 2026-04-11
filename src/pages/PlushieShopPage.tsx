@@ -114,24 +114,79 @@ export function PlushieShopPage () {
           style={{
             marginTop: 14,
             textAlign: 'center',
-            background: 'radial-gradient(ellipse at center top, rgba(255,255,255,0.95) 0%, var(--surface-alt, #fffef9) 55%, #1e293b 55%)',
+            overflow: 'hidden',
+            background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 42%, var(--surface-alt, #fffef9) 42%)',
             border: '1.5px solid var(--border)',
-            padding: '24px 16px 20px',
+            padding: '20px 16px 20px',
           }}
         >
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginBottom: 8 }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.75)', marginBottom: 12 }}>
             THIS WEEK&apos;S PLUSHIE
           </div>
-          <div style={{ maxWidth: 200, margin: '0 auto 12px', minHeight: 160 }}>
-            {lottieData
-              ? (
-                <Lottie animationData={lottieData} loop style={{ width: 200, height: 200, margin: '0 auto' }} />
-                )
-              : (
-                <div style={{ fontSize: '4rem', lineHeight: 1.2 }} aria-hidden>🧸</div>
-                )}
+
+          {/* Spotlight: beam + stage for the active Lottie */}
+          <div
+            style={{
+              position: 'relative',
+              margin: '0 auto 16px',
+              maxWidth: 340,
+              minHeight: 200,
+              paddingBottom: 8,
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: 0,
+                transform: 'translateX(-50%)',
+                width: 'min(100%, 300px)',
+                height: 260,
+                background: [
+                  'radial-gradient(ellipse 48% 38% at 50% 44%, rgba(255,255,255,0.97) 0%, rgba(255,251,235,0.75) 22%, rgba(254,243,199,0.35) 38%, rgba(251,191,36,0.12) 52%, transparent 68%)',
+                ].join(','),
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 4,
+                transform: 'translateX(-50%)',
+                width: '72%',
+                height: 28,
+                background: 'radial-gradient(ellipse closest-side, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.08) 45%, transparent 72%)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+            <div style={{ position: 'relative', zIndex: 1, padding: '4px 8px 0' }}>
+              {lottieData
+                ? (
+                  <Lottie
+                    animationData={lottieData}
+                    loop
+                    rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                    style={{
+                      width: '100%',
+                      maxWidth: 300,
+                      height: 220,
+                      margin: '0 auto',
+                      display: 'block',
+                    }}
+                  />
+                  )
+                : (
+                  <div style={{ fontSize: '4rem', lineHeight: 1.2, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden>🧸</div>
+                  )}
+            </div>
           </div>
-          <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 6 }}>{activePlushie.name}</div>
+
+          <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 6, color: 'var(--text)' }}>{activePlushie.name}</div>
           <p className="muted" style={{ fontSize: '0.85rem', margin: '0 0 14px' }}>
             {ownedActive
               ? 'You already own this week\'s plushie.'
