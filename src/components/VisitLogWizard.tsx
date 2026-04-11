@@ -77,6 +77,9 @@ function normPin (s: string) {
     .replace(/\s+/g, ' ')
 }
 
+const DEFAULT_VISIT_REASON_PILLS = ['Follow-up', 'New or worsening symptoms', 'Medication or prescription']
+const PINNED_VISIT_REASONS_KEY = 'mb-pinned-visit-reasons-v2'
+
 /** Cohesive with form text across the app */
 const WIZARD_TX: CSSProperties = { width: '100%', fontSize: '0.88rem', lineHeight: 1.45 }
 /** Same typography as WIZARD_TX for inputs in flex rows (no forced full width). */
@@ -100,10 +103,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const [error, setError] = useState<string | null>(null)
 
   const [doctors, setDoctors] = useState<DoctorRow[]>([])
-  const [pastReasons, setPastReasons] = useState<string[]>([])
   const [visitId, setVisitId] = useState<string | null>(resumeVisitId ?? null)
   const [pinnedReasons, setPinnedReasons] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('mb-pinned-visit-reasons') ?? '[]') } catch { return [] }
+    try { return JSON.parse(localStorage.getItem(PINNED_VISIT_REASONS_KEY) ?? '[]') } catch { return [] }
   })
 
   const [visitDate, setVisitDate] = useState(todayISO())
@@ -274,13 +276,16 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   useImperativeHandle(ref, () => ({ requestLeave }), [requestLeave])
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('mb-pinned-visit-reasons')
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
     if (!user) return
     void (async () => {
       const { data: d } = await supabase.from('doctors').select('id, name, specialty').eq('user_id', user.id).order('name')
       setDoctors((d ?? []) as DoctorRow[])
-      const { data: reasons } = await supabase.from('doctor_visits').select('reason').eq('user_id', user.id).not('reason', 'is', null).order('visit_date', { ascending: false }).limit(80)
-      const uniq = [...new Set((reasons ?? []).map((r: { reason: string | null }) => r.reason).filter(Boolean) as string[])]
-      setPastReasons(uniq.slice(0, 24))
     })()
   }, [user])
 
@@ -600,113 +605,55 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     const t = r.trim()
     if (!t) return
     if (pinnedReasons.some((x) => normPin(x) === normPin(t))) return
-    const next = [t, ...pinnedReasons].slice(0, 20)
+    const next = [t, ...pinnedReasons].slice(0, 8)
     setPinnedReasons(next)
-    try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
+    try { localStorage.setItem(PINNED_VISIT_REASONS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   function unpinReason (r: string) {
     const needle = normPin(r)
     const next = pinnedReasons.filter((x) => normPin(x) !== needle)
     setPinnedReasons(next)
-    try { localStorage.setItem('mb-pinned-visit-reasons', JSON.stringify(next)) } catch { /* ignore */ }
+    try { localStorage.setItem(PINNED_VISIT_REASONS_KEY, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
-  const [chipCtx, setChipCtx] = useState<string | null>(null)
-  const [chipPressing, setChipPressing] = useState<string | null>(null)
-  const chipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function startChipPress (r: string) {
-    setChipPressing(r)
-    chipTimerRef.current = setTimeout(() => {
-      setChipCtx(r)
-      setChipPressing(null)
-    }, 600)
-  }
-  function cancelChipPress () {
-    if (chipTimerRef.current) clearTimeout(chipTimerRef.current)
-    setChipPressing(null)
-  }
-  function deleteFromHistory (r: string) {
-    const next = pastReasons.filter((x) => normPin(x) !== normPin(r))
-    setPastReasons(next)
-    unpinReason(r)
-  }
-
-  const chipRow = useMemo(() => {
-    const unpinned = pastReasons.filter((r) => !pinnedReasons.some((p) => normPin(p) === normPin(r)))
-    const ctxBtnStyle: CSSProperties = {
-      display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: 'none',
-      textAlign: 'left', fontSize: '0.82rem', cursor: 'pointer', borderRadius: 6,
-    }
-    return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-        {pinnedReasons.map((r) => (
-          <span key={r} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-            <button
-              type="button"
-              className="pill on"
-              style={{ fontSize: '0.78rem' }}
-              onClick={() => setReason(r)}
-            >
-              📌 {r.length > 38 ? `${r.slice(0, 36)}…` : r}
-            </button>
-            <button
-              type="button"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '0.7rem', color: '#9ca3af', lineHeight: 1 }}
-              title="Remove from quick picks"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                unpinReason(r)
-              }}
-            >✕</button>
-          </span>
-        ))}
-        {unpinned.map((r) => (
-          <span key={r} style={{ position: 'relative', display: 'inline-block' }}>
-            <button
-              type="button"
-              className={`pill${chipPressing === r ? ' pill--pressing' : ''}`}
-              style={{ fontSize: '0.78rem', userSelect: 'none', WebkitUserSelect: 'none' }}
-              onPointerDown={() => startChipPress(r)}
-              onPointerUp={() => {
-                cancelChipPress()
-                if (chipCtx !== r) setReason(r)
-              }}
-              onPointerLeave={cancelChipPress}
-              onPointerCancel={cancelChipPress}
-              onClick={() => { if (chipCtx === r) setChipCtx(null) }}
-            >
-              {r.length > 42 ? `${r.slice(0, 40)}…` : r}
-            </button>
-            {chipCtx === r && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-                background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 10,
-                boxShadow: '0 6px 20px rgba(0,0,0,.12)', padding: 4, minWidth: 160,
-              }}>
-                <button type="button" style={ctxBtnStyle}
-                  onClick={() => { setChipCtx(null); setReason(r) }}>
-                  Use this reason
-                </button>
-                <button type="button" style={{ ...ctxBtnStyle, color: '#b91c1c' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#fee2e2')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                  onClick={() => { setChipCtx(null); deleteFromHistory(r) }}>
-                  Delete from history
-                </button>
-                <button type="button" style={{ ...ctxBtnStyle, color: '#64748b' }}
-                  onClick={() => setChipCtx(null)}>
-                  Cancel
-                </button>
-              </div>
-            )}
-          </span>
-        ))}
-      </div>
-    )
-  }, [pastReasons, pinnedReasons, chipCtx, chipPressing])
+  const chipRow = useMemo(() => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
+      {DEFAULT_VISIT_REASON_PILLS.map((label) => (
+        <button
+          key={label}
+          type="button"
+          className={`pill ${reason.trim() === label ? 'on' : ''}`}
+          style={{ fontSize: '0.78rem' }}
+          onClick={() => setReason(label)}
+        >
+          {label}
+        </button>
+      ))}
+      {pinnedReasons.map((r) => (
+        <span key={`pin-${normPin(r)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+          <button
+            type="button"
+            className="pill on"
+            style={{ fontSize: '0.78rem' }}
+            onClick={() => setReason(r)}
+          >
+            📌 {r.length > 38 ? `${r.slice(0, 36)}…` : r}
+          </button>
+          <button
+            type="button"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '0.7rem', color: '#9ca3af', lineHeight: 1 }}
+            title="Remove from quick picks"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              unpinReason(r)
+            }}
+          >✕</button>
+        </span>
+      ))}
+    </div>
+  ), [pinnedReasons, reason])
 
   function handleTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
     applyExtractedVisitFields(fields)
@@ -876,17 +823,27 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             <button type="button" className={`pill ${doctorMode === 'new' ? 'on' : ''}`} onClick={() => setDoctorMode('new')}>Someone new</button>
           </div>
           {doctorMode === 'pick' ? (
-            <select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} style={{ ...WIZARD_TX, marginTop: 10 }}>
-              <option value="">— Pick a doctor —</option>
-              {doctorPickOptions.map((d) => (
-                <option key={d.id} value={d.name}>{d.name}</option>
-              ))}
-            </select>
+            <>
+              <select value={selectedName} onChange={(e) => setSelectedName(e.target.value)} style={{ ...WIZARD_TX, marginTop: 10 }}>
+                <option value="">— Pick a doctor —</option>
+                {doctorPickOptions.map((d) => (
+                  <option key={d.id} value={d.name}>{d.name}</option>
+                ))}
+              </select>
+              <p className="muted" style={{ fontSize: '0.85rem', margin: '8px 0 0', lineHeight: 1.4 }}>
+                Specialty:{' '}
+                <strong style={{ fontWeight: 600, color: 'var(--text, #334155)' }}>
+                  {doctors.find((d) => d.name === selectedName)?.specialty?.trim() || '—'}
+                </strong>
+              </p>
+            </>
           ) : (
-            <input value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Doctor name" style={{ ...WIZARD_TX, marginTop: 10 }} />
+            <>
+              <input value={newDoctorName} onChange={(e) => setNewDoctorName(e.target.value)} placeholder="Doctor name" style={{ ...WIZARD_TX, marginTop: 10 }} />
+              <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Specialty (optional)" style={{ ...WIZARD_TX, marginTop: 10 }} />
+            </>
           )}
-          <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Specialty (optional)" style={{ ...WIZARD_TX, marginTop: 10 }} />
-          <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — tap a saved/past reason or type</p>
+          <p style={{ margin: '14px 0 4px', fontSize: '0.85rem', color: '#64748b' }}>Main reason — quick picks, your own words, or pin what you typed</p>
           {chipRow}
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="In your own words…" rows={3} style={{ ...WIZARD_TX, marginTop: 8 }} />
           {reason.trim() && !isReasonPinned(reason) && (
@@ -896,7 +853,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               style={{ fontSize: '0.78rem', padding: '3px 10px', marginTop: 4 }}
               onClick={() => pinReason(reason)}
             >
-              📌 Save as quick button
+              📌 Pin this reason
             </button>
           )}
           {reason.trim() && isReasonPinned(reason) && (

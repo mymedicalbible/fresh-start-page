@@ -128,6 +128,9 @@ export function QuickLogPage () {
   const resumeCheckedRef = useRef(false)
   /** Questions already saved for the doctor selected in the picker (this screen is for logging new ones only). */
   const [pickerDoctorQuestions, setPickerDoctorQuestions] = useState<PickerDoctorQuestionRow[]>([])
+  const [answerEditingId, setAnswerEditingId] = useState<string | null>(null)
+  const [answerDraft, setAnswerDraft] = useState('')
+  const [answerSaving, setAnswerSaving] = useState(false)
   const [incompleteKind, setIncompleteKind] = useState<null | 'pain' | 'symptoms' | 'questions'>(null)
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
@@ -296,6 +299,32 @@ export function QuickLogPage () {
   useEffect(() => {
     void loadPickerDoctorQuestions()
   }, [loadPickerDoctorQuestions])
+
+  useEffect(() => {
+    setAnswerEditingId(null)
+    setAnswerDraft('')
+  }, [form.doctor])
+
+  async function saveInlineAnswer (questionId: string) {
+    if (!user) return
+    const text = answerDraft.trim()
+    if (!text) {
+      setError('Type an answer first.')
+      return
+    }
+    setAnswerSaving(true)
+    setError(null)
+    const { error: e } = await supabase
+      .from('doctor_questions')
+      .update({ answer: text, status: 'Answered' })
+      .eq('id', questionId)
+      .eq('user_id', user.id)
+    setAnswerSaving(false)
+    if (e) { setError(e.message); return }
+    setAnswerEditingId(null)
+    setAnswerDraft('')
+    void loadPickerDoctorQuestions()
+  }
 
   useEffect(() => {
     if (screen !== 'pain' || painStep !== 1 || !scrollRef.current) return
@@ -838,9 +867,15 @@ export function QuickLogPage () {
           </div>
           <div className="form-group">
             <label>Question</label>
-            <textarea placeholder="What do you want to ask?" value={form.question} onChange={(e) => setForm((f) => ({ ...f, question: e.target.value }))} rows={4} />
+            <textarea
+              className="doctor-note-lined"
+              placeholder="What do you want to ask?"
+              value={form.question}
+              onChange={(e) => setForm((f) => ({ ...f, question: e.target.value }))}
+              rows={6}
+            />
           </div>
-          <details
+          <div
             style={{
               marginBottom: 14,
               border: '1px solid var(--border)',
@@ -849,39 +884,118 @@ export function QuickLogPage () {
               background: 'var(--surface-alt, #f8fafc)',
             }}
           >
-            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', userSelect: 'none' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 8 }}>
               Saved questions for this doctor
-              {form.doctor.trim() && pickerDoctorQuestions.length > 0
-                ? ` (${pickerDoctorQuestions.length})`
-                : ''}
-            </summary>
+              {form.doctor.trim() && pickerDoctorQuestions.length > 0 ? ` (${pickerDoctorQuestions.length})` : ''}
+            </div>
             {!form.doctor.trim() ? (
-              <p className="muted" style={{ fontSize: '0.85rem', margin: '10px 0 0', lineHeight: 1.45 }}>
+              <p className="muted" style={{ fontSize: '0.85rem', margin: 0, lineHeight: 1.45 }}>
                 Choose or type a doctor above to see questions you already saved for them.
               </p>
             ) : pickerDoctorQuestions.length === 0 ? (
-              <p className="muted" style={{ fontSize: '0.85rem', margin: '10px 0 0', lineHeight: 1.45 }}>
+              <p className="muted" style={{ fontSize: '0.85rem', margin: 0, lineHeight: 1.45 }}>
                 No saved questions for this doctor yet. Add one above first.
               </p>
             ) : (
-              <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: '0.85rem', lineHeight: 1.45 }}>
+              <div style={{ display: 'grid', gap: 12 }}>
                 {pickerDoctorQuestions.map((q) => {
-                  const open = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
+                  const unanswered = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
                   return (
-                    <li key={q.id} style={{ marginBottom: 10 }}>
-                      <div>{q.question}</div>
-                      <div className="muted" style={{ fontSize: '0.78rem', marginTop: 2 }}>
-                        {q.priority ?? '—'} · {open ? 'Open' : 'Answered'}
-                        {q.date_created
-                          ? ` · ${new Date(q.date_created).toLocaleDateString()}`
-                          : ''}
+                    <div
+                      key={q.id}
+                      style={{
+                        padding: '10px 12px',
+                        background: 'var(--surface, #fff)',
+                        borderRadius: 10,
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '0.88rem',
+                          lineHeight: 1.45,
+                          ...(unanswered && answerEditingId !== q.id
+                            ? { cursor: 'pointer' as const }
+                            : {}),
+                        }}
+                        onClick={() => {
+                          if (unanswered && answerEditingId !== q.id) {
+                            setAnswerEditingId(q.id)
+                            setAnswerDraft('')
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (!unanswered || answerEditingId === q.id) return
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setAnswerEditingId(q.id)
+                            setAnswerDraft('')
+                          }
+                        }}
+                        role={unanswered && answerEditingId !== q.id ? 'button' : undefined}
+                        tabIndex={unanswered && answerEditingId !== q.id ? 0 : undefined}
+                      >
+                        {q.question}
                       </div>
-                    </li>
+                      <div className="muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+                        {q.priority ?? '—'} · {unanswered ? 'Open' : 'Answered'}
+                        {q.date_created ? ` · ${new Date(q.date_created).toLocaleDateString()}` : ''}
+                      </div>
+                      {!unanswered && q.answer?.trim() && (
+                        <div style={{ fontSize: '0.84rem', marginTop: 8, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                          <span className="muted" style={{ fontSize: '0.72rem', fontWeight: 600 }}>Answer: </span>
+                          {q.answer}
+                        </div>
+                      )}
+                      {unanswered && (
+                        <div style={{ marginTop: 10 }}>
+                          {answerEditingId === q.id ? (
+                            <>
+                              <textarea
+                                className="doctor-note-lined"
+                                placeholder="Your answer…"
+                                value={answerDraft}
+                                onChange={(e) => setAnswerDraft(e.target.value)}
+                                rows={5}
+                                disabled={answerSaving}
+                              />
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.82rem' }}
+                                  disabled={answerSaving}
+                                  onClick={() => void saveInlineAnswer(q.id)}
+                                >
+                                  {answerSaving ? 'Saving…' : 'Save answer'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  style={{ fontSize: '0.82rem' }}
+                                  disabled={answerSaving}
+                                  onClick={() => {
+                                    setAnswerEditingId(null)
+                                    setAnswerDraft('')
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="muted" style={{ fontSize: '0.78rem', margin: '8px 0 0' }}>
+                              Tap the question above to answer.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
-              </ul>
+              </div>
             )}
-          </details>
+          </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
             <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={() => requestSaveQuestion()} disabled={busy}>

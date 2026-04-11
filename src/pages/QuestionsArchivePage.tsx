@@ -266,10 +266,13 @@ export function QuestionsArchivePage () {
           </div>
           <div className="form-group">
             <label>Question</label>
-            <textarea value={form.question}
+            <textarea
+              className="doctor-note-lined"
+              value={form.question}
               onChange={(e) => setForm({ ...form, question: e.target.value })}
-              rows={4}
-              placeholder="e.g. Why is my pain worse at night? What did my MRI show? Should we adjust my medication?" />
+              rows={6}
+              placeholder="e.g. Why is my pain worse at night? What did my MRI show? Should we adjust my medication?"
+            />
           </div>
           <button type="button" className="btn btn-primary btn-block" onClick={() => void saveNewQuestions()} disabled={busy}>
             Save question
@@ -371,10 +374,11 @@ export function QuestionsArchivePage () {
                   <div>
                     <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>Your answer</label>
                     <textarea
+                      className="doctor-note-lined"
                       placeholder="Write answer…"
                       value={answerDraft[q.id] ?? ''}
                       onChange={(e) => setAnswerDraft((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                      style={{ width: '100%', minHeight: 80 }}
+                      rows={5}
                     />
                     <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }}
                       onClick={() => saveAnswer(q.id)}>Save answer</button>

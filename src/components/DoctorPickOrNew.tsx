@@ -74,23 +74,31 @@ export function DoctorPickOrNew ({
         </button>
       </div>
       {mode === 'pick' ? (
-        <select
-          id={id}
-          aria-required={doctorRequired}
-          value={findDoctorInList(doctors, value)?.name ?? ''}
-          style={{ touchAction: 'manipulation' }}
-          onChange={(e) => {
-            const v = e.target.value
-            onChange(v)
-            const doc = findDoctorInList(doctors, v)
-            onSpecialtyChange?.(doc?.specialty?.trim() ? doc.specialty : '')
-          }}
-        >
-          <option value="">{doctorRequired ? '— Pick a doctor —' : '— Optional / not set —'}</option>
-          {doctors.map((d) => (
-            <option key={d.id} value={d.name}>{d.name}</option>
-          ))}
-        </select>
+        <>
+          <select
+            id={id}
+            aria-required={doctorRequired}
+            value={findDoctorInList(doctors, value)?.name ?? ''}
+            style={{ touchAction: 'manipulation' }}
+            onChange={(e) => {
+              const v = e.target.value
+              onChange(v)
+              const doc = findDoctorInList(doctors, v)
+              onSpecialtyChange?.(doc?.specialty?.trim() ? doc.specialty : '')
+            }}
+          >
+            <option value="">{doctorRequired ? '— Pick a doctor —' : '— Optional / not set —'}</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.name}>{d.name}</option>
+            ))}
+          </select>
+          <p className="muted" style={{ fontSize: '0.85rem', margin: '8px 0 0', lineHeight: 1.4 }}>
+            Specialty:{' '}
+            <strong style={{ fontWeight: 600, color: 'var(--text, #334155)' }}>
+              {findDoctorInList(doctors, value)?.specialty?.trim() || '—'}
+            </strong>
+          </p>
+        </>
       ) : (
         <>
           <input
