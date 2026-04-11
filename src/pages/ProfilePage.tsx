@@ -1,10 +1,30 @@
 import { Link } from 'react-router-dom'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Lottie, { type LottieRefCurrentProps } from 'lottie-react'
 import type { User } from '@supabase/supabase-js'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
+
+const PANDA_LOTTIE_PATH = '/lottie/panda-popcorn.json'
+
+function PandaStaticFrame ({ data }: { data: object }) {
+  const lottieRef = useRef<LottieRefCurrentProps | null>(null)
+  return (
+    <Lottie
+      lottieRef={lottieRef}
+      animationData={data}
+      loop={false}
+      autoplay={false}
+      onDOMLoaded={() => {
+        lottieRef.current?.goToAndStop(0, true)
+      }}
+      rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+      style={{ width: '100%', height: '100%', maxHeight: 58 }}
+    />
+  )
+}
 
 const NOTIFY_KEYS = {
   appt: 'mb-profile-notify-appt',
@@ -74,6 +94,7 @@ export function ProfilePage () {
   const [notifyStreak, setNotifyStreak] = useState(() => readNotify(NOTIFY_KEYS.streak, false))
 
   const [accountBanner, setAccountBanner] = useState<string | null>(null)
+  const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -124,6 +145,23 @@ export function ProfilePage () {
     void loadStats()
     void loadGameAndPlushies()
   }, [loadStats, loadGameAndPlushies])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(PANDA_LOTTIE_PATH)
+        if (res.ok && !cancelled) {
+          setPandaLottieData(await res.json() as object)
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function onChangePassword () {
     setAccountBanner(null)
@@ -177,7 +215,16 @@ export function ProfilePage () {
         <span className="scrap-account-corner-tape scrap-account-corner-tape--br" aria-hidden />
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
-            🐼
+            {pandaLottieData ? (
+              <Lottie
+                className="scrap-account-avatar-lottie"
+                animationData={pandaLottieData}
+                loop
+                rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+              />
+            ) : (
+              <span aria-hidden>🐼</span>
+            )}
           </div>
           <div className="scrap-account-profile-text">
             <div className="scrap-account-display-name">{nameLower}</div>
@@ -246,6 +293,19 @@ export function ProfilePage () {
         <div className="scrap-account-paper scrap-account-paper--plushies">
           <span className="scrap-account-tape scrap-account-tape--sage" aria-hidden />
           <div className="scrap-account-plushie-row">
+            {pandaLottieData ? (
+              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
+                <div className="scrap-account-plushie-panda-static">
+                  <PandaStaticFrame data={pandaLottieData} />
+                </div>
+                <span className="scrap-account-plushie-name">panda</span>
+              </div>
+            ) : (
+              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
+                <span className="scrap-account-plushie-emoji" aria-hidden>🐼</span>
+                <span className="scrap-account-plushie-name">panda</span>
+              </div>
+            )}
             {plushieSlots.length === 0
               ? (
                 <p className="scrap-account-plushie-empty">
