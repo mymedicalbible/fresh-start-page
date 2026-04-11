@@ -25,6 +25,7 @@ import {
   saveApptQsDraft,
 } from '../lib/apptQuestionsDraft'
 import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
+import { dismissPendingDockNorm, loadDismissedPendingDockNorms } from '../lib/pendingDockDismiss'
 
 type UpcomingAppt = {
   id: string
@@ -844,6 +845,14 @@ export function DashboardPage () {
         if (pendLabels[k] === undefined) pendLabels[k] = d
         if (resumeByNorm[k] === undefined) resumeByNorm[k] = row.id
       }
+      const dismissed = user?.id ? loadDismissedPendingDockNorms(user.id) : new Set<string>()
+      for (const k of Object.keys(pendMap)) {
+        if (dismissed.has(k)) {
+          delete pendMap[k]
+          delete pendLabels[k]
+          delete resumeByNorm[k]
+        }
+      }
       setPendingVisitsByNorm(pendMap)
       setPendingVisitLabelByNorm(pendLabels)
       setPendingResumeIdByNorm(resumeByNorm)
@@ -1528,6 +1537,7 @@ export function DashboardPage () {
               void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
             }}
             onDismiss={(norm) => {
+              if (user?.id) dismissPendingDockNorm(user.id, norm)
               setPendingVisitsByNorm((prev) => {
                 const next = { ...prev }
                 delete next[norm]

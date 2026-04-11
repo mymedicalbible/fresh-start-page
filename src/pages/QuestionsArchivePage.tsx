@@ -7,6 +7,7 @@ import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { priorityButtonStyles, priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
+import { AppConfirmDialog } from '../components/AppConfirmDialog'
 
 
 type QuestionRow = {
@@ -43,12 +44,14 @@ export function QuestionsArchivePage () {
     urlTabOpen ? 'unanswered' : 'all',
   )
   const [doctorFilter, setDoctorFilter] = useState(urlDoctor)
-  const [showForm, setShowForm] = useState(!urlDoctor)
+  /** Always show add form so doctor picker and fields are usable (deep links still pre-fill doctor filter). */
+  const [showForm, setShowForm] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({})
+  const [incompleteSaveOpen, setIncompleteSaveOpen] = useState(false)
 
   const [form, setForm] = useState({
     date_created: todayISO(),
@@ -84,18 +87,24 @@ export function QuestionsArchivePage () {
   }
 
 
-  async function saveNewQuestions () {
-    if (!form.question.trim()) {
-      setError('Enter a question.')
+  async function saveNewQuestions (opts?: { allowEmptyQuestion?: boolean }) {
+    if (!form.doctor.trim()) {
+      setError('Choose a doctor for this question.')
+      return
+    }
+    if (!form.question.trim() && !opts?.allowEmptyQuestion) {
+      setIncompleteSaveOpen(true)
       return
     }
     setBusy(true)
+    setError(null)
+    const qText = form.question.trim() || '(No question text)'
     const baseQ = {
       user_id: user!.id,
       date_created: form.date_created,
       appointment_date: form.appointment_date || null,
-      doctor: form.doctor.trim() || null,
-      question: form.question.trim(),
+      doctor: form.doctor.trim(),
+      question: qText,
       priority: form.priority,
       status: 'Unanswered',
       answer: null,
@@ -110,7 +119,7 @@ export function QuestionsArchivePage () {
     }
     setBusy(false)
     if (e) { setError(e.message); return }
-    if (form.doctor.trim()) void ensureDoctorProfile(user!.id, form.doctor, form.doctor_specialty || null)
+    void ensureDoctorProfile(user!.id, form.doctor.trim(), form.doctor_specialty || null)
     setBanner('Question saved.')
     setForm({
       date_created: todayISO(),
@@ -123,7 +132,6 @@ export function QuestionsArchivePage () {
     setTimeout(() => setBanner(null), 4000)
     loadQuestions()
   }
-
 
   async function saveAnswer (id: string) {
     const answer = answerDraft[id] ?? ''
@@ -164,6 +172,19 @@ export function QuestionsArchivePage () {
   return (
     <div style={{ paddingBottom: 40 }}>
       <BackButton label="Back" />
+      {incompleteSaveOpen && (
+        <AppConfirmDialog
+          title="Are you sure?"
+          message="Some fields were left unanswered. Save anyway?"
+          confirmLabel="Save anyway"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            setIncompleteSaveOpen(false)
+            void saveNewQuestions({ allowEmptyQuestion: true })
+          }}
+          onCancel={() => setIncompleteSaveOpen(false)}
+        />
+      )}
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
       {banner && <div className="banner success">{banner}</div>}
 
@@ -224,7 +245,8 @@ export function QuestionsArchivePage () {
             specialty={form.doctor_specialty}
             onSpecialtyChange={(v) => setForm((f) => ({ ...f, doctor_specialty: v }))}
             showSpecialtyForNew
-            label="Doctor (optional)"
+            doctorRequired
+            label="Doctor"
             id="q-doctor-pick"
           />
           <div className="form-group">
@@ -249,7 +271,7 @@ export function QuestionsArchivePage () {
               rows={4}
               placeholder="e.g. Why is my pain worse at night? What did my MRI show? Should we adjust my medication?" />
           </div>
-          <button type="button" className="btn btn-primary btn-block" onClick={saveNewQuestions} disabled={busy}>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => void saveNewQuestions()} disabled={busy}>
             Save question
           </button>
         </>

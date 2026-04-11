@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
+import { AppConfirmDialog } from '../components/AppConfirmDialog'
 import {
   clearQuickLogDraft,
   loadQuickLogDraft,
@@ -127,6 +128,7 @@ export function QuickLogPage () {
   const resumeCheckedRef = useRef(false)
   /** Questions already saved for the doctor selected in the picker (this screen is for logging new ones only). */
   const [pickerDoctorQuestions, setPickerDoctorQuestions] = useState<PickerDoctorQuestionRow[]>([])
+  const [incompleteKind, setIncompleteKind] = useState<null | 'pain' | 'symptoms' | 'questions'>(null)
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
     setScreen(d.screen)
@@ -328,6 +330,50 @@ export function QuickLogPage () {
     setNewSymptomText('')
   }
 
+  function painLogLooksIncomplete (): boolean {
+    if (painSelections.length === 0) return true
+    if (painTypePicks.length === 0 && !form.notes.trim()) return true
+    return false
+  }
+
+  function symptomsLogLooksIncomplete (): boolean {
+    if (!form.activity.trim()) return true
+    if (selectedSymptoms.length === 0) return true
+    return false
+  }
+
+  function questionsLogLooksIncomplete (): boolean {
+    return !form.question.trim()
+  }
+
+  function requestSavePain () {
+    if (painLogLooksIncomplete()) {
+      setIncompleteKind('pain')
+      return
+    }
+    void handleSavePain()
+  }
+
+  function requestSaveSymptoms () {
+    if (symptomsLogLooksIncomplete()) {
+      setIncompleteKind('symptoms')
+      return
+    }
+    void handleSaveSymptoms()
+  }
+
+  function requestSaveQuestion () {
+    if (!form.doctor.trim()) {
+      setError('Choose a doctor for this question.')
+      return
+    }
+    if (questionsLogLooksIncomplete()) {
+      setIncompleteKind('questions')
+      return
+    }
+    void handleSaveQuestion()
+  }
+
   async function handleSavePain () {
     if (!user) return
     setBusy(true)
@@ -349,7 +395,6 @@ export function QuickLogPage () {
 
   async function handleSaveSymptoms () {
     if (!user) return
-    if (selectedSymptoms.length === 0) { setError('Please add at least one feature for this episode.'); return }
     setBusy(true)
     setError(null)
     const { error: e } = await supabase.from('mcas_episodes').insert({
@@ -370,12 +415,16 @@ export function QuickLogPage () {
 
   async function handleSaveQuestion () {
     if (!user) return
+    if (!form.doctor.trim()) {
+      setError('Choose a doctor for this question.')
+      return
+    }
     setBusy(true)
     setError(null)
     const basePayload = {
       user_id: user.id,
       date_created: form.date,
-      doctor: form.doctor.trim() || null,
+      doctor: form.doctor.trim(),
       question: form.question,
       priority: form.priority,
       status: 'Unanswered',
@@ -391,7 +440,7 @@ export function QuickLogPage () {
     }
     setBusy(false)
     if (e) { setError(e.message); return }
-    if (form.doctor.trim()) void ensureDoctorProfile(user.id, form.doctor, form.doctor_specialty || null)
+    void ensureDoctorProfile(user.id, form.doctor.trim(), form.doctor_specialty || null)
     void loadPickerDoctorQuestions()
     clearQuickLogDraft()
     setPostSave({ archive: '/app/questions', title: 'Questions archive' })
@@ -531,6 +580,22 @@ export function QuickLogPage () {
         </div>
       )}
 
+      {incompleteKind && (
+        <AppConfirmDialog
+          title="Are you sure?"
+          message="Some fields were left unanswered. Save anyway?"
+          confirmLabel="Save anyway"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            const k = incompleteKind
+            setIncompleteKind(null)
+            if (k === 'pain') void handleSavePain()
+            else if (k === 'symptoms') void handleSaveSymptoms()
+            else if (k === 'questions') void handleSaveQuestion()
+          }}
+          onCancel={() => setIncompleteKind(null)}
+        />
+      )}
       {error && (
         <div className="banner error" style={{ marginBottom: 16 }} onClick={() => setError(null)}>
           {error} ✕
@@ -647,7 +712,7 @@ export function QuickLogPage () {
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={handleSavePain} disabled={busy}>
+                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => requestSavePain()} disabled={busy}>
                   {busy ? 'Saving…' : 'Finish ✓'}
                 </button>
               </div>
@@ -736,7 +801,7 @@ export function QuickLogPage () {
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={handleSaveSymptoms} disabled={busy}>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => requestSaveSymptoms()} disabled={busy}>
               {busy ? 'Saving…' : 'Save episode'}
             </button>
           </div>
@@ -750,13 +815,31 @@ export function QuickLogPage () {
           <DoctorPickOrNew
             doctors={doctors}
             value={form.doctor}
-            onChange={(v) => setForm({ ...form, doctor: v })}
+            onChange={(v) => setForm((f) => ({ ...f, doctor: v }))}
             specialty={form.doctor_specialty}
-            onSpecialtyChange={(v) => setForm({ ...form, doctor_specialty: v })}
+            onSpecialtyChange={(v) => setForm((f) => ({ ...f, doctor_specialty: v }))}
             showSpecialtyForNew
-            label="Doctor (optional)"
+            doctorRequired
+            label="Doctor"
             id="quicklog-q-doctor"
           />
+          <div className="form-group">
+            <label>Priority</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['High', 'Medium', 'Low'].map(p => (
+                <button key={p} type="button"
+                  className={`btn ${form.priority === p ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ flex: 1, fontSize: '0.82rem' }}
+                  onClick={() => setForm((f) => ({ ...f, priority: p }))}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Question</label>
+            <textarea placeholder="What do you want to ask?" value={form.question} onChange={(e) => setForm((f) => ({ ...f, question: e.target.value }))} rows={4} />
+          </div>
           <details
             style={{
               marginBottom: 14,
@@ -778,7 +861,7 @@ export function QuickLogPage () {
               </p>
             ) : pickerDoctorQuestions.length === 0 ? (
               <p className="muted" style={{ fontSize: '0.85rem', margin: '10px 0 0', lineHeight: 1.45 }}>
-                No saved questions for this doctor yet. Add one below.
+                No saved questions for this doctor yet. Add one above first.
               </p>
             ) : (
               <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: '0.85rem', lineHeight: 1.45 }}>
@@ -799,26 +882,9 @@ export function QuickLogPage () {
               </ul>
             )}
           </details>
-          <div className="form-group">
-            <label>Priority</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {['High', 'Medium', 'Low'].map(p => (
-                <button key={p} type="button"
-                  className={`btn ${form.priority === p ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ flex: 1, fontSize: '0.82rem' }}
-                  onClick={() => setForm({...form, priority: p})}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Question</label>
-            <textarea placeholder="What do you want to ask?" value={form.question} onChange={e => setForm({...form, question: e.target.value})} rows={4} />
-          </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={handleSaveQuestion} disabled={busy}>
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={() => requestSaveQuestion()} disabled={busy}>
               {busy ? 'Saving…' : 'Save Question'}
             </button>
           </div>

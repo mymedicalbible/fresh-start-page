@@ -14,6 +14,7 @@ import {
 } from '../lib/visitDocsStorage'
 import { formatTime12h } from '../lib/formatTime12h'
 import { VisitNotesWithTranscriptFold } from '../components/VisitNotesWithTranscriptFold'
+import { AppConfirmDialog } from '../components/AppConfirmDialog'
 
 type Doctor = { id: string; name: string; specialty: string | null }
 
@@ -58,6 +59,8 @@ export function VisitsPage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [visitDocMap, setVisitDocMap] = useState<Record<string, VisitDocItem[]>>({})
   const [visitDocUploading, setVisitDocUploading] = useState<string | null>(null)
+  const [deleteVisitId, setDeleteVisitId] = useState<string | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const visitWizardRef = useRef<VisitLogWizardRef>(null)
 
   useEffect(() => {
@@ -84,6 +87,34 @@ export function VisitsPage () {
     setVisitDocMap((prev) => ({ ...prev, [visitId]: docs }))
   }
 
+  async function confirmDeleteVisit () {
+    if (!user || !deleteVisitId) return
+    const vid = deleteVisitId
+    setDeleteBusy(true)
+    setError(null)
+    try {
+      const { docs } = await listVisitDocuments(user.id, vid)
+      for (const d of docs) {
+        await deleteVisitDocument(user.id, vid, d.name)
+      }
+      const { error: delErr } = await supabase.from('doctor_visits').delete().eq('id', vid).eq('user_id', user.id)
+      if (delErr) {
+        setError(delErr.message)
+        return
+      }
+      setVisitDocMap((prev) => {
+        const next = { ...prev }
+        delete next[vid]
+        return next
+      })
+      setExpandedId((id) => (id === vid ? null : id))
+      await loadVisits()
+    } finally {
+      setDeleteBusy(false)
+      setDeleteVisitId(null)
+    }
+  }
+
   if (!user) return null
 
   if (wizardNew || resumeId) {
@@ -104,6 +135,17 @@ export function VisitsPage () {
   return (
     <div style={{ paddingBottom: 40 }}>
       <BackButton label="Back" />
+      {deleteVisitId && (
+        <AppConfirmDialog
+          title="Delete this visit?"
+          message="This removes the visit from your log and deletes any attached files for it. This cannot be undone."
+          confirmLabel={deleteBusy ? 'Deleting…' : 'Delete visit'}
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          onConfirm={() => void confirmDeleteVisit()}
+          onCancel={() => { if (!deleteBusy) setDeleteVisitId(null) }}
+        />
+      )}
       {error && <div className="banner error" onClick={() => setError(null)}>{error} ✕</div>}
 
       <div className="card">
@@ -222,6 +264,21 @@ export function VisitsPage () {
                   {v.instructions && <div className="muted" style={{ fontSize: '0.85rem' }}>Instructions: {v.instructions}</div>}
                   {v.follow_up && <div className="muted" style={{ fontSize: '0.85rem' }}>Next appt: {v.follow_up}</div>}
                   <VisitNotesWithTranscriptFold notes={v.notes} />
+
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.85rem', color: 'var(--danger)' }}
+                      disabled={!!visitDocUploading || deleteBusy}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteVisitId(v.id)
+                      }}
+                    >
+                      Delete visit
+                    </button>
+                  </div>
 
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontWeight: 600, marginBottom: 8 }}>Documents / photos</div>
