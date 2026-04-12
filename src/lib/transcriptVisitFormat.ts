@@ -3,6 +3,7 @@ import type { ExtractedVisitFields } from './transcriptExtract'
 /** Human-readable summary from model-extracted fields (for visit notes + archive). */
 export function formatExtractedClinicalSummary (f: ExtractedVisitFields): string {
   const blocks: string[] = []
+  if (f.reason_for_visit?.trim()) blocks.push(`Reason for visit\n${f.reason_for_visit.trim()}`)
   if (f.findings?.trim()) blocks.push(`Findings\n${f.findings.trim()}`)
   if (f.instructions?.trim()) blocks.push(`Instructions\n${f.instructions.trim()}`)
   if (f.notes?.trim()) blocks.push(`Other notes\n${f.notes.trim()}`)

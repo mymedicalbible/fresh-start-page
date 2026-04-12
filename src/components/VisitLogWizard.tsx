@@ -21,7 +21,7 @@ import {
 } from '../lib/visitWizardDraft'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 import { AppConfirmDialog } from './AppConfirmDialog'
-import type { ExtractedVisitFields } from '../lib/transcriptExtract'
+import { normalizeExtractedFields, type ExtractedVisitFields } from '../lib/transcriptExtract'
 import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
 import { buildClinicalNotesSupplement } from '../lib/transcriptVisitFormat'
 import { formatVisitDateLong } from '../lib/formatTime12h'
@@ -153,10 +153,15 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   )
 
   const applyExtractedVisitFields = useCallback((fields: ExtractedVisitFields) => {
+    if (fields.reason_for_visit?.trim()) setReason(fields.reason_for_visit.trim())
     if (fields.findings) setFindings(fields.findings)
     if (fields.instructions) setInstructions(fields.instructions)
-    if (fields.follow_up_date) setNextApptDate(fields.follow_up_date)
-    if (fields.follow_up_time) setNextApptTime(fields.follow_up_time)
+    if (fields.follow_up_date?.trim()) {
+      setNextApptDate(fields.follow_up_date.trim())
+      if (!fields.follow_up_time?.trim()) setNextApptTime('')
+    } else if (fields.follow_up_time?.trim()) {
+      setNextApptTime(fields.follow_up_time.trim())
+    }
     if (fields.tests?.length) {
       setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
       setOpenTests(true)
@@ -184,7 +189,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       setNewMedEntry({ medication: '', dose: '', frequency: '', prn: false })
       setOpenMeds(true)
     }
-    if (fields.findings || fields.instructions) setOpenClinical(true)
+    if (fields.findings || fields.instructions || fields.notes?.trim()) setOpenClinical(true)
     if (fields.follow_up_date?.trim() || fields.follow_up_time?.trim()) setOpenNextAppt(true)
   }, [])
 
@@ -724,7 +729,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       }
     } else {
       try {
-        fields = JSON.parse(legacyRaw!) as ExtractedVisitFields
+        fields = normalizeExtractedFields(JSON.parse(legacyRaw!) as Record<string, unknown>)
         sessionStorage.removeItem(legacyKey)
       } catch {
         transcriptBootstrappedRef.current = false

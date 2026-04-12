@@ -40,6 +40,8 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const recordingPausedRef = useRef(false)
+  const [recordingPaused, setRecordingPaused] = useState(false)
 
   function pushArchiveIfNeeded (save: boolean) {
     if (!save || !transcript.trim()) return
@@ -73,6 +75,12 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       promptArchiveThen(done)
     },
   }), [transcript, doctorName, visitDate, extracted])
+
+  function togglePause () {
+    const next = !recordingPausedRef.current
+    recordingPausedRef.current = next
+    setRecordingPaused(next)
+  }
 
   async function startRecording () {
     setError(null)
@@ -137,6 +145,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
         processor.onaudioprocess = (e) => {
           if (socket.readyState !== WebSocket.OPEN) return
+          if (recordingPausedRef.current) return
           const input = e.inputBuffer.getChannelData(0)
           const pcm = new Int16Array(input.length)
           for (let i = 0; i < input.length; i++) {
@@ -147,6 +156,8 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
         source.connect(processor)
         processor.connect(audioCtx.destination)
+        recordingPausedRef.current = false
+        setRecordingPaused(false)
         setRecording(true)
         setStatus('recording')
       } catch {
@@ -200,6 +211,8 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   }
 
   function stopAll () {
+    recordingPausedRef.current = false
+    setRecordingPaused(false)
     const ws = socketRef.current
     socketRef.current = null
     stopMediaTracks()
@@ -219,6 +232,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       doctorName,
       existingMeds,
       knownDiagnoses,
+      visitDateIso: visitDate,
     })
     if (!result.ok) {
       setError(result.message)
@@ -263,11 +277,14 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Visit transcription</div>
-        {status === 'recording' && (
+        {status === 'recording' && !recordingPaused && (
           <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
             Recording
           </span>
+        )}
+        {status === 'recording' && recordingPaused && (
+          <span style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600 }}>Paused</span>
         )}
         {status === 'connecting' && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Connecting…</span>}
         {status === 'processing' && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Processing…</span>}
@@ -284,9 +301,14 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       )}
 
       {status === 'recording' && (
-        <button type="button" className="btn btn-secondary" onClick={stopRecording}>
-          Stop & process
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <button type="button" className="btn btn-secondary" onClick={togglePause}>
+            {recordingPaused ? 'Resume' : 'Pause'}
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={stopRecording}>
+            Stop &amp; process
+          </button>
+        </div>
       )}
 
       {status === 'connecting' && (
@@ -343,6 +365,20 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+              {extracted.reason_for_visit?.trim() && (
+                <div style={{
+                  padding: '10px 14px',
+                  marginBottom: 10,
+                  background: 'var(--surface-alt, #f9f9f6)',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                    → Reason for visit
+                  </div>
+                  <div style={{ fontSize: '0.9rem' }}>{extracted.reason_for_visit.trim()}</div>
+                </div>
+              )}
               {extracted.summary.map((item, i) => (
                 <div key={i} style={{
                   padding: '10px 14px',

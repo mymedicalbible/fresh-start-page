@@ -1,4 +1,10 @@
-const CACHE_KEY = 'mb-weather-snapshot'
+import {
+  getManualWeatherLocation,
+  getWeatherLocationFingerprint,
+  getWeatherLocationMode,
+} from './weatherLocationSettings'
+import { WEATHER_SNAPSHOT_CACHE_KEY, WEATHER_SNAPSHOT_FP_KEY } from './weatherCache'
+
 const CACHE_MS = 30 * 60 * 1000
 
 export interface WeatherSnapshot {
@@ -130,7 +136,8 @@ export async function fetchLocationLabel (lat: number, lng: number): Promise<str
   }
 }
 
-function getPosition (): Promise<{ latitude: number; longitude: number } | null> {
+/** GPS fix for “Use exact location” — higher accuracy, fresh read. */
+function getExactDevicePosition (): Promise<{ latitude: number; longitude: number } | null> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       resolve(null)
@@ -144,15 +151,17 @@ function getPosition (): Promise<{ latitude: number; longitude: number } | null>
         })
       },
       () => resolve(null),
-      { enableHighAccuracy: false, timeout: 20_000, maximumAge: 300_000 },
+      { enableHighAccuracy: true, timeout: 35_000, maximumAge: 0 },
     )
   })
 }
 
 export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
+  const fp = getWeatherLocationFingerprint()
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY)
-    if (raw) {
+    const raw = sessionStorage.getItem(WEATHER_SNAPSHOT_CACHE_KEY)
+    const storedFp = sessionStorage.getItem(WEATHER_SNAPSHOT_FP_KEY)
+    if (raw && storedFp === fp) {
       const parsed: unknown = JSON.parse(raw)
       const at =
         parsed &&
@@ -168,7 +177,7 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
           if (label) {
             const next: WeatherSnapshot = { ...snap, location_label: label }
             try {
-              sessionStorage.setItem(CACHE_KEY, JSON.stringify(next))
+              sessionStorage.setItem(WEATHER_SNAPSHOT_CACHE_KEY, JSON.stringify(next))
             } catch { /* ignore */ }
             if (import.meta.env.DEV) {
               console.debug('[mb-weather]', { latitude: snap.latitude, longitude: snap.longitude, location_label: label })
@@ -183,10 +192,24 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
     /* ignore cache */
   }
 
-  const pos = await getPosition()
-  if (!pos) return null
+  const mode = getWeatherLocationMode()
+  let lat: number
+  let lng: number
+  let locationLabel: string | null = null
 
-  const { latitude: lat, longitude: lng } = pos
+  if (mode === 'manual') {
+    const manual = getManualWeatherLocation()
+    if (!manual) return null
+    lat = manual.lat
+    lng = manual.lng
+    locationLabel = manual.label
+  } else {
+    const pos = await getExactDevicePosition()
+    if (!pos) return null
+    lat = pos.latitude
+    lng = pos.longitude
+    locationLabel = await fetchLocationLabel(lat, lng)
+  }
 
   const forecastParams = new URLSearchParams({
     latitude: String(lat),
@@ -288,10 +311,8 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
     const aqCur = aq.current ?? {}
     const aqiVal = num(aqCur.us_aqi)
 
-    const locationLabel = await fetchLocationLabel(lat, lng)
-
     if (import.meta.env.DEV) {
-      console.debug('[mb-weather]', { latitude: lat, longitude: lng, location_label: locationLabel })
+      console.debug('[mb-weather]', { latitude: lat, longitude: lng, location_label: locationLabel, mode })
     }
 
     const snapshot: WeatherSnapshot = {
@@ -315,7 +336,8 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
     }
 
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(snapshot))
+      sessionStorage.setItem(WEATHER_SNAPSHOT_CACHE_KEY, JSON.stringify(snapshot))
+      sessionStorage.setItem(WEATHER_SNAPSHOT_FP_KEY, fp)
     } catch {
       /* ignore */
     }

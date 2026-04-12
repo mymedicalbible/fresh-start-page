@@ -7,6 +7,16 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
 import { runExportDownload } from '../lib/fullDataExport'
+import {
+  clearManualWeatherLocation,
+  getManualWeatherLocation,
+  getWeatherLocationMode,
+  searchPlaces,
+  setManualWeatherLocation,
+  setWeatherLocationMode,
+  type ManualWeatherLocation,
+  type WeatherLocationMode,
+} from '../lib/weatherLocationSettings'
 
 function PandaLottieLoop ({ data, className }: { data: object; className?: string }) {
   return (
@@ -85,6 +95,12 @@ export function ProfilePage () {
   const [notifyAppt, setNotifyAppt] = useState(() => readNotify(NOTIFY_KEYS.appt, true))
   const [notifyLog, setNotifyLog] = useState(() => readNotify(NOTIFY_KEYS.log, true))
 
+  const [weatherLocMode, setWeatherLocMode] = useState<WeatherLocationMode>(() => getWeatherLocationMode())
+  const [manualWeather, setManualWeather] = useState<ManualWeatherLocation | null>(() => getManualWeatherLocation())
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [placeResults, setPlaceResults] = useState<{ lat: number; lng: number; label: string }[]>([])
+  const [placeBusy, setPlaceBusy] = useState(false)
+
   const [accountBanner, setAccountBanner] = useState<string | null>(null)
   const [exportBusy, setExportBusy] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
@@ -148,6 +164,11 @@ export function ProfilePage () {
   }, [loadStats, loadGameAndPlushies, profilePath])
 
   useEffect(() => {
+    setWeatherLocMode(getWeatherLocationMode())
+    setManualWeather(getManualWeatherLocation())
+  }, [profilePath])
+
+  useEffect(() => {
     if (!ownedActive || !activePlushieLottiePath) {
       setPandaLottieData(null)
       return
@@ -169,6 +190,29 @@ export function ProfilePage () {
       cancelled = true
     }
   }, [ownedActive, activePlushieLottiePath])
+
+  useEffect(() => {
+    const q = placeQuery.trim()
+    if (q.length < 2) {
+      setPlaceResults([])
+      setPlaceBusy(false)
+      return
+    }
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      setPlaceBusy(true)
+      void searchPlaces(q).then((rows) => {
+        if (!cancelled) {
+          setPlaceResults(rows)
+          setPlaceBusy(false)
+        }
+      })
+    }, 400)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [placeQuery])
 
   async function onChangePassword () {
     setAccountBanner(null)
@@ -346,6 +390,97 @@ export function ProfilePage () {
                   ))
                 )}
           </div>
+        </div>
+      </section>
+
+      {/* Weather location (device) */}
+      <section className="scrap-account-block">
+        <h2 className="scrap-account-heading">
+          <span className="scrap-account-heading-bar scrap-account-heading-bar--sky" />
+          weather location
+        </h2>
+        <div className="scrap-account-paper scrap-account-paper--weather">
+          <span className="scrap-account-tape scrap-account-tape--sky" aria-hidden />
+          <p className="scrap-account-weather-lead">
+            Home dashboard weather uses this. Saved on this device only.
+          </p>
+          <div className="scrap-account-weather-mode-row">
+            <button
+              type="button"
+              className={`scrap-account-weather-mode${weatherLocMode === 'exact' ? ' scrap-account-weather-mode--on' : ''}`}
+              onClick={() => {
+                setWeatherLocMode('exact')
+                setWeatherLocationMode('exact')
+              }}
+            >
+              use exact location
+            </button>
+            <button
+              type="button"
+              className={`scrap-account-weather-mode${weatherLocMode === 'manual' ? ' scrap-account-weather-mode--on' : ''}`}
+              onClick={() => {
+                setWeatherLocMode('manual')
+                setWeatherLocationMode('manual')
+              }}
+            >
+              set location manually
+            </button>
+          </div>
+          {weatherLocMode === 'manual' && (
+            <div className="scrap-account-weather-manual">
+              <label className="scrap-account-weather-label" htmlFor="mb-weather-place-search">
+                Search city or place
+              </label>
+              <input
+                id="mb-weather-place-search"
+                type="search"
+                className="scrap-account-weather-input"
+                value={placeQuery}
+                onChange={(e) => setPlaceQuery(e.target.value)}
+                placeholder="e.g. Peoria AZ"
+                autoComplete="off"
+              />
+              {placeBusy && <p className="scrap-account-weather-hint">Searching…</p>}
+              {!placeBusy && placeResults.length > 0 && (
+                <ul className="scrap-account-weather-results" role="listbox">
+                  {placeResults.map((p) => (
+                    <li key={`${p.lat},${p.lng},${p.label}`}>
+                      <button
+                        type="button"
+                        className="scrap-account-weather-pick"
+                        onClick={() => {
+                          setManualWeatherLocation(p)
+                          setManualWeather(p)
+                          setPlaceQuery('')
+                          setPlaceResults([])
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {manualWeather && (
+                <p className="scrap-account-weather-saved">
+                  Using: <strong>{manualWeather.label}</strong>
+                  <button
+                    type="button"
+                    className="scrap-account-weather-clear"
+                    onClick={() => {
+                      clearManualWeatherLocation()
+                      setManualWeather(null)
+                    }}
+                  >
+                    clear
+                  </button>
+                </p>
+              )}
+              {!manualWeather && !placeBusy && placeQuery.trim().length >= 2 && placeResults.length === 0 && (
+                <p className="scrap-account-weather-hint">No matches — try another spelling.</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

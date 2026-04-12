@@ -539,7 +539,7 @@ function PendingVisitStickers ({
 export function DashboardPage () {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { pathname: dashPath, search: dashSearch } = useLocation()
+  const { pathname: dashPath, search: dashSearch, key: locationKey } = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const dashReturnTo = encodeURIComponent(`${dashPath}${dashSearch}`)
   const [upcoming, setUpcoming] = useState<UpcomingAppt[]>([])
@@ -608,6 +608,17 @@ export function DashboardPage () {
       if (!cancelled) setWeather(w)
     })()
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    function onWeatherLocationChanged () {
+      void (async () => {
+        const w = await fetchWeatherSnapshot()
+        setWeather(w)
+      })()
+    }
+    window.addEventListener('mb-weather-location-changed', onWeatherLocationChanged)
+    return () => window.removeEventListener('mb-weather-location-changed', onWeatherLocationChanged)
   }, [])
 
   useEffect(() => {
@@ -1027,7 +1038,7 @@ export function DashboardPage () {
       setPendingResumeIdByNorm(resumeByNorm)
     }
     void load()
-  }, [user])
+  }, [user, locationKey])
 
   useEffect(() => {
     try {
@@ -1815,11 +1826,22 @@ export function DashboardPage () {
           if (apptBannerSource === 'past') {
             bannerLabel = 'MOST RECENT APPOINTMENT'
           } else if (apptBannerSource === 'upcoming' && a) {
-            const startMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '00:00'}`).getTime()
-            const endMs = startMs + 90 * 60 * 1000
-            if (nowMs >= endMs) bannerLabel = 'MOST RECENT APPOINTMENT'
-            else if (nowMs >= startMs) bannerLabel = 'CURRENT APPOINTMENT'
-            else bannerLabel = 'UPCOMING'
+            const apptDay = String(a.appointment_date).slice(0, 10)
+            const todayStr = localISODate()
+            const hasTime = !!(a.appointment_time && String(a.appointment_time).trim())
+            // Untimed rows: date-only — do not treat "midnight + 90m" as past; same-day stays upcoming all day.
+            if (!hasTime) {
+              if (apptDay > todayStr) bannerLabel = 'UPCOMING'
+              else if (apptDay === todayStr) bannerLabel = 'UPCOMING'
+              else bannerLabel = 'MOST RECENT APPOINTMENT'
+            } else {
+              const t = String(a.appointment_time).trim()
+              const startMs = new Date(`${apptDay}T${t.length <= 5 ? `${t}:00` : t}`).getTime()
+              const endMs = startMs + 90 * 60 * 1000
+              if (nowMs >= endMs) bannerLabel = 'MOST RECENT APPOINTMENT'
+              else if (nowMs >= startMs) bannerLabel = 'CURRENT APPOINTMENT'
+              else bannerLabel = 'UPCOMING'
+            }
           }
           const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
           return (

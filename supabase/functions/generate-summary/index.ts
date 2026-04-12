@@ -107,7 +107,8 @@ serve(async (req: Request) => {
         throw new Error('No customPrompt provided.')
       }
       userContent = customPrompt
-      systemPromptForRequest = 'You follow the user instructions exactly.'
+      systemPromptForRequest =
+        'You follow the user message exactly. Output only a single JSON object (no markdown fences, no commentary before or after).'
     } else {
       const patientData = (body.patientData ?? body.prompt) as string | undefined
       const patientFocus = (body.patientFocus as string | undefined)?.trim() ?? ''

@@ -2,6 +2,8 @@ import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 export type ExtractedVisitFields = {
+  /** Chief complaint / why the patient came in (not exam findings). */
+  reason_for_visit: string
   findings: string
   instructions: string
   notes: string
@@ -19,17 +21,17 @@ export type TranscriptExtractPayload = {
 }
 
 /** Pull a JSON object out of LLM output (handles extra prose or markdown). */
-function parseJsonObjectFromText (raw: string): ExtractedVisitFields | null {
+function parseJsonObjectFromText (raw: string): Record<string, unknown> | null {
   const clean = raw.replace(/```json|```/gi, '').trim()
   try {
-    return JSON.parse(clean) as ExtractedVisitFields
+    return JSON.parse(clean) as Record<string, unknown>
   } catch { /* try substring */ }
 
   const start = clean.indexOf('{')
   const end = clean.lastIndexOf('}')
   if (start === -1 || end <= start) return null
   try {
-    return JSON.parse(clean.slice(start, end + 1)) as ExtractedVisitFields
+    return JSON.parse(clean.slice(start, end + 1)) as Record<string, unknown>
   } catch {
     return null
   }
@@ -62,35 +64,53 @@ export async function extractVisitFieldsFromTranscript (
     doctorName: string
     existingMeds: string[]
     knownDiagnoses: string[]
+    /** Visit date YYYY-MM-DD — anchor for relative follow-up phrases ("in 2 weeks"). */
+    visitDateIso: string
   }
 ): Promise<ExtractVisitOutcome> {
+  const anchor = context.visitDateIso.trim() || new Date().toISOString().slice(0, 10)
   const prompt = `You are a medical visit assistant. Extract structured information from this doctor visit transcript.
 
 Doctor: ${context.doctorName}
 Patient's current medications: ${context.existingMeds.join(', ') || 'none provided'}
 Patient's known diagnoses: ${context.knownDiagnoses.join(', ') || 'none provided'}
+ANCHOR_DATE (date of this visit for relative follow-up math): ${anchor}
 
 Transcript:
 ${transcript}
 
-CRITICAL routing rules:
-- Every medication change, new prescription, dose change, titration, stop, or PRN instruction MUST appear ONLY in the "medications" array (one object per distinct drug). Do NOT put medication names, doses, or titration steps in "findings", "instructions", or "notes" except a brief cross-reference if needed (e.g. "see medication list").
-- "findings": concise clinical observations only (exam, history, diagnosis discussion) — not full transcript prose.
-- "instructions": short patient-facing actions only — not medication lists (those go in "medications").
-- "notes": brief admin or misc items only — NOT the raw transcript, NOT a dump of everything said. Never paste or paraphrase the entire visit into any single field.
-- Be concise: short phrases or brief bullets implied by plain sentences; avoid repetition across fields.
+FIELD DEFINITIONS — keep content in exactly ONE place; do not duplicate the same fact across fields.
 
-Important: In "medications", include one object for every distinct medication the doctor discussed (new starts, dose changes, continuations, or discontinuations). Do not omit a medication. Put dose and frequency in the structured fields when spoken (e.g. separate 500 mg and twice daily).
+1) "reason_for_visit" — ONLY the chief complaint or why the patient came in (what they said they are here for, e.g. "chest pain for 2 days", "follow-up on labs"). If the patient or doctor never states a reason, use "". Do NOT put exam results, diagnoses, or plan here.
+
+2) "findings" — ONLY clinician-stated exam findings, assessment, impression, or diagnosis discussion (what was found or concluded clinically). Do NOT put patient instructions here. Do NOT put the visit reason here.
+
+3) "instructions" — ONLY what the patient should DO after the visit (self-care, activity, when to call, lifestyle) that is NOT a medication line item. Medication names/doses belong ONLY in "medications".
+
+4) "notes" — ONLY brief logistics: referrals, scheduling quirks, work/school notes, front-desk items. NOT findings, NOT instructions, NOT medication lists, NOT a transcript summary.
+
+5) "medications" — every drug discussed (new, changed, continued, stopped). One object per distinct medication. Dose and frequency in the structured fields.
+
+CRITICAL:
+- Never paste the full transcript into any one field.
+- Avoid repeating the same sentence in findings, instructions, and notes.
+
+Important: In "medications", include one object for every distinct medication the doctor discussed. Put dose and frequency in the structured fields when spoken.
+
+Follow-up scheduling:
+- "follow_up_date": YYYY-MM-DD if (a) an explicit calendar date is stated, OR (b) a RELATIVE timeframe is stated (e.g. "in 2 weeks", "in 6 weeks", "in 3 months", "come back in a month", "see you in four weeks"). For (b), compute the date by adding the interval to ANCHOR_DATE (calendar arithmetic). If no computable date, use "".
+- "follow_up_time": Use "" unless the doctor states an explicit clock time for the follow-up (e.g. "at 9 AM"). For relative phrases ("in two weeks") with no clock time, MUST be "". Do not guess or default to midnight.
 
 Return ONLY a JSON object with exactly these fields. No preamble, no markdown, no backticks:
 {
-  "findings": "concise: what the doctor found or observed",
-  "instructions": "concise: what the patient was told to do (non-med-list)",
-  "notes": "brief misc only — no meds list, no transcript dump",
+  "reason_for_visit": "chief complaint only, or empty string if not stated",
+  "findings": "exam/assessment/diagnosis discussion only",
+  "instructions": "patient actions and self-care (non-med-list lines)",
+  "notes": "logistics/admin only",
   "tests": [{ "test_name": "name of test", "reason": "why ordered" }],
   "medications": [{ "medication": "name", "dose": "dose if mentioned", "frequency": "frequency if mentioned" }],
-  "follow_up_date": "YYYY-MM-DD if mentioned or empty string",
-  "follow_up_time": "HH:MM if mentioned or empty string",
+  "follow_up_date": "YYYY-MM-DD or empty",
+  "follow_up_time": "HH:MM only if explicit clock time stated; else empty",
   "summary": [{ "field": "label", "value": "brief value", "destination": "visit log section" }]
 }`
 
@@ -128,5 +148,56 @@ Return ONLY a JSON object with exactly these fields. No preamble, no markdown, n
     }
   }
 
-  return { ok: true, fields: parsed }
+  return { ok: true, fields: normalizeExtractedFields(parsed) }
+}
+
+/** Coerce model or legacy JSON into a full {@link ExtractedVisitFields} shape. */
+export function normalizeExtractedFields (raw: Record<string, unknown>): ExtractedVisitFields {
+  const s = (k: string) => (typeof raw[k] === 'string' ? (raw[k] as string) : '')
+  const testsRaw = raw.tests
+  const tests: { test_name: string; reason: string }[] = Array.isArray(testsRaw)
+    ? testsRaw.map((t) => {
+        if (!t || typeof t !== 'object') return { test_name: '', reason: '' }
+        const o = t as Record<string, unknown>
+        return {
+          test_name: typeof o.test_name === 'string' ? o.test_name : '',
+          reason: typeof o.reason === 'string' ? o.reason : '',
+        }
+      })
+    : []
+  const medsRaw = raw.medications
+  const medications: { medication: string; dose: string; frequency: string }[] = Array.isArray(medsRaw)
+    ? medsRaw.map((m) => {
+        if (!m || typeof m !== 'object') return { medication: '', dose: '', frequency: '' }
+        const o = m as Record<string, unknown>
+        return {
+          medication: typeof o.medication === 'string' ? o.medication : '',
+          dose: typeof o.dose === 'string' ? o.dose : '',
+          frequency: typeof o.frequency === 'string' ? o.frequency : '',
+        }
+      })
+    : []
+  const sumRaw = raw.summary
+  const summary: { field: string; value: string; destination: string }[] = Array.isArray(sumRaw)
+    ? sumRaw.map((x) => {
+        if (!x || typeof x !== 'object') return { field: '', value: '', destination: '' }
+        const o = x as Record<string, unknown>
+        return {
+          field: typeof o.field === 'string' ? o.field : '',
+          value: typeof o.value === 'string' ? o.value : '',
+          destination: typeof o.destination === 'string' ? o.destination : '',
+        }
+      })
+    : []
+  return {
+    reason_for_visit: s('reason_for_visit'),
+    findings: s('findings'),
+    instructions: s('instructions'),
+    notes: s('notes'),
+    tests,
+    medications,
+    follow_up_date: s('follow_up_date'),
+    follow_up_time: s('follow_up_time'),
+    summary,
+  }
 }
