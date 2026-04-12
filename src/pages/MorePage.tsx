@@ -1,61 +1,33 @@
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 
-/** Flat pressed-flower decorations (muted, low opacity). */
-function PressedFlowerDecor () {
+/**
+ * Four pressed specimens extracted from the botanical still-life source art:
+ * (1) terracotta cosmos, (2) cream statice sprig, (3) mauve celosia spike, (4) dark dried rose.
+ */
+function PressedFlowerPhotos () {
   return (
     <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
-      {/* Lavender sprig — top left */}
-      <svg
-        className="absolute -left-1 top-[12%] h-24 w-20 opacity-[0.26] sm:h-28 sm:w-24"
-        viewBox="0 0 80 100"
-        fill="none"
-        style={{ transform: 'rotate(-18deg)' }}
-      >
-        <path d="M40 96V18" stroke="#7c6b8a" strokeWidth="1.4" strokeLinecap="round" />
-        <ellipse cx="34" cy="22" rx="5" ry="7" fill="#9b8ab8" transform="rotate(-25 34 22)" opacity="0.85" />
-        <ellipse cx="46" cy="18" rx="5" ry="7" fill="#a898c4" transform="rotate(18 46 18)" opacity="0.8" />
-        <ellipse cx="38" cy="12" rx="4" ry="6" fill="#8a7aa8" transform="rotate(-8 38 12)" opacity="0.75" />
-        <path d="M36 38c-4-2-6-8-4-12" stroke="#6b5d7a" strokeWidth="1" fill="none" />
-        <ellipse cx="32" cy="32" rx="4" ry="5" fill="#9b8ab8" opacity="0.7" />
-        <ellipse cx="44" cy="36" rx="4" ry="5" fill="#8f7eaa" opacity="0.65" />
-      </svg>
-
-      {/* Tiny daisy — bottom right */}
-      <svg
-        className="absolute -bottom-2 right-2 h-20 w-20 opacity-[0.24] sm:right-6 sm:h-24 sm:w-24"
-        viewBox="0 0 64 64"
-        style={{ transform: 'rotate(14deg)' }}
-      >
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
-          <ellipse
-            key={i}
-            cx="32"
-            cy="20"
-            rx="5"
-            ry="9"
-            fill="#e8e0dc"
-            transform={`rotate(${deg} 32 32)`}
-            opacity="0.92"
-          />
-        ))}
-        <circle cx="32" cy="32" r="5" fill="#d4c4b8" />
-        <circle cx="32" cy="32" r="2.5" fill="#b8a898" />
-      </svg>
-
-      {/* Small leaf — upper right edge */}
-      <svg
-        className="absolute right-0 top-[22%] h-16 w-14 opacity-[0.22] sm:right-4"
-        viewBox="0 0 56 48"
-        style={{ transform: 'rotate(32deg)' }}
-      >
-        <path
-          d="M28 44c-8-12-10-28 2-38 12 8 10 24 2 38"
-          fill="#8faa8a"
-          opacity="0.75"
-        />
-        <path d="M28 44V12" stroke="#6b8a62" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      </svg>
+      <img
+        src="/flowers/flower1.png"
+        alt=""
+        style={{ position: 'absolute', top: '10%', left: '3%', width: 60, transform: 'rotate(-20deg)', opacity: 0.85, pointerEvents: 'none' }}
+      />
+      <img
+        src="/flowers/flower2.png"
+        alt=""
+        style={{ position: 'absolute', top: '8%', right: '5%', width: 50, transform: 'rotate(25deg)', opacity: 0.85, pointerEvents: 'none' }}
+      />
+      <img
+        src="/flowers/flower3.png"
+        alt=""
+        style={{ position: 'absolute', top: '50%', right: '6%', width: 55, transform: 'rotate(15deg)', opacity: 0.85, pointerEvents: 'none' }}
+      />
+      <img
+        src="/flowers/flower4.png"
+        alt=""
+        style={{ position: 'absolute', bottom: '20%', left: '5%', width: 55, transform: 'rotate(-15deg)', opacity: 0.85, pointerEvents: 'none' }}
+      />
     </div>
   )
 }
@@ -111,7 +83,7 @@ export function MorePage () {
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <PressedFlowerDecor />
+        <PressedFlowerPhotos />
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10 px-4 py-8 sm:flex-row sm:gap-14 sm:py-10">
           <PolaroidNavCard
