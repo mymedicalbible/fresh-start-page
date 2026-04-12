@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
+import { LeaveHomeConfirmDialog } from '../components/LeaveHomeConfirmDialog'
+import { SaveLogOptionsDialog } from '../components/SaveLogOptionsDialog'
 import { AppConfirmDialog } from '../components/AppConfirmDialog'
 import {
   clearQuickLogDraft,
@@ -21,6 +23,7 @@ import {
 } from '../lib/parse'
 import { parseAppReturnPath, safeAppReturnPath } from '../lib/safeReturnPath'
 import { normDoctorKey } from '../lib/doctorNameNorm'
+import { EpisodeFeatureChip } from '../components/EpisodeFeatureChip'
 
 type PickerDoctorQuestionRow = {
   id: string
@@ -59,20 +62,11 @@ function quickLogDraftMeaningful (d: QuickLogDraftV1): boolean {
   return false
 }
 
-/** Archive / directory route for the current quick log type (hub has none). */
-function logDirectoryForScreen (screen: 'hub' | 'visit' | 'pain' | 'symptoms' | 'questions'): { path: string; title: string } | null {
-  if (screen === 'pain') return { path: '/app/records?tab=pain', title: 'Pain log' }
-  if (screen === 'symptoms') return { path: '/app/records?tab=symptoms', title: 'Episode log' }
-  if (screen === 'questions') return { path: '/app/questions', title: 'Questions' }
-  if (screen === 'visit') return { path: '/app/visits', title: 'Visit log' }
-  return null
-}
-
 function ScrapSticker ({
-  to, title, sub, tone,
-}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
+  to, title, sub, tone, navState,
+}: { to: string; title: string; sub: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender'; navState?: { backTo: string } }) {
   return (
-    <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
+    <Link to={to} state={navState} className={`scrap-sticker scrap-sticker--${tone}`}>
       <span className="scrap-sticker-title">{title}</span>
       <span className="scrap-sticker-sub">{sub}</span>
     </Link>
@@ -124,7 +118,9 @@ export function QuickLogPage () {
   const [painTypePicks, setPainTypePicks] = useState<string[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const [resumePrompt, setResumePrompt] = useState(false)
-  const [leavePrompt, setLeavePrompt] = useState(false)
+  const [cancelLeaveOpen, setCancelLeaveOpen] = useState(false)
+  const [saveDialogKind, setSaveDialogKind] = useState<null | 'pain' | 'symptoms' | 'questions'>(null)
+  const [symptomRemoveReveal, setSymptomRemoveReveal] = useState<string | null>(null)
   const resumeCheckedRef = useRef(false)
   /** Questions already saved for the doctor selected in the picker (this screen is for logging new ones only). */
   const [pickerDoctorQuestions, setPickerDoctorQuestions] = useState<PickerDoctorQuestionRow[]>([])
@@ -158,18 +154,20 @@ export function QuickLogPage () {
     }
   }, [user, screen, painStep, form, selectedSymptoms, newSymptomText, painSelections, painTypePicks])
 
-  const isQuickLogDirty = useCallback(() => {
-    const d = snapshotDraft()
-    return !!(d && quickLogDraftMeaningful(d))
-  }, [snapshotDraft])
-
   const attemptLeave = useCallback(() => {
     if (screen === 'hub') {
       navigate(leaveBackPath)
       return
     }
-    setLeavePrompt(true)
+    setCancelLeaveOpen(true)
   }, [leaveBackPath, navigate, screen])
+
+  function confirmLeaveHome () {
+    setCancelLeaveOpen(false)
+    const d = snapshotDraft()
+    if (d && quickLogDraftMeaningful(d)) saveQuickLogDraft(d)
+    navigate('/app')
+  }
 
   function logTabHref (tab: 'pain' | 'symptoms' | 'questions') {
     const q = new URLSearchParams(searchParams)
@@ -185,38 +183,7 @@ export function QuickLogPage () {
   function saveDraftAndGoHome () {
     const d = snapshotDraft()
     if (d) saveQuickLogDraft(d)
-    setLeavePrompt(false)
-    navigate(leaveBackPath)
-  }
-
-  function saveDraftAndGoToHub () {
-    const d = snapshotDraft()
-    if (d) saveQuickLogDraft(d)
-    setLeavePrompt(false)
-    const p = new URLSearchParams()
-    if (returnRaw) p.set('returnTo', returnRaw)
-    navigate({ pathname: '/app/log', search: p.toString() }, { replace: true })
-  }
-
-  function discardDraftAndLeave () {
-    clearQuickLogDraft()
-    setLeavePrompt(false)
-    navigate(leaveBackPath)
-  }
-
-  function leaveOpenDirectory () {
-    const dir = logDirectoryForScreen(screen)
-    if (!dir) return
-    const d = snapshotDraft()
-    if (d && quickLogDraftMeaningful(d)) saveQuickLogDraft(d)
-    setLeavePrompt(false)
-    navigate(dir.path)
-  }
-
-  function leaveGoHomeWithoutSave () {
-    clearQuickLogDraft()
-    setLeavePrompt(false)
-    navigate(leaveBackPath)
+    navigate('/app')
   }
 
   useEffect(() => {
@@ -518,72 +485,55 @@ export function QuickLogPage () {
           }}
         />
       )}
-      {leavePrompt && (() => {
-        const leaveDir = logDirectoryForScreen(screen)
-        const dirty = isQuickLogDirty()
-        return (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="quicklog-leave-title"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 500,
-            background: 'rgba(15, 23, 42, 0.35)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      {cancelLeaveOpen && (
+        <LeaveHomeConfirmDialog
+          onConfirmLeave={confirmLeaveHome}
+          onStay={() => setCancelLeaveOpen(false)}
+        />
+      )}
+
+      {saveDialogKind === 'pain' && (
+        <SaveLogOptionsDialog
+          title="Save pain log"
+          onSaveComplete={() => {
+            setSaveDialogKind(null)
+            requestSavePain()
           }}
-          onClick={() => setLeavePrompt(false)}
-        >
-          <div
-            className="card shadow"
-            style={{ maxWidth: 380, width: '100%', borderRadius: 16, padding: 20 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="quicklog-leave-title" style={{ margin: '0 0 18px', fontSize: '1.05rem' }}>
-              {dirty ? 'Save for later or discard?' : 'Leave quick log?'}
-            </h2>
-            {dirty ? (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {leaveDir && (
-                    <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
-                      Open {leaveDir.title} directory
-                    </button>
-                  )}
-                  <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoHome}>
-                    Save for later & go home
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={saveDraftAndGoToHub}>
-                    Save for later & quick log menu
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={discardDraftAndLeave}>
-                    Discard & go home
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
-                    Keep editing
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {leaveDir && (
-                    <button type="button" className="btn btn-mint btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveOpenDirectory}>
-                      Open {leaveDir.title} directory
-                    </button>
-                  )}
-                  <button type="button" className="btn btn-primary btn-block" style={{ minHeight: 48, fontSize: '1.02rem', fontWeight: 600 }} onClick={leaveGoHomeWithoutSave}>
-                    Go home
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-block" style={{ minHeight: 44, fontSize: '1rem' }} onClick={() => setLeavePrompt(false)}>
-                    Keep editing
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        )
-      })()}
+          onSaveForLater={() => {
+            setSaveDialogKind(null)
+            saveDraftAndGoHome()
+          }}
+          onKeepEditing={() => setSaveDialogKind(null)}
+        />
+      )}
+      {saveDialogKind === 'symptoms' && (
+        <SaveLogOptionsDialog
+          title="Save episode"
+          onSaveComplete={() => {
+            setSaveDialogKind(null)
+            requestSaveSymptoms()
+          }}
+          onSaveForLater={() => {
+            setSaveDialogKind(null)
+            saveDraftAndGoHome()
+          }}
+          onKeepEditing={() => setSaveDialogKind(null)}
+        />
+      )}
+      {saveDialogKind === 'questions' && (
+        <SaveLogOptionsDialog
+          title="Save question"
+          onSaveComplete={() => {
+            setSaveDialogKind(null)
+            requestSaveQuestion()
+          }}
+          onSaveForLater={() => {
+            setSaveDialogKind(null)
+            saveDraftAndGoHome()
+          }}
+          onKeepEditing={() => setSaveDialogKind(null)}
+        />
+      )}
 
       {postSave && (
         <div style={{
@@ -638,10 +588,10 @@ export function QuickLogPage () {
         <div>
           <BackButton fallbackTo="/app" />
           <div className="scrap-sticker-grid">
-            <ScrapSticker to={logTabHref('pain')} title="Pain" sub="Log a pain entry" tone="pink" />
-            <ScrapSticker to={logTabHref('symptoms')} title="Episodes" sub="Log an episode" tone="mint" />
-            <ScrapSticker to={logTabHref('questions')} title="Questions" sub="Add for your doctor" tone="sky" />
-            <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" />
+            <ScrapSticker to={logTabHref('pain')} title="Pain" sub="Log a pain entry" tone="pink" navState={{ backTo: '/app' }} />
+            <ScrapSticker to={logTabHref('symptoms')} title="Episodes" sub="Log an episode" tone="mint" navState={{ backTo: '/app' }} />
+            <ScrapSticker to={logTabHref('questions')} title="Questions" sub="Add for your doctor" tone="sky" navState={{ backTo: '/app' }} />
+            <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" navState={{ backTo: '/app' }} />
           </div>
         </div>
       )}
@@ -743,8 +693,8 @@ export function QuickLogPage () {
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => requestSavePain()} disabled={busy}>
-                  {busy ? 'Saving…' : 'Finish ✓'}
+                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => setSaveDialogKind('pain')} disabled={busy}>
+                  {busy ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </div>
@@ -776,12 +726,34 @@ export function QuickLogPage () {
           {/* Symptom picker */}
           <div className="form-group">
             <label>Episode features</label>
-            {pastSymptoms.length > 0 && (
+            {selectedSymptoms.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 600, marginBottom: 6 }}>
+                  Selected — long-press a chip to remove
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {selectedSymptoms.map((sym) => (
+                    <EpisodeFeatureChip
+                      key={sym}
+                      label={sym}
+                      showRemove={symptomRemoveReveal === sym}
+                      onReveal={() => setSymptomRemoveReveal(sym)}
+                      onRemove={() => {
+                        setSelectedSymptoms((prev) => prev.filter((s) => s !== sym))
+                        setSymptomRemoveReveal(null)
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {pastSymptoms.filter((s) => !selectedSymptoms.includes(s)).length > 0 && (
               <div className="pill-grid" style={{ marginBottom: 10 }}>
-                {pastSymptoms.map(sym => (
+                {pastSymptoms.filter((s) => !selectedSymptoms.includes(s)).map(sym => (
                   <button
                     key={sym}
-                    className={`pill ${selectedSymptoms.includes(sym) ? 'on' : ''}`}
+                    type="button"
+                    className="pill"
                     onClick={() => toggleSymptom(sym)}
                     style={{ fontSize: '0.78rem' }}
                   >
@@ -832,8 +804,8 @@ export function QuickLogPage () {
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => requestSaveSymptoms()} disabled={busy}>
-              {busy ? 'Saving…' : 'Save episode'}
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => setSaveDialogKind('symptoms')} disabled={busy}>
+              {busy ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>
@@ -996,8 +968,8 @@ export function QuickLogPage () {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={() => requestSaveQuestion()} disabled={busy}>
-              {busy ? 'Saving…' : 'Save Question'}
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px' }} onClick={() => setSaveDialogKind('questions')} disabled={busy}>
+              {busy ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>

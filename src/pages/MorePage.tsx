@@ -23,7 +23,7 @@ export function MorePage () {
         <div className="scrap-sticker-grid">
           <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
           <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
-          <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />
+          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="visit recordings" tone="lavender" />
           <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
           <ScrapSticker to="/app/profile" title="Account" sub="profile & export" tone="cream" />
           <ScrapSticker to="/app/plushies" title="Plushies" sub="tokens & shop" tone="cream" />

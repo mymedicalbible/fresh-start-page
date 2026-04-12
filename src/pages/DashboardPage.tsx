@@ -1881,22 +1881,22 @@ export function DashboardPage () {
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">
-          <Link to={`/app/log?tab=pain&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--pink">
+          <Link to={`/app/log?tab=pain&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--pink">
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
             <span className="scrap-log-title">Pain</span>
             <span className="scrap-log-sub">Log a pain entry</span>
           </Link>
-          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--green">
+          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--green">
             <span className="scrap-tape scrap-tape--mint" aria-hidden />
             <span className="scrap-log-title">Episodes</span>
             <span className="scrap-log-sub">Log an episode</span>
           </Link>
-          <Link to={`/app/log?tab=questions&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--blue">
+          <Link to={`/app/log?tab=questions&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--blue">
             <span className="scrap-tape scrap-tape--sky" aria-hidden />
             <span className="scrap-log-title">Questions</span>
             <span className="scrap-log-sub">Add for your doctor</span>
           </Link>
-          <Link to={`/app/visits?new=1&returnTo=${dashReturnTo}`} className="scrap-log-tile scrap-log-tile--yellow">
+          <Link to={`/app/visits?new=1&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--yellow">
             <span className="scrap-tape scrap-tape--butter" aria-hidden />
             <span className="scrap-log-title">Visit log</span>
             <span className="scrap-log-sub">Record a visit</span>

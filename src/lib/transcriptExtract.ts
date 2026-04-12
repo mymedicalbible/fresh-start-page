@@ -73,18 +73,25 @@ Patient's known diagnoses: ${context.knownDiagnoses.join(', ') || 'none provided
 Transcript:
 ${transcript}
 
-Important: In "medications", include one object for every distinct medication the doctor discussed (new starts, dose changes, or continuations). Do not omit a medication just because another was already listed. Put dose and frequency in the structured fields when spoken (e.g. separate 500 mg and twice daily).
+CRITICAL routing rules:
+- Every medication change, new prescription, dose change, titration, stop, or PRN instruction MUST appear ONLY in the "medications" array (one object per distinct drug). Do NOT put medication names, doses, or titration steps in "findings", "instructions", or "notes" except a brief cross-reference if needed (e.g. "see medication list").
+- "findings": concise clinical observations only (exam, history, diagnosis discussion) — not full transcript prose.
+- "instructions": short patient-facing actions only — not medication lists (those go in "medications").
+- "notes": brief admin or misc items only — NOT the raw transcript, NOT a dump of everything said. Never paste or paraphrase the entire visit into any single field.
+- Be concise: short phrases or brief bullets implied by plain sentences; avoid repetition across fields.
+
+Important: In "medications", include one object for every distinct medication the doctor discussed (new starts, dose changes, continuations, or discontinuations). Do not omit a medication. Put dose and frequency in the structured fields when spoken (e.g. separate 500 mg and twice daily).
 
 Return ONLY a JSON object with exactly these fields. No preamble, no markdown, no backticks:
 {
-  "findings": "what the doctor found or observed",
-  "instructions": "what the patient was told to do",
-  "notes": "any other important information",
+  "findings": "concise: what the doctor found or observed",
+  "instructions": "concise: what the patient was told to do (non-med-list)",
+  "notes": "brief misc only — no meds list, no transcript dump",
   "tests": [{ "test_name": "name of test", "reason": "why ordered" }],
   "medications": [{ "medication": "name", "dose": "dose if mentioned", "frequency": "frequency if mentioned" }],
   "follow_up_date": "YYYY-MM-DD if mentioned or empty string",
   "follow_up_time": "HH:MM if mentioned or empty string",
-  "summary": [{ "field": "what was found", "value": "the value", "destination": "where it goes in the visit log" }]
+  "summary": [{ "field": "label", "value": "brief value", "destination": "visit log section" }]
 }`
 
   const { data, error } = await supabase.functions.invoke('generate-summary', {

@@ -47,7 +47,6 @@ export function VisitsPage () {
   // FIX: read ?tab=pending from URL so dashboard badge works
   const tabParam = searchParams.get('tab')
   const returnRaw = searchParams.get('returnTo')
-  const wizardBackPath = safeAppReturnPath(returnRaw, '/app/visits')
   const wizardDonePath = safeAppReturnPath(returnRaw, '/app')
 
   const [visits, setVisits] = useState<VisitRow[]>([])
@@ -125,7 +124,6 @@ export function VisitsPage () {
           ref={visitWizardRef}
           resumeVisitId={resumeId}
           initialDoctorName={prefillDoctor}
-          backPath={wizardBackPath}
           onDone={() => navigate(wizardDonePath)}
         />
       </div>

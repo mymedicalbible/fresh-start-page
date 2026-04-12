@@ -16,6 +16,7 @@ import { DiagnosesDirectoryPage } from './pages/DiagnosesDirectoryPage'
 import { VisitsPage } from './pages/VisitsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { MorePage } from './pages/MorePage'
+import { TranscriptsPage } from './pages/TranscriptsPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { PlushieShopPage } from './pages/PlushieShopPage'
 
@@ -45,6 +46,7 @@ export default function App () {
         <Route path="questions" element={<QuestionsArchivePage />} />
         <Route path="diagnoses" element={<DiagnosesDirectoryPage />} />
         <Route path="more" element={<MorePage />} />
+        <Route path="transcripts" element={<TranscriptsPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />

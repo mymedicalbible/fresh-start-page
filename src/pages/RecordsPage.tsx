@@ -4,10 +4,11 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
-import { deleteTranscriptArchiveItem, loadTranscriptArchive, type ArchivedTranscript } from '../lib/transcriptArchive'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
+import { AnalyticsPage } from './AnalyticsPage'
+import { EpisodeFeatureChip } from '../components/EpisodeFeatureChip'
 
-type Tab = 'pain' | 'symptoms' | 'summaries' | 'transcripts'
+type Tab = 'pain' | 'symptoms' | 'summaries' | 'charts'
 
 type PainRow = {
   id: string; entry_date: string; entry_time: string | null
@@ -24,7 +25,8 @@ type SymptomRow = {
 
 function tabFromParams (sp: URLSearchParams): Tab {
   const t = sp.get('tab')
-  if (t === 'pain' || t === 'symptoms' || t === 'summaries' || t === 'transcripts') return t
+  if (t === 'transcripts') return 'charts'
+  if (t === 'pain' || t === 'symptoms' || t === 'summaries' || t === 'charts') return t
   return 'pain'
 }
 
@@ -38,10 +40,9 @@ export function RecordsPage () {
   const [symptoms, setSymptoms] = useState<SymptomRow[]>([])
   const [summaries, setSummaries] = useState<ArchivedHandoffSummary[]>([])
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null)
-  const [transcripts, setTranscripts] = useState<ArchivedTranscript[]>([])
-  const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [removingFeature, setRemovingFeature] = useState<string | null>(null)
+  const [featureRevealKey, setFeatureRevealKey] = useState<string | null>(null)
 
   function setTab (next: Tab) {
     setSearchParams({ tab: next }, { replace: true })
@@ -70,9 +71,6 @@ export function RecordsPage () {
   useEffect(() => {
     if (tab === 'summaries') {
       setSummaries(loadSummaryArchive())
-    }
-    if (tab === 'transcripts') {
-      setTranscripts(loadTranscriptArchive())
     }
   }, [tab])
 
@@ -105,19 +103,13 @@ export function RecordsPage () {
     if (expandedSummaryId === id) setExpandedSummaryId(null)
   }
 
-  function removeArchivedTranscript (id: string) {
-    deleteTranscriptArchiveItem(id)
-    setTranscripts(loadTranscriptArchive())
-    if (expandedTranscriptId === id) setExpandedTranscriptId(null)
-  }
-
   if (!user) return null
 
   const tabLabels: [Tab, string][] = [
     ['pain', 'Pain'],
     ['symptoms', 'Episodes'],
     ['summaries', 'Summaries'],
-    ['transcripts', 'Transcripts'],
+    ['charts', 'Charts & trends'],
   ]
 
   return (
@@ -185,23 +177,22 @@ export function RecordsPage () {
               </div>
               {r.symptoms && (
                 <div style={{ marginTop: 6 }}>
-                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Features</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym, i) => {
+                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Features — long-press to remove</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym) => {
                       const key = `${r.id}::${sym}`
                       return (
-                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', padding: '2px 6px 2px 8px', borderRadius: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46' }}>
-                          {sym}
-                          <button
-                            type="button"
-                            disabled={removingFeature === key}
-                            onClick={() => removeFeature(r.id, sym)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: '#6b7280', fontSize: '0.7rem', display: 'flex', alignItems: 'center' }}
-                            title="Remove feature"
-                          >
-                            ✕
-                          </button>
-                        </span>
+                        <EpisodeFeatureChip
+                          key={key}
+                          label={sym}
+                          showRemove={featureRevealKey === key}
+                          removeDisabled={removingFeature === key}
+                          onReveal={() => setFeatureRevealKey(key)}
+                          onRemove={() => {
+                            void removeFeature(r.id, sym)
+                            setFeatureRevealKey(null)
+                          }}
+                        />
                       )
                     })}
                   </div>
@@ -276,82 +267,7 @@ export function RecordsPage () {
         </div>
       )}
 
-      {/* VISIT TRANSCRIPTS (saved from transcription flow) */}
-      {tab === 'transcripts' && (
-        <div className="card">
-          <h3>Transcript archive</h3>
-          {transcripts.length === 0 ? (
-            <p className="muted">No transcripts.</p>
-          ) : null}
-          {transcripts.map((a) => {
-            const open = expandedTranscriptId === a.id
-            return (
-              <div key={a.id} className="list-item">
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <div>
-                    <strong style={{ fontSize: '0.92rem' }}>{new Date(a.savedAtIso).toLocaleString()}</strong>
-                    <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
-                      {a.visitDate} · {a.doctorName || 'Doctor not set'}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <button type="button" className="btn btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 10px' }}
-                      onClick={() => setExpandedTranscriptId(open ? null : a.id)}>
-                      {open ? 'Collapse' : 'Read'}
-                    </button>
-                    <button type="button" className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '4px 8px', color: 'var(--danger)' }}
-                      onClick={() => removeArchivedTranscript(a.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                {open && (
-                  <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-                    {a.extractedSummary?.trim() && (
-                      <div>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Clinical summary</div>
-                        <div
-                          style={{
-                            padding: '12px 14px',
-                            background: 'var(--bg)',
-                            borderRadius: 10,
-                            border: '1px solid var(--border)',
-                            fontSize: '0.88rem',
-                            whiteSpace: 'pre-wrap',
-                            maxHeight: 220,
-                            overflowY: 'auto',
-                            lineHeight: 1.45,
-                          }}
-                        >
-                          {a.extractedSummary}
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Transcript</div>
-                      <div
-                        style={{
-                          padding: '12px 14px',
-                          background: 'var(--bg)',
-                          borderRadius: 10,
-                          border: '1px solid var(--border)',
-                          fontSize: '0.88rem',
-                          whiteSpace: 'pre-wrap',
-                          maxHeight: 360,
-                          overflowY: 'auto',
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        {a.transcript}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {tab === 'charts' && <AnalyticsPage embedded />}
     </div>
   )
 }

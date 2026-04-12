@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { priorityButtonStyles, priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { AppConfirmDialog } from '../components/AppConfirmDialog'
+import { SaveLogOptionsDialog } from '../components/SaveLogOptionsDialog'
 
 
 type QuestionRow = {
@@ -52,6 +53,7 @@ export function QuestionsArchivePage () {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({})
   const [incompleteSaveOpen, setIncompleteSaveOpen] = useState(false)
+  const [saveQuestionOptionsOpen, setSaveQuestionOptionsOpen] = useState(false)
 
   const [form, setForm] = useState({
     date_created: todayISO(),
@@ -75,7 +77,6 @@ export function QuestionsArchivePage () {
     setDoctorFilter(urlDoctor)
     if (urlTabOpen) setViewMode('unanswered')
   }, [urlDoctor, urlTabOpen])
-
 
   async function loadQuestions () {
     const { data, error: e } = await supabase.from('doctor_questions')
@@ -153,7 +154,9 @@ export function QuestionsArchivePage () {
   }
 
 
-  const normDoctor = (s: string) => s.trim().toLowerCase().replace(/^dr\.?\s+/i, '').replace(/\s+/g, ' ')
+  const QUESTIONS_ADD_DRAFT_KEY = 'mb-questions-archive-add-draft-v1'
+
+const normDoctor = (s: string) => s.trim().toLowerCase().replace(/^dr\.?\s+/i, '').replace(/\s+/g, ' ')
 
   const filtered = questions.filter((q) => {
     const unanswered = !q.answer?.trim() && (q.status === 'Unanswered' || !q.status)
@@ -173,6 +176,25 @@ export function QuestionsArchivePage () {
   return (
     <div style={{ paddingBottom: 40 }}>
       <BackButton label="Back" />
+      {saveQuestionOptionsOpen && (
+        <SaveLogOptionsDialog
+          title="Save question"
+          onSaveComplete={() => {
+            setSaveQuestionOptionsOpen(false)
+            void saveNewQuestions()
+          }}
+          onSaveForLater={() => {
+            setSaveQuestionOptionsOpen(false)
+            try {
+              localStorage.setItem(QUESTIONS_ADD_DRAFT_KEY, JSON.stringify(form))
+            } catch { /* ignore */ }
+            setBanner('Draft saved on this device. Open “Log a new question” again to continue.')
+            setTimeout(() => setBanner(null), 5000)
+            setShowForm(false)
+          }}
+          onKeepEditing={() => setSaveQuestionOptionsOpen(false)}
+        />
+      )}
       {incompleteSaveOpen && (
         <AppConfirmDialog
           title="Are you sure?"
@@ -221,7 +243,29 @@ export function QuestionsArchivePage () {
             type="button"
             aria-label={showForm ? 'Close add question form' : 'Log a new question'}
             title={showForm ? 'Close' : 'Log a new question'}
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => {
+              setShowForm((v) => {
+                if (v) return false
+                window.setTimeout(() => {
+                  try {
+                    const raw = localStorage.getItem(QUESTIONS_ADD_DRAFT_KEY)
+                    if (!raw) return
+                    const d = JSON.parse(raw) as Record<string, unknown>
+                    setForm((prev) => ({
+                      ...prev,
+                      date_created: typeof d.date_created === 'string' ? d.date_created : prev.date_created,
+                      appointment_date: typeof d.appointment_date === 'string' ? d.appointment_date : prev.appointment_date,
+                      doctor: typeof d.doctor === 'string' ? d.doctor : prev.doctor,
+                      doctor_specialty: typeof d.doctor_specialty === 'string' ? d.doctor_specialty : prev.doctor_specialty,
+                      question: typeof d.question === 'string' ? d.question : prev.question,
+                      priority: typeof d.priority === 'string' ? d.priority : prev.priority,
+                    }))
+                    localStorage.removeItem(QUESTIONS_ADD_DRAFT_KEY)
+                  } catch { /* ignore */ }
+                }, 0)
+                return true
+              })
+            }}
             style={{
               flexShrink: 0,
               width: 44,
@@ -306,8 +350,8 @@ export function QuestionsArchivePage () {
               placeholder="e.g. Why is my pain worse at night? What did my MRI show? Should we adjust my medication?"
             />
           </div>
-          <button type="button" className="btn btn-primary btn-block" onClick={() => void saveNewQuestions()} disabled={busy}>
-            Save question
+          <button type="button" className="btn btn-primary btn-block" onClick={() => setSaveQuestionOptionsOpen(true)} disabled={busy}>
+            Save
           </button>
         </div>
       )}

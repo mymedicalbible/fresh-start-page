@@ -11,6 +11,8 @@ import {
   type VisitDocItem,
 } from '../lib/visitDocsStorage'
 import { LeaveLaterDialog } from './LeaveLaterDialog'
+import { LeaveHomeConfirmDialog } from './LeaveHomeConfirmDialog'
+import { SaveLogOptionsDialog } from './SaveLogOptionsDialog'
 import {
   clearVisitWizardDraft,
   loadVisitWizardDraft,
@@ -18,14 +20,10 @@ import {
   type VisitWizardDraftV1,
 } from '../lib/visitWizardDraft'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
-import { VisitTranscriber } from './VisitTranscriber'
 import { AppConfirmDialog } from './AppConfirmDialog'
-import type { ExtractedVisitFields, TranscriptExtractPayload } from '../lib/transcriptExtract'
+import type { ExtractedVisitFields } from '../lib/transcriptExtract'
 import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
-import {
-  buildClinicalNotesSupplement,
-  mergeNotesWithTranscriptAppendix,
-} from '../lib/transcriptVisitFormat'
+import { buildClinicalNotesSupplement } from '../lib/transcriptVisitFormat'
 import { formatVisitDateLong } from '../lib/formatTime12h'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
@@ -34,8 +32,6 @@ type Props = {
   resumeVisitId?: string | null
   initialDoctorName?: string
   initialSpecialty?: string
-  /** Where Cancel / leave should land (e.g. /app or /app/meds). */
-  backPath?: string
   onDone?: () => void
 }
 
@@ -94,7 +90,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   resumeVisitId,
   initialDoctorName = '',
   initialSpecialty = '',
-  backPath = '/app/visits',
   onDone,
 }, ref) {
   const { user } = useAuth()
@@ -140,7 +135,8 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const [openNextAppt, setOpenNextAppt] = useState(false)
 
   const [resumePrompt, setResumePrompt] = useState(false)
-  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [cancelLeaveOpen, setCancelLeaveOpen] = useState(false)
+  const [saveOptionsOpen, setSaveOptionsOpen] = useState(false)
   const resumeDraftRef = useRef<VisitWizardDraftV1 | null>(null)
   const finalizeInFlightRef = useRef(false)
   const transcriptBootstrappedRef = useRef(false)
@@ -289,19 +285,14 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setOpenNextAppt(hasNext)
   }
 
-  function finishLeave () {
-    setLeaveOpen(false)
-    navigate(backPath)
-  }
-
   const requestLeave = useCallback(() => {
     if (!isWizardDirty()) {
       clearVisitWizardDraft()
-      navigate(backPath)
+      navigate('/app')
       return
     }
-    setLeaveOpen(true)
-  }, [backPath, isWizardDirty, navigate])
+    setCancelLeaveOpen(true)
+  }, [isWizardDirty, navigate])
 
   useImperativeHandle(ref, () => ({ requestLeave }), [requestLeave])
 
@@ -694,18 +685,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     </div>
   ), [pinnedReasons, reason])
 
-  function handleTranscriptExtracted ({ fields, transcript }: TranscriptExtractPayload) {
-    transcriptRewardPendingRef.current = true
-    applyExtractedVisitFields(fields)
-    const supplement = buildClinicalNotesSupplement(fields)
-    setNotes((prev) =>
-      mergeNotesWithTranscriptAppendix(
-        [prev.trim(), supplement].filter(Boolean).join('\n\n'),
-        transcript,
-      ),
-    )
-  }
-
   /** Dashboard → visit log: pre-fill step 1 (real doctor required); no DB row until save step 1. */
   useEffect(() => {
     if (!user || resumeVisitId || transcriptBootstrappedRef.current) return
@@ -720,10 +699,10 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     if (!bundleRaw && !legacyRaw) return
 
     transcriptBootstrappedRef.current = true
+    transcriptRewardPendingRef.current = true
     clearVisitWizardDraft()
 
     let fields: ExtractedVisitFields
-    let transcriptText = ''
 
     if (bundleRaw) {
       try {
@@ -735,7 +714,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         }
         sessionStorage.removeItem(bundleKey)
         fields = b.fields
-        transcriptText = typeof b.transcript === 'string' ? b.transcript : ''
         const vd = (b.visitDate ?? '').trim()
         if (/^\d{4}-\d{2}-\d{2}/.test(vd)) {
           setVisitDate(vd.slice(0, 10))
@@ -762,12 +740,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
 
     applyExtractedVisitFields(fields)
     const supplement = buildClinicalNotesSupplement(fields)
-    setNotes(
-      mergeNotesWithTranscriptAppendix(
-        supplement,
-        transcriptText,
-      ),
-    )
+    setNotes(supplement)
     setStep(1)
     setShowTranscriptPrefillBanner(true)
   }, [user, resumeVisitId, applyExtractedVisitFields, initialDoctorName])
@@ -803,25 +776,29 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           }}
         />
       )}
-      {leaveOpen && (
-        <LeaveLaterDialog
-          variant="saveForLater"
-          onYes={() => {
-            /** Step 3: persist visit as pending in the DB; earlier steps only use local draft. */
-            if (step === 3 && visitId) {
-              setLeaveOpen(false)
-              void finalizeVisit(true)
-              return
-            }
+      {cancelLeaveOpen && (
+        <LeaveHomeConfirmDialog
+          onConfirmLeave={() => {
+            setCancelLeaveOpen(false)
             const snap = buildDraftSnapshot()
-            if (snap) saveVisitWizardDraft(snap)
-            finishLeave()
+            if (snap && draftLooksMeaningful(snap)) saveVisitWizardDraft(snap)
+            navigate('/app')
           }}
-          onNo={() => {
-            clearVisitWizardDraft()
-            finishLeave()
+          onStay={() => setCancelLeaveOpen(false)}
+        />
+      )}
+      {saveOptionsOpen && step === 3 && (
+        <SaveLogOptionsDialog
+          title="Save visit"
+          onSaveComplete={() => {
+            setSaveOptionsOpen(false)
+            void requestFinalizeVisit(false)
           }}
-          onStay={() => setLeaveOpen(false)}
+          onSaveForLater={() => {
+            setSaveOptionsOpen(false)
+            void finalizeVisit(true)
+          }}
+          onKeepEditing={() => setSaveOptionsOpen(false)}
         />
       )}
       {incompleteSaveOpen && (
@@ -938,13 +915,6 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               {formatVisitDateLong(visitDate)}
             </div>
           </div>
-          <VisitTranscriber
-            doctorName={effectiveName}
-            visitDate={visitDate}
-            existingMeds={dvMeds.map((m) => m.medication)}
-            knownDiagnoses={[]}
-            onExtracted={handleTranscriptExtracted}
-          />
           <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#475569' }}>Questions for this visit</p>
           {questionLines.map((line, i) => (
             <div key={i} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
@@ -1239,8 +1209,8 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.9rem', fontWeight: 500, padding: '10px 14px' }} onClick={() => requestLeave()}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px', minHeight: 44, fontSize: '0.98rem', fontWeight: 600 }} disabled={busy} onClick={() => void requestFinalizeVisit(false)}>
-              Save visit
+            <button type="button" className="btn btn-primary" style={{ flex: '1 1 200px', minHeight: 44, fontSize: '0.98rem', fontWeight: 600 }} disabled={busy} onClick={() => setSaveOptionsOpen(true)}>
+              Save
             </button>
           </div>
           <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8, fontSize: '0.88rem' }} onClick={() => setStep(2)}>← Questions</button>

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 type Props = {
   label?: string
@@ -11,11 +11,18 @@ type Props = {
 
 /**
  * Browser-style Back for in-app navigation. Uses React Router history index when available.
+ * If navigation was made with `state: { backTo: '/path' }`, that path wins over history (-1).
  */
 export function BackButton ({ label = 'Back', className = 'btn btn-ghost', style, fallbackTo = '/app' }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   function handle () {
+    const backTo = (location.state as { backTo?: string } | null)?.backTo
+    if (typeof backTo === 'string' && backTo.startsWith('/')) {
+      navigate(backTo)
+      return
+    }
     const idx = (history.state as { idx?: number } | null)?.idx
     if (typeof idx === 'number' && idx > 0) navigate(-1)
     else navigate(fallbackTo)

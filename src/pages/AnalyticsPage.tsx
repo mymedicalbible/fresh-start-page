@@ -61,7 +61,9 @@ function parseSymptomTokens (text: string | null): string[] {
   return text.split(',').map(s => s.trim()).filter(Boolean)
 }
 
-export function AnalyticsPage () {
+type AnalyticsPageProps = { embedded?: boolean }
+
+export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   const { user } = useAuth()
   const location = useLocation()
   const [pain, setPain] = useState<PainRow[]>([])
@@ -241,7 +243,7 @@ export function AnalyticsPage () {
   if (!user) return null
 
   return (
-    <div style={{ paddingBottom: 40 }}>
+    <div style={{ paddingBottom: embedded ? 12 : 40 }}>
       {error && <div className="banner error">{error}</div>}
 
       {/* POPUP */}
@@ -279,7 +281,7 @@ export function AnalyticsPage () {
       {/* HEADER + DATE RANGE */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <BackButton label="Back" style={{ marginBottom: 0 }} className="btn btn-ghost" />
+          {!embedded && <BackButton label="Back" style={{ marginBottom: 0 }} className="btn btn-ghost" />}
           <h2 style={{ margin: 0 }}>Charts & trends</h2>
         </div>
         <div className="form-group" style={{ marginTop: 12, marginBottom: 0 }}>
