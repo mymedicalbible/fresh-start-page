@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchWeatherSnapshot } from '../lib/weatherSnapshot'
 import { useAuth } from '../contexts/AuthContext'
 
 export function SymptomTracker() {
@@ -39,12 +40,14 @@ export function SymptomTracker() {
   const handleSave = async () => {
     if (selectedSymptoms.length === 0 && !activity) return
     setLoading(true)
-    
+
+    const weatherSnapshot = await fetchWeatherSnapshot()
     const { error } = await supabase.from('symptom_logs').insert({
       user_id: user?.id,
       activity_last_4h: activity,
       symptoms: selectedSymptoms,
-      logged_at: new Date().toISOString()
+      logged_at: new Date().toISOString(),
+      weather_snapshot: weatherSnapshot,
     })
 
     if (!error) {

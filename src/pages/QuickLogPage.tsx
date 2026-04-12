@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
+import { fetchWeatherSnapshot } from '../lib/weatherSnapshot'
 import { useAuth } from '../contexts/AuthContext'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
@@ -374,6 +375,7 @@ export function QuickLogPage () {
     if (!user) return
     setBusy(true)
     setError(null)
+    const weatherSnapshot = await fetchWeatherSnapshot()
     const { error: e } = await supabase.from('pain_entries').insert({
       user_id: user.id,
       entry_date: form.date,
@@ -382,6 +384,7 @@ export function QuickLogPage () {
       location: painSelectionsToString(painSelections),
       pain_type: painTypePicks.join(', '),
       notes: form.notes || null,
+      weather_snapshot: weatherSnapshot,
     })
     setBusy(false)
     if (e) { setError(e.message); return }

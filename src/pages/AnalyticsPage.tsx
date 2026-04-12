@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, subDays } from 'date-fns'
 import { useLocation } from 'react-router-dom'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -12,6 +23,9 @@ type PainRow = {
   location: string | null
   intensity: number | null
 }
+
+/** `weather_snapshot` is JSON from PostgREST — use `safeNum` on nested fields. */
+type PainEntryWithWeather = PainRow & { weather_snapshot: unknown }
 
 type SymptomRow = {
   id: string
@@ -74,6 +88,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   const [loading, setLoading] = useState(true)
   const [expandPainAreas, setExpandPainAreas] = useState(false)
   const [expandSymptoms, setExpandSymptoms] = useState(false)
+  const [painWithWeather, setPainWithWeather] = useState<PainEntryWithWeather[]>([])
 
   const loadData = useCallback(async () => {
     if (!user) return
@@ -100,11 +115,24 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
         .eq('user_id', user.id).order('episode_date', { ascending: true })
       if (since) sq = sq.gte('episode_date', since)
 
-      const [p, s] = await Promise.all([pq, sq])
+      const pwq = supabase
+        .from('pain_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .not('weather_snapshot', 'is', null)
+        .order('entry_date', { ascending: false })
+        .limit(200)
+
+      const [p, s, pw] = await Promise.all([pq, sq, pwq])
       if (p.error) throw new Error(p.error.message)
       if (s.error) throw new Error(s.error.message)
       setPain((p.data ?? []) as PainRow[])
       setSymptomEpisodes((s.data ?? []) as SymptomRow[])
+      if (!pw.error) {
+        setPainWithWeather((pw.data ?? []) as PainEntryWithWeather[])
+      } else {
+        setPainWithWeather([])
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -236,6 +264,62 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   }, [pain])
 
   const maxPainIntensity = Math.max(...painOverTime.map((d) => d.avg ?? 0), 1)
+
+  const weatherScatterData = useMemo(() => {
+    const out: { pressure_hpa: number; intensity: number }[] = []
+    for (const row of painWithWeather) {
+      const ws = row.weather_snapshot
+      if (!ws || typeof ws !== 'object') continue
+      const o = ws as Record<string, unknown>
+      const inten = safeNum(row.intensity)
+      const p = safeNum(o.pressure_hpa)
+      if (inten === null || p === null) continue
+      out.push({ pressure_hpa: p, intensity: inten })
+    }
+    return out
+  }, [painWithWeather])
+
+  const weatherBarData = useMemo(() => {
+    const low: number[] = []
+    const mod: number[] = []
+    const high: number[] = []
+    for (const row of painWithWeather) {
+      const ws = row.weather_snapshot
+      if (!ws || typeof ws !== 'object') continue
+      const o = ws as Record<string, unknown>
+      const inten = safeNum(row.intensity)
+      const g = safeNum(o.grass_pollen)
+      if (inten === null || g === null) continue
+      if (g < 10) low.push(inten)
+      else if (g <= 50) mod.push(inten)
+      else high.push(inten)
+    }
+    const avg = (arr: number[]) =>
+      arr.length === 0 ? null : Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10
+    return [
+      { bucket: 'Low', avg: avg(low), n: low.length },
+      { bucket: 'Moderate', avg: avg(mod), n: mod.length },
+      { bucket: 'High', avg: avg(high), n: high.length },
+    ].filter((r): r is { bucket: string; avg: number; n: number } => r.avg !== null && r.n > 0)
+  }, [painWithWeather])
+
+  const pollenPainInsight = useMemo(() => {
+    const highPain: number[] = []
+    const lowPain: number[] = []
+    for (const row of painWithWeather) {
+      const ws = row.weather_snapshot
+      if (!ws || typeof ws !== 'object') continue
+      const o = ws as Record<string, unknown>
+      const inten = safeNum(row.intensity)
+      const g = safeNum(o.grass_pollen)
+      if (inten === null || g === null) continue
+      if (g > 50) highPain.push(inten)
+      if (g < 10) lowPain.push(inten)
+    }
+    if (highPain.length < 3 || lowPain.length < 3) return null
+    const mean = (xs: number[]) => Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10
+    return { highAvg: mean(highPain), lowAvg: mean(lowPain) }
+  }, [painWithWeather])
 
   const visiblePainAreas = expandPainAreas ? areaStats : areaStats.slice(0, 3)
   const visibleSymptoms = expandSymptoms ? topSymptoms : topSymptoms.slice(0, 3)
@@ -460,6 +544,85 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
                     </div>
                   ))}
                 </div>
+              )}
+          </div>
+
+          {/* WEATHER & SYMPTOMS */}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Weather &amp; symptoms</h2>
+            {painWithWeather.length < 10
+              ? (
+                <p className="muted" style={{ fontSize: '0.9rem' }}>
+                  Keep logging — weather patterns will appear here after a few weeks of entries.
+                </p>
+              )
+              : (
+                <>
+                  <div style={{ marginBottom: 24 }}>
+                    <h3 style={{ marginTop: 0, fontSize: '1rem' }}>Pain vs barometric pressure</h3>
+                    <p className="muted" style={{ fontSize: '0.85rem', marginTop: -6 }}>Each point is one pain entry.</p>
+                    {weatherScatterData.length === 0
+                      ? <p className="muted">Not enough pressure data paired with pain scores yet.</p>
+                      : (
+                        <div className="charts-wrap" style={{ height: 280, marginTop: 10 }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ScatterChart margin={{ top: 8, right: 12, bottom: 8, left: 8 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                              <XAxis
+                                type="number"
+                                dataKey="pressure_hpa"
+                                name="Pressure"
+                                unit=" hPa"
+                                tick={{ fontSize: 10 }}
+                                stroke="var(--muted)"
+                              />
+                              <YAxis
+                                type="number"
+                                dataKey="intensity"
+                                name="Pain"
+                                domain={[0, 10]}
+                                tick={{ fontSize: 10 }}
+                                stroke="var(--muted)"
+                                width={36}
+                              />
+                              <Tooltip
+                                cursor={{ strokeDasharray: '3 3' }}
+                                formatter={(v: number) => [`${v}/10`, 'Pain']}
+                                labelFormatter={() => 'Pain entry'}
+                              />
+                              <Scatter name="Pain vs pressure" data={weatherScatterData} fill="#a78bfa" />
+                            </ScatterChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                  </div>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <h3 style={{ marginTop: 0, fontSize: '1rem' }}>Average pain by pollen level</h3>
+                    <p className="muted" style={{ fontSize: '0.85rem', marginTop: -6 }}>Grouped by grass pollen at log time (Low / Moderate / High).</p>
+                    {weatherBarData.length === 0
+                      ? <p className="muted">No grass pollen data on your entries yet.</p>
+                      : (
+                        <div className="charts-wrap" style={{ height: 260, marginTop: 10 }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={weatherBarData} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                              <XAxis dataKey="bucket" tick={{ fontSize: 10 }} stroke="var(--muted)" />
+                              <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="var(--muted)" width={36} />
+                              <Tooltip formatter={(v: number) => [`${v}/10`, 'Avg pain']} />
+                              <Bar dataKey="avg" fill="#a78bfa" name="Avg pain" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                  </div>
+
+                  {pollenPainInsight && (
+                    <p style={{ fontSize: '0.9rem', lineHeight: 1.5, margin: 0, color: 'var(--text)' }}>
+                      Your average pain score is {pollenPainInsight.highAvg}/10 on high-pollen days vs {pollenPainInsight.lowAvg}/10 on low-pollen days.
+                    </p>
+                  )}
+                </>
               )}
           </div>
         </>
