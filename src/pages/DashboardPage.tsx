@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
@@ -34,6 +34,7 @@ import {
   tryGrantHandoffSummaryTokens,
   type ActivePlushie,
 } from '../lib/gameTokens'
+import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { DashboardWeather } from '../components/DashboardWeather'
 import {
   buildWeatherCorrelationInsights,
@@ -703,6 +704,23 @@ export function DashboardPage () {
       if (apptBannerLongPressTimerRef.current) clearTimeout(apptBannerLongPressTimerRef.current)
     }
   }, [])
+
+  const refreshDashGameQuiet = useCallback(async () => {
+    if (!user?.id || !gameTokensEnabled()) return
+    const s = await fetchGameState()
+    if (!s.ok) {
+      setDashGame(null)
+      return
+    }
+    setDashGame({
+      balance: s.balance,
+      next_price: s.next_price,
+      owned_active: s.owned_active,
+      active_plushie: s.active_plushie,
+    })
+  }, [user?.id])
+
+  useGameStateRefresh(!!user?.id && gameTokensEnabled(), refreshDashGameQuiet)
 
   useEffect(() => {
     if (!user?.id || !gameTokensEnabled()) {
@@ -1877,6 +1895,7 @@ export function DashboardPage () {
             }
           }
           const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
+          const showPlushieMastColumn = !!(gameTokensEnabled() && dashGame?.active_plushie)
           return (
         <section
           className="scrap-sticky scrap-sticky--upcoming"
@@ -1889,14 +1908,30 @@ export function DashboardPage () {
           onClickCapture={onApptBannerClickCapture}
         >
           <span className="scrap-tape scrap-tape--green" aria-hidden />
-          <div className={hasDashPlushie ? 'scrap-appt-banner-mast scrap-appt-banner-mast--has-plushie' : 'scrap-appt-banner-mast'}>
-            {hasDashPlushie && (
+          <div className={showPlushieMastColumn ? 'scrap-appt-banner-mast scrap-appt-banner-mast--has-plushie' : 'scrap-appt-banner-mast'}>
+            {showPlushieMastColumn && (
               <div className="scrap-dash-mascot-slot" aria-hidden>
-                <div
-                  className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
-                >
-                  <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
-                </div>
+                {hasDashPlushie && (
+                  <div className="scrap-dash-plushie-column">
+                    <div
+                      className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+                    >
+                      <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+                    </div>
+                    {dashGame?.active_plushie?.name ? (
+                      <span className="scrap-dash-plushie-name">{dashGame.active_plushie.name}</span>
+                    ) : null}
+                  </div>
+                )}
+                {!hasDashPlushie && dashGame?.active_plushie?.name ? (
+                  <div className="scrap-dash-plushie-column scrap-dash-plushie-column--caption-only">
+                    <span className="scrap-dash-plushie-name scrap-dash-plushie-name--unowned">
+                      This week:
+                      {' '}
+                      {dashGame.active_plushie.name}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             )}
             <div className="scrap-appt-banner-main">

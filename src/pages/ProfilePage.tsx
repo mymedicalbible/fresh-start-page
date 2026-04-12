@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
+import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
 import {
   clearManualWeatherLocation,
@@ -157,6 +158,10 @@ export function ProfilePage () {
     setOwnedActive(state.owned_active)
     setActivePlushieLottiePath(state.active_plushie?.lottie_path ?? null)
   }, [user])
+
+  useGameStateRefresh(!!user && gameTokensEnabled(), () => {
+    void loadGameAndPlushies()
+  })
 
   useEffect(() => {
     void loadStats()

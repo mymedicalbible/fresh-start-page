@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
@@ -8,6 +8,7 @@ import {
   purchaseActivePlushie,
   type ActivePlushie,
 } from '../lib/gameTokens'
+import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 
 type CatalogRow = {
   id: string
@@ -211,6 +212,18 @@ export function PlushieShopPage () {
   useEffect(() => {
     void load()
   }, [load])
+
+  useGameStateRefresh(true, () => {
+    void load()
+  }, 60_000)
+
+  const prevCountdownRef = useRef(0)
+  useEffect(() => {
+    if (prevCountdownRef.current > 0 && countdownRemainMs === 0) {
+      void load()
+    }
+    prevCountdownRef.current = countdownRemainMs
+  }, [countdownRemainMs, load])
 
   useEffect(() => {
     if (!myPlushiesOpen) return

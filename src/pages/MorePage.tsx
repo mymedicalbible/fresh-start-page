@@ -23,6 +23,9 @@ export function MorePage () {
           />
         </div>
       </CorkBoardBackground>
+      <div className="more-grass-footer" aria-hidden>
+        <img src="/more-grass-footer.png" alt="" width={1200} height={200} decoding="async" />
+      </div>
     </div>
   )
 }
