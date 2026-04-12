@@ -1085,25 +1085,21 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
 }
 
-/* Label sits above the yellow card (outside), centered; tape stays on the card top edge */
-.scrap-appt-banner-heading {
-  font-family: var(--font-scrap);
-  font-size: 0.95rem;
-  font-weight: 400;
-  letter-spacing: 0.2em;
-  color: var(--scrap-muted);
-  margin: 0 0 12px;
+/* First line inside the appointment card: centered under the green washi tape */
+.scrap-sticky--upcoming .scrap-sticky-label--appt-under-tape {
   text-align: center;
   width: 100%;
+  margin-top: 0;
+  margin-bottom: 10px;
 }
 
-/* Plushie: overlay on the appointment card — no layout padding, no CSS shadows */
+/* Plushie: overlay only (absolute) — no extra padding on the card for the mascot; no CSS shadows */
 .scrap-dash-plushie--corner {
   position: absolute;
-  left: -8px;
-  top: -14px;
-  width: min(220px, 58vw);
-  height: min(220px, 58vw);
+  left: -10px;
+  top: -16px;
+  width: min(260px, 64vw);
+  height: min(260px, 64vw);
   z-index: 4;
   pointer-events: none;
   filter: none;
@@ -1153,7 +1149,7 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
   background: linear-gradient(180deg, #fff8dc 0%, #fffbeb 100%);
   border-radius: 10px;
-  padding: 18px 16px 16px;
+  padding: 22px 16px 16px;
   box-shadow: 0 6px 22px rgba(74, 55, 40, 0.12), 0 2px 6px rgba(74, 55, 40, 0.06);
   border: 1px solid rgba(74, 55, 40, 0.12);
 }

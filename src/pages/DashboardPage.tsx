@@ -1753,8 +1753,6 @@ export function DashboardPage () {
           }
           const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
           return (
-        <>
-          <div className="scrap-appt-banner-heading">{bannerLabel}</div>
         <section
           className="scrap-sticky scrap-sticky--upcoming"
           aria-label="Appointments"
@@ -1774,6 +1772,7 @@ export function DashboardPage () {
               <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
             </div>
           )}
+          <div className="scrap-sticky-label scrap-sticky-label--appt-under-tape">{bannerLabel}</div>
           {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
@@ -1854,7 +1853,6 @@ export function DashboardPage () {
             </div>
           )}
         </section>
-        </>
           )
         })()}
         </div>
