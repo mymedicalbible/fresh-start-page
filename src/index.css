@@ -21,7 +21,7 @@
     100dvh - var(--nav-height) - var(--safe-bottom) - var(--scrap-layout-header-h) - var(--scrap-more-hub-pad)
   );
   /* More hub / cork board — single source for shell + .cork-board */
-  --cork-bg: #8b6914;
+  --cork-bg: #a0845c;
 
   /* --- Pastel palette --- */
   --mint: #b8e8c8;
@@ -94,10 +94,6 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-body:has(.scrap-more-page--hub) {
-  background: var(--cork-bg);
-}
-
 #root { min-height: 100dvh; }
 
 a {
@@ -155,10 +151,14 @@ button, input, select, textarea { font: inherit; }
   background-attachment: fixed;
 }
 
-/* Ensure nothing above .app-shell shows through on the More hub */
-.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub),
-.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) > * {
-  background-color: var(--cork-bg);
+body:has(.scrap-more-page--hub) {
+  background-color: #a0845c;
+  background-image:
+    radial-gradient(ellipse 100% 70% at 18% 22%, rgba(255,255,255,0.09) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 55% at 88% 78%, rgba(0,0,0,0.07) 0%, transparent 50%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.018) 0, rgba(0,0,0,0.018) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.015) 0, rgba(0,0,0,0.015) 1px, transparent 1px, transparent 6px);
+  background-attachment: fixed;
 }
 
 .app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) .scrap-layout-header {
