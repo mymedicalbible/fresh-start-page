@@ -583,7 +583,6 @@ export function DashboardPage () {
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
   const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
-  const [weatherPanelOpen, setWeatherPanelOpen] = useState(false)
 
   /** Live clock for banner label (ticks every 30 s) */
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -1750,13 +1749,7 @@ export function DashboardPage () {
           </div>
         </header>
 
-        {weather && (
-          <DashboardWeather
-            weather={weather}
-            panelOpen={weatherPanelOpen}
-            onToggle={() => setWeatherPanelOpen((o) => !o)}
-          />
-        )}
+        {weather && <DashboardWeather weather={weather} />}
 
         <div className="scrap-appt-banner-wrap">
         {(() => {

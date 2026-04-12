@@ -731,9 +731,6 @@ export function QuickLogPage () {
             <label>Episode features</label>
             {selectedSymptoms.length > 0 && (
               <div style={{ marginBottom: 10 }}>
-                <div className="muted" style={{ fontSize: '0.72rem', fontWeight: 600, marginBottom: 6 }}>
-                  Selected — long-press a chip to remove
-                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {selectedSymptoms.map((sym) => (
                     <EpisodeFeatureChip

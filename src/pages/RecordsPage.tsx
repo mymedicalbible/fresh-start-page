@@ -177,7 +177,6 @@ export function RecordsPage () {
               </div>
               {r.symptoms && (
                 <div style={{ marginTop: 6 }}>
-                  <div className="muted" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Features — long-press to remove</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym) => {
                       const key = `${r.id}::${sym}`

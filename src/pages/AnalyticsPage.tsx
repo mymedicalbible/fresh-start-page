@@ -553,7 +553,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
             {painWithWeather.length < 10
               ? (
                 <p className="muted" style={{ fontSize: '0.9rem' }}>
-                  Keep logging — weather patterns will appear here after a few weeks of entries.
+                  These charts need at least 10 pain logs that include weather. Log pain from Quick log and allow location when prompted so each save can attach a weather snapshot.
                 </p>
               )
               : (
