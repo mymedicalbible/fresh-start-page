@@ -329,7 +329,7 @@ body:has(.scrap-more-page--hub) {
 
 .more-polaroid__title {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   font-family: var(--font-crayon);
   font-size: clamp(2rem, 5.5vw, 2.65rem);
   font-weight: 700;
@@ -367,7 +367,7 @@ body:has(.scrap-more-page--hub) {
   position: absolute;
   inset: -16px;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
   overflow: visible;
 }
 
@@ -396,14 +396,18 @@ body:has(.scrap-more-page--hub) {
 }
 .cork-sparkles__shape--6 { top: 55%; right: -2%; animation-delay: 3s; }
 
-/* Polaroid-only: a bit tighter and calmer than the full note */
+/* Polaroid-only: a bit tighter and calmer than the full note — extra glow so they read on pastel gradients */
 .cork-sparkles--polaroid {
   inset: -6px;
-  opacity: 0.72;
 }
 
 .cork-sparkles--polaroid .cork-sparkles__shape {
   animation-duration: 4.6s;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 248, 252, 0.85) 45%, rgba(251, 207, 232, 0.35) 72%, transparent 78%);
+  box-shadow:
+    0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 10px rgba(244, 114, 182, 0.45),
+    0 0 18px rgba(253, 224, 200, 0.55);
 }
 
 @keyframes cork-sparkle-pulse {

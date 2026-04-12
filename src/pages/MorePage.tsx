@@ -56,15 +56,17 @@ export function MorePage () {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-4 py-8 sm:flex-row sm:gap-16 md:gap-20 sm:py-10">
-        <PolaroidNavCard
-          to="/app/profile"
-          title="Account"
-          caption="profile & settings"
-          photoClass="more-polaroid__photo--account"
-          tapeClass=""
-          frameRotateClass="-rotate-[2.5deg]"
-          ariaLabel="Account — profile and settings"
-        />
+        <div className="-translate-y-2 sm:-translate-y-3 md:-translate-y-4">
+          <PolaroidNavCard
+            to="/app/profile"
+            title="Account"
+            caption="profile & settings"
+            photoClass="more-polaroid__photo--account"
+            tapeClass=""
+            frameRotateClass="-rotate-[2.5deg]"
+            ariaLabel="Account — profile and settings"
+          />
+        </div>
         <PolaroidNavCard
           to="/app/plushies"
           title="Plushies"

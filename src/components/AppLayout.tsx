@@ -101,7 +101,7 @@ export function AppLayout () {
 
   return (
     <div className="app-shell app-shell--scrapbook">
-      {!isHome && (
+      {!isHome && pathname !== '/app/more' && (
         <header className="scrap-layout-header">
           <span className="scrap-layout-brand">medical bible</span>
         </header>
