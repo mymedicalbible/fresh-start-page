@@ -1080,18 +1080,19 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .scrap-appt-banner-wrap:has(.scrap-dash-plushie) {
-  margin-top: 96px;
+  margin-top: 168px;
 }
 
 .scrap-dash-plushie {
   position: absolute;
-  left: 0;
-  top: -108px;
-  width: min(200px, 52vw);
-  height: min(200px, 52vw);
+  left: -36px;
+  top: -148px;
+  width: min(300px, 78vw);
+  height: min(300px, 78vw);
   pointer-events: none;
   z-index: 3;
-  filter: drop-shadow(0 4px 10px rgba(74, 55, 40, 0.22));
+  transform-origin: left bottom;
+  filter: drop-shadow(0 4px 12px rgba(74, 55, 40, 0.24));
 }
 
 .scrap-dash-plushie-lottie,
@@ -1107,15 +1108,15 @@ textarea { min-height: 88px; resize: vertical; }
 @keyframes scrap-dash-plushie-enter {
   from {
     opacity: 0;
-    transform: translateY(48px) scale(0.88);
+    transform: translate(-8px, 56px) scale(0.88);
   }
   65% {
     opacity: 1;
-    transform: translateY(-6px) scale(1.02);
+    transform: translate(-8px, -6px) scale(1.02);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(-8px, 0) scale(1);
   }
 }
 

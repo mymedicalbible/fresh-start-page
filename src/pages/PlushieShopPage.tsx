@@ -234,12 +234,21 @@ export function PlushieShopPage () {
               >
                 {owned
                   ? (
-                    <span className="scrap-account-plushie-emoji" style={{ fontSize: '2rem' }} aria-hidden>🧸</span>
+                    <span
+                      style={{
+                        fontSize: '1.75rem',
+                        fontWeight: 800,
+                        color: 'var(--mint-dark, #065f46)',
+                        lineHeight: 1,
+                      }}
+                      aria-label="Unlocked"
+                    >
+                      ✓
+                    </span>
                     )
                   : (
-                    <span className="scrap-account-plushie-mystery" aria-hidden style={{ minHeight: '2.75rem', width: '100%' }}>
-                      <span className="scrap-account-plushie-mystery-blur">🧸</span>
-                      <span className="scrap-account-plushie-mystery-mark">?</span>
+                    <span className="scrap-account-plushie-mystery-mark" aria-hidden>
+                      ?
                     </span>
                     )}
               </div>
