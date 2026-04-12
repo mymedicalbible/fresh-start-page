@@ -1144,6 +1144,9 @@ textarea { min-height: 88px; resize: vertical; }
   width: 100%;
   margin-top: 0;
   margin-bottom: 10px;
+  font-size: 1.08rem;
+  transform: rotate(-2deg);
+  transform-origin: center center;
 }
 
 /* Plushie sits in the mascot slot only — in-flow (no absolute positioning) */
