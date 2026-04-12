@@ -84,10 +84,10 @@ async function main () {
   const outPath = path.join(outDir, `project-code-and-sql-${safeStamp}.txt`)
 
   const chunks = []
-  chunks.push(`Medical Bible Project — full code + SQL dump`)
-  chunks.push(`Generated: ${stamp}`)
-  chunks.push(`Root: ${root}`)
-  chunks.push(`Files: ${files.length}`)
+  chunks.push(`Medical Bible Project — full code + SQL dump\n`)
+  chunks.push(`Generated: ${stamp}\n`)
+  chunks.push(`Root: ${root}\n`)
+  chunks.push(`Files: ${files.length}\n`)
   chunks.push(`${'='.repeat(72)}\n`)
 
   for (const abs of files) {

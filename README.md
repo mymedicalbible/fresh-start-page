@@ -10,13 +10,13 @@ The running name in code is `medical-tracker-web`; data lives in **Supabase** (y
 
 ### Dashboard (home)
 
-- **Upcoming appointments** — see what is on your calendar; open **open questions** for that doctor when the app has them stored.
-- **Pending visits** — visits you logged as not yet finished (e.g. tests or follow-up still outstanding); jump back into the visit flow.
+- **Appointments** — banner for upcoming, in-progress, or most recent visit; optional **browser notifications** when you enable them (behavior depends on the device and browser).
+- **Mascot slot** — when **game tokens** and an **active plushie** are enabled in your project, the home card can show your equipped plushie (Lottie) in a dedicated cream area beside the banner title, without covering doctor/visit text.
+- **Pending visits** — visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
 - **Log today** — shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
 - **Doctor handoff summary** — opens a panel that builds a **first-person narrative** from your saved data (recent pain/episodes, meds, changes, visits, questions). You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and each generation can be **archived on this device** for later.
-- **Visit transcription** — record audio for a visit, get live transcription, then **extract structured fields** (findings, instructions, tests, meds, follow-up, etc.) into the visit log when you confirm.
-- **Browser notifications** (optional) — if you enable them, reminders tied to appointments can nudge you after visit times (behavior depends on the device and browser).
-- **Your records** — links into doctors, medications, tests, diagnoses, visits, questions, charts, appointments, and profile.
+- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **More** (bottom nav) for visits, questions, charts, diagnoses, plushies, and account shortcuts.
+- **Account** — link at the bottom of the dashboard to profile.
 
 ### Quick log (`/app/log`)
 
@@ -44,7 +44,7 @@ Charts are for **your awareness** and for **conversation with your care team**, 
 
 - **List** all visits or filter to **pending**; expand rows for details.
 - **Visit wizard** — step-by-step visit log (reason, notes, diagnoses, meds, tests, documents when configured, etc.). Visits can be **complete** or **pending** to finish later.
-- **Transcript** — optional recording + extraction flow integrated into logging.
+- **Transcription** — optional recording + live transcription, then **extract structured fields** into the visit log when you confirm (when Edge Functions and keys are configured).
 
 ### Doctors (`/app/doctors` and `/app/doctors/:id`)
 
@@ -75,9 +75,13 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 - Manage upcoming (and related) appointment records tied to your workflow.
 
+### Plushies (`/app/plushies`)
+
+- Optional **game token** economy and **shop** (when enabled in your Supabase setup): collect tokens, unlock plushie animations; your **active** plushie can appear on the home dashboard mascot area.
+
 ### More (`/app/more`)
 
-- Shortcuts to **Visits**, **Questions**, **Charts & trends**, **Diagnoses**.
+- Shortcuts to **Visits**, **Questions**, **Charts & trends**, **Diagnoses**, **Account** (profile & export), and **Plushies** (tokens & shop).
 
 ### Doctor note (bottom nav)
 
@@ -115,6 +119,7 @@ If these are not deployed or keys are missing, handoff still works from **rule-b
 | Backend | Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions) |
 | Charts | Recharts |
 | PDF | jsPDF |
+| Animation | Lottie (plushie display) |
 
 ---
 
@@ -137,7 +142,7 @@ Full setup, migrations, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOP
 npm run export:txt
 ```
 
-Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supabase/migrations`, Edge Functions, configs; skips `node_modules`, `dist`, etc.). Git-based zip: `npm run export`.
+Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supabase/` SQL and functions, configs, scripts; skips `node_modules`, `dist`, `exports`, and a few large legacy root text dumps). For a **zip of everything Git tracks**, use `npm run export` (requires Git).
 
 ---
 
@@ -156,6 +161,7 @@ Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supa
 | `/app/diagnoses` | Diagnoses |
 | `/app/visits` | Visits |
 | `/app/appointments` | Appointments |
+| `/app/plushies` | Plushies (tokens & shop) |
 | `/app/more` | More |
 | `/app/profile` | Profile |
 | `/login` | Sign in |
