@@ -1142,9 +1142,9 @@ textarea { min-height: 88px; resize: vertical; }
 .scrap-appt-banner-main .scrap-sticky-label--appt-under-tape {
   text-align: center;
   width: 100%;
-  margin-top: 0.5in;
+  margin-top: calc(0.5in - 1cm);
   margin-bottom: 10px;
-  font-size: 1.08rem;
+  font-size: 1.125rem;
   transform: rotate(-2deg);
   transform-origin: center center;
 }
