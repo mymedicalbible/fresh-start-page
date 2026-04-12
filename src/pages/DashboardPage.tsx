@@ -401,11 +401,11 @@ function SummaryModal ({
               </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                <Link to="/app/records" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Pain &amp; episodes</Link>
+                <Link to="/app/charts-trends" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Pain &amp; episodes</Link>
                 <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Meds</Link>
                 <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Tests</Link>
                 <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Diagnoses</Link>
-                <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Charts</Link>
+                <Link to="/app/analytics" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Analytics</Link>
               </div>
             </div>
           )}
@@ -612,19 +612,30 @@ export function DashboardPage () {
     }
     let cancelled = false
     void (async () => {
-      const { data, error } = await supabase
-        .from('pain_entries')
-        .select('intensity, weather_snapshot')
-        .eq('user_id', user.id)
-        .not('weather_snapshot', 'is', null)
-        .order('entry_date', { ascending: false })
-        .limit(200)
+      const [painRes, symRes] = await Promise.all([
+        supabase
+          .from('pain_entries')
+          .select('intensity, weather_snapshot')
+          .eq('user_id', user.id)
+          .not('weather_snapshot', 'is', null)
+          .order('entry_date', { ascending: false })
+          .limit(200),
+        supabase
+          .from('symptom_logs')
+          .select('symptoms, weather_snapshot')
+          .eq('user_id', user.id)
+          .not('weather_snapshot', 'is', null)
+          .order('logged_at', { ascending: false })
+          .limit(200),
+      ])
       if (cancelled) return
-      if (error) {
+      if (painRes.error || symRes.error) {
         setWeatherCorrelation(null)
         return
       }
-      setWeatherCorrelation(buildWeatherCorrelationInsights(weather, data ?? []))
+      setWeatherCorrelation(
+        buildWeatherCorrelationInsights(weather, painRes.data ?? [], symRes.data ?? []),
+      )
     })()
     return () => { cancelled = true }
   }, [user?.id, weather])

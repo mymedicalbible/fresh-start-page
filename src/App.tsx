@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/AppLayout'
 import { LoginPage } from './pages/LoginPage'
@@ -28,6 +28,11 @@ function Protected ({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function RedirectFlaresToChartsTrends () {
+  const { search } = useLocation()
+  return <Navigate to={`/app/charts-trends${search}`} replace />
+}
+
 
 export default function App () {
   return (
@@ -36,8 +41,9 @@ export default function App () {
       <Route path="/app" element={<Protected><AppLayout /></Protected>}>
         <Route index element={<DashboardPage />} />
         <Route path="log" element={<QuickLogPage />} />
-        <Route path="flares" element={<RecordsPage />} />
+        <Route path="charts-trends" element={<RecordsPage />} />
         <Route path="records" element={<RecordsPage />} />
+        <Route path="flares" element={<RedirectFlaresToChartsTrends />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="meds" element={<MedicationsPage />} />
         <Route path="doctors" element={<DoctorsPage />} />

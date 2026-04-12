@@ -109,7 +109,7 @@ export function RecordsPage () {
     ['pain', 'Pain'],
     ['symptoms', 'Episodes'],
     ['summaries', 'Summaries'],
-    ['charts', 'Charts & trends'],
+    ['charts', 'Analytics'],
   ]
 
   return (

@@ -10,7 +10,7 @@ const NAV_ITEMS: NavItem[] = [
   { kind: 'path', path: '/app', label: 'home' },
   { kind: 'path', path: '/app/log', label: 'log' },
   { kind: 'note', label: 'note' },
-  { kind: 'path', path: '/app/flares', label: 'flares' },
+  { kind: 'path', path: '/app/charts-trends', label: 'charts/trends' },
   { kind: 'path', path: '/app/more', label: 'more' },
 ]
 
@@ -50,7 +50,7 @@ function IconMore () {
   )
 }
 
-function IconFlares () {
+function IconChartsTrends () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M2 12 L6 12 L8 6 L11 18 L14 8 L16 12 L22 12" />
@@ -58,7 +58,7 @@ function IconFlares () {
   )
 }
 
-const NAV_ICONS = [IconHome, IconLog, IconNote, IconFlares, IconMore] as const
+const NAV_ICONS = [IconHome, IconLog, IconNote, IconChartsTrends, IconMore] as const
 
 export function AppLayout () {
   const { user } = useAuth()
@@ -69,6 +69,16 @@ export function AppLayout () {
 
   function isActivePath (path: string): boolean {
     if (path === '/app') return isHome
+    if (path === '/app/charts-trends') {
+      return (
+        pathname === '/app/charts-trends' ||
+        pathname.startsWith('/app/charts-trends/') ||
+        pathname === '/app/records' ||
+        pathname.startsWith('/app/records') ||
+        pathname === '/app/flares' ||
+        pathname.startsWith('/app/flares')
+      )
+    }
     return pathname === path || pathname.startsWith(`${path}/`)
   }
 

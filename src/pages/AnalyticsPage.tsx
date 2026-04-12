@@ -366,7 +366,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {!embedded && <BackButton label="Back" style={{ marginBottom: 0 }} className="btn btn-ghost" />}
-          <h2 style={{ margin: 0 }}>Charts & trends</h2>
+          <h2 style={{ margin: 0 }}>Analytics</h2>
         </div>
         <div className="form-group" style={{ marginTop: 12, marginBottom: 0 }}>
           <label>Date range</label>

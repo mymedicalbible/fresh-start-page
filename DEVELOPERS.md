@@ -4,7 +4,7 @@
 
 ---
 
-# Medical Bible Project (Medical Tracker)
+# Medical .Bible Project (Medical Tracker)
 
 A **private, personal health tracker** web application. It helps you log pain, symptoms, visits, medications, tests, diagnoses, and doctor questions in one place—then assemble a **doctor-ready clinical handoff narrative** (with optional AI polish and **PDF export**). Authentication, database, and file storage run on **Supabase**; the client is **Vite + React 18 + TypeScript**.
 
@@ -54,8 +54,8 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 |------|----------------|--------------|
 | **Dashboard** | `/app` | Upcoming appointments, pending-visit nudge, **Log today** grid (pain, symptoms, questions, visit), **Clinical handoff** (opens a slide-up panel—not a full-page form), **Your care & records** bento links |
 | **Quick log** | `/app/log` | Fast flows for pain and symptoms; navigation to archives after save |
-| **Records** | `/app/records` | Hub for pain / symptom archives and related tabs |
-| **Analytics** | `/app/analytics` | Charts (Recharts); data stays in the browser unless you screenshot/share |
+| **Records** | `/app/charts-trends`, `/app/records` (same hub; `/app/flares` redirects) | Pain / episode archives, summaries, embedded Analytics tab |
+| **Analytics** | `/app/analytics` | Standalone charts (Recharts); data stays in the browser unless you screenshot/share |
 | **Visits** | `/app/visits` | Visit wizard; **after save, returns to dashboard** by default |
 | **Doctors** | `/app/doctors` | Scannable list; each card links to a **Doctor profile** |
 | **Doctor profile** | `/app/doctors/:id` | Full-width sections: visits, questions, diagnoses, medications, tests for one provider |
@@ -75,8 +75,10 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 | `/login` | Login |
 | `/app` | Dashboard (home) |
 | `/app/log` | Quick log |
-| `/app/records` | Records hub |
-| `/app/analytics` | Charts |
+| `/app/charts-trends` | Records hub (canonical with bottom nav) |
+| `/app/records` | Records hub (alias) |
+| `/app/flares` | Redirects to `/app/charts-trends` |
+| `/app/analytics` | Analytics |
 | `/app/meds` | Medications |
 | `/app/doctors` | Doctor list |
 | `/app/doctors/:id` | Doctor profile |

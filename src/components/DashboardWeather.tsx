@@ -302,7 +302,7 @@ function WeatherMoreModal ({
                 borderTop: '1px solid rgba(125, 107, 90, 0.2)',
               }}
             >
-              <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>Your pain vs this kind of weather</div>
+              <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>You vs The Forecast</div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
                 {correlation.lines.map((line, i) => (
                   <li key={i} style={{ marginBottom: 6 }}>{line}</li>
@@ -463,7 +463,7 @@ export function DashboardWeather ({ weather, correlation }: Props) {
                   borderTop: '1px solid rgba(125, 107, 90, 0.2)',
                 }}
               >
-                <div style={{ ...labelStyle, marginBottom: 6, display: 'block' }}>Your pain vs this weather</div>
+                <div style={{ ...labelStyle, marginBottom: 6, display: 'block' }}>You vs The Forecast</div>
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
                   {correlation.lines.map((line, i) => (
                     <li key={i} style={{ marginBottom: 4 }}>{line}</li>

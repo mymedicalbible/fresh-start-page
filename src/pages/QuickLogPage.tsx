@@ -392,7 +392,7 @@ export function QuickLogPage () {
     try {
       sessionStorage.setItem('mb-analytics-refresh', '1')
     } catch { /* ignore */ }
-    setPostSave({ archive: '/app/records?tab=pain', title: 'Pain log archive' })
+    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain log archive' })
   }
 
   async function handleSaveSymptoms () {
@@ -415,7 +415,7 @@ export function QuickLogPage () {
     try {
       sessionStorage.setItem('mb-analytics-refresh', '1')
     } catch { /* ignore */ }
-    setPostSave({ archive: '/app/records?tab=symptoms', title: 'Episode archive' })
+    setPostSave({ archive: '/app/charts-trends?tab=symptoms', title: 'Episode archive' })
   }
 
   async function handleSaveQuestion () {
