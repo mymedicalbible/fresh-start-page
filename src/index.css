@@ -1085,26 +1085,35 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
 }
 
-/* Plushie: decorative overlay at top-left of yellow card only (same DOM flow as no plushie) */
+/* Plushie: small overlay on the existing banner — no layout padding, no CSS shadows */
 .scrap-dash-plushie--corner {
   position: absolute;
-  left: -6px;
-  top: -14px;
-  width: min(152px, 40vw);
-  height: min(152px, 40vw);
+  left: -4px;
+  top: -10px;
+  width: min(96px, 26vw);
+  height: min(96px, 26vw);
   z-index: 4;
   pointer-events: none;
+  filter: none;
+  box-shadow: none;
 }
 
 .scrap-dash-plushie--corner .scrap-dash-plushie-lottie {
   position: relative;
   z-index: 1;
+  filter: none !important;
+  box-shadow: none !important;
 }
 
 .scrap-dash-plushie-lottie,
 .scrap-dash-plushie-lottie svg {
   width: 100% !important;
   height: 100% !important;
+}
+
+.scrap-dash-plushie--corner svg,
+.scrap-dash-plushie--corner svg * {
+  filter: none !important;
 }
 
 .scrap-dash-plushie--corner.scrap-dash-plushie--enter {
@@ -1114,25 +1123,16 @@ textarea { min-height: 88px; resize: vertical; }
 @keyframes scrap-dash-plushie-enter {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.9);
+    transform: translateY(12px) scale(0.92);
   }
   65% {
     opacity: 1;
-    transform: translateY(-2px) scale(1.02);
+    transform: translateY(-1px) scale(1.02);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
-
-.scrap-sticky--upcoming--has-dash-plushie .scrap-sticky-label--appt-plushie-pad {
-  padding-left: min(108px, 30vw);
-  box-sizing: border-box;
-}
-
-.scrap-sticky--upcoming--has-dash-plushie .scrap-reminders-prompt {
-  margin-left: min(108px, 30vw);
 }
 
 .scrap-sticky--upcoming {

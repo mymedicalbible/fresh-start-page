@@ -1754,7 +1754,7 @@ export function DashboardPage () {
           const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
           return (
         <section
-          className={`scrap-sticky scrap-sticky--upcoming${hasDashPlushie ? ' scrap-sticky--upcoming--has-dash-plushie' : ''}`}
+          className="scrap-sticky scrap-sticky--upcoming"
           aria-label="Appointments"
           style={{ touchAction: 'manipulation' }}
           onPointerDown={onApptBannerPointerDown}
@@ -1772,7 +1772,7 @@ export function DashboardPage () {
               <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
             </div>
           )}
-          <div className={`scrap-sticky-label${hasDashPlushie ? ' scrap-sticky-label--appt-plushie-pad' : ''}`}>{bannerLabel}</div>
+          <div className="scrap-sticky-label">{bannerLabel}</div>
           {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
             <button
               type="button"
