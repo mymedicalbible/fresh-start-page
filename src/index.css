@@ -320,6 +320,7 @@ body:has(.scrap-more-page--hub) {
 }
 
 .more-polaroid__photo--plushies {
+  overflow: visible;
   background:
     radial-gradient(ellipse 70% 50% at 20% 30%, rgba(255, 255, 255, 0.5) 0%, transparent 50%),
     radial-gradient(ellipse 60% 45% at 82% 70%, rgba(253, 224, 200, 0.48) 0%, transparent 52%),
@@ -327,6 +328,8 @@ body:has(.scrap-more-page--hub) {
 }
 
 .more-polaroid__title {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-crayon);
   font-size: clamp(2rem, 5.5vw, 2.65rem);
   font-weight: 700;
@@ -392,6 +395,16 @@ body:has(.scrap-more-page--hub) {
   animation-delay: 2.4s;
 }
 .cork-sparkles__shape--6 { top: 55%; right: -2%; animation-delay: 3s; }
+
+/* Polaroid-only: a bit tighter and calmer than the full note */
+.cork-sparkles--polaroid {
+  inset: -6px;
+  opacity: 0.72;
+}
+
+.cork-sparkles--polaroid .cork-sparkles__shape {
+  animation-duration: 4.6s;
+}
 
 @keyframes cork-sparkle-pulse {
   0%, 100% {

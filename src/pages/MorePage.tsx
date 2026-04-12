@@ -1,36 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
-
-/**
- * PNGs cropped from the PSD `Object` layer (real alpha). The flat JPG in the zip has no transparency;
- * the opaque `Background` layer was omitted when exporting.
- */
-function PressedFlowerPhotos () {
-  return (
-    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
-      <img
-        src="/flowers/flower1.png"
-        alt=""
-        style={{ position: 'absolute', top: '10%', left: '3%', width: 60, transform: 'rotate(-20deg)', opacity: 0.85, pointerEvents: 'none' }}
-      />
-      <img
-        src="/flowers/flower2.png"
-        alt=""
-        style={{ position: 'absolute', top: '8%', right: '5%', width: 50, transform: 'rotate(25deg)', opacity: 0.85, pointerEvents: 'none' }}
-      />
-      <img
-        src="/flowers/flower3.png"
-        alt=""
-        style={{ position: 'absolute', top: '50%', right: '6%', width: 55, transform: 'rotate(15deg)', opacity: 0.85, pointerEvents: 'none' }}
-      />
-      <img
-        src="/flowers/flower4.png"
-        alt=""
-        style={{ position: 'absolute', bottom: '20%', left: '5%', width: 55, transform: 'rotate(-15deg)', opacity: 0.85, pointerEvents: 'none' }}
-      />
-    </div>
-  )
-}
+import { PlushiesSparkles } from '../components/more'
 
 type PolaroidNavCardProps = {
   to: string
@@ -40,6 +10,7 @@ type PolaroidNavCardProps = {
   tapeClass: '' | 'more-polaroid__tape--rose'
   frameRotateClass: string
   ariaLabel: string
+  sparkles?: boolean
 }
 
 function PolaroidNavCard ({
@@ -50,6 +21,7 @@ function PolaroidNavCard ({
   tapeClass,
   frameRotateClass,
   ariaLabel,
+  sparkles = false,
 }: PolaroidNavCardProps) {
   return (
     <Link
@@ -65,6 +37,7 @@ function PolaroidNavCard ({
           aria-hidden
         />
         <div className={`more-polaroid__photo ${photoClass}`}>
+          {sparkles ? <PlushiesSparkles compact /> : null}
           <span className="more-polaroid__title">{title}</span>
         </div>
         <div className="more-polaroid__caption-strip">
@@ -82,29 +55,26 @@ export function MorePage () {
         <BackButton fallbackTo="/app" />
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <PressedFlowerPhotos />
-
-        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-4 py-8 sm:flex-row sm:gap-16 md:gap-20 sm:py-10">
-          <PolaroidNavCard
-            to="/app/profile"
-            title="Account"
-            caption="profile & settings"
-            photoClass="more-polaroid__photo--account"
-            tapeClass=""
-            frameRotateClass="-rotate-[2.5deg]"
-            ariaLabel="Account — profile and settings"
-          />
-          <PolaroidNavCard
-            to="/app/plushies"
-            title="Plushies"
-            caption="shop & collect"
-            photoClass="more-polaroid__photo--plushies"
-            tapeClass="more-polaroid__tape--rose"
-            frameRotateClass="rotate-[2.5deg]"
-            ariaLabel="Plushies — shop and collect"
-          />
-        </div>
+      <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-4 py-8 sm:flex-row sm:gap-16 md:gap-20 sm:py-10">
+        <PolaroidNavCard
+          to="/app/profile"
+          title="Account"
+          caption="profile & settings"
+          photoClass="more-polaroid__photo--account"
+          tapeClass=""
+          frameRotateClass="-rotate-[2.5deg]"
+          ariaLabel="Account — profile and settings"
+        />
+        <PolaroidNavCard
+          to="/app/plushies"
+          title="Plushies"
+          caption="shop & collect"
+          photoClass="more-polaroid__photo--plushies"
+          tapeClass="more-polaroid__tape--rose"
+          frameRotateClass="rotate-[2.5deg]"
+          ariaLabel="Plushies — shop and collect"
+          sparkles
+        />
       </div>
     </div>
   )
