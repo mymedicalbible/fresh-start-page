@@ -419,6 +419,9 @@ export function QuickLogPage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     clearQuickLogDraft()
+    try {
+      sessionStorage.setItem('mb-analytics-refresh', '1')
+    } catch { /* ignore */ }
     setPostSave({ archive: '/app/records?tab=pain', title: 'Pain log archive' })
   }
 
@@ -439,6 +442,9 @@ export function QuickLogPage () {
     setBusy(false)
     if (e) { setError(e.message); return }
     clearQuickLogDraft()
+    try {
+      sessionStorage.setItem('mb-analytics-refresh', '1')
+    } catch { /* ignore */ }
     setPostSave({ archive: '/app/records?tab=symptoms', title: 'Episode archive' })
   }
 

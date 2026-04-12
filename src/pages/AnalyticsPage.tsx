@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, subDays } from 'date-fns'
+import { useLocation } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -62,6 +63,7 @@ function parseSymptomTokens (text: string | null): string[] {
 
 export function AnalyticsPage () {
   const { user } = useAuth()
+  const location = useLocation()
   const [pain, setPain] = useState<PainRow[]>([])
   const [symptomEpisodes, setSymptomEpisodes] = useState<SymptomRow[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -71,34 +73,54 @@ export function AnalyticsPage () {
   const [expandPainAreas, setExpandPainAreas] = useState(false)
   const [expandSymptoms, setExpandSymptoms] = useState(false)
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    void (async () => {
+    setError(null)
+    try {
       try {
-        const since = range === 'all'
-          ? null
-          : format(subDays(new Date(), Number(range)), 'yyyy-MM-dd')
+        if (sessionStorage.getItem('mb-analytics-refresh') === '1') {
+          sessionStorage.removeItem('mb-analytics-refresh')
+        }
+      } catch { /* ignore */ }
 
-        let pq = supabase.from('pain_entries')
-          .select('id, entry_date, entry_time, location, intensity')
-          .eq('user_id', user.id).order('entry_date', { ascending: true })
-        if (since) pq = pq.gte('entry_date', since)
+      const since = range === 'all'
+        ? null
+        : format(subDays(new Date(), Number(range)), 'yyyy-MM-dd')
 
-        let sq = supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, activity, symptoms, severity')
-          .eq('user_id', user.id).order('episode_date', { ascending: true })
-        if (since) sq = sq.gte('episode_date', since)
+      let pq = supabase.from('pain_entries')
+        .select('id, entry_date, entry_time, location, intensity')
+        .eq('user_id', user.id).order('entry_date', { ascending: true })
+      if (since) pq = pq.gte('entry_date', since)
 
-        const [p, s] = await Promise.all([pq, sq])
-        if (p.error) throw new Error(p.error.message)
-        if (s.error) throw new Error(s.error.message)
-        setPain((p.data ?? []) as PainRow[])
-        setSymptomEpisodes((s.data ?? []) as SymptomRow[])
-      } catch (e: any) { setError(e?.message ?? String(e)) }
-      finally { setLoading(false) }
-    })()
+      let sq = supabase.from('mcas_episodes')
+        .select('id, episode_date, episode_time, activity, symptoms, severity')
+        .eq('user_id', user.id).order('episode_date', { ascending: true })
+      if (since) sq = sq.gte('episode_date', since)
+
+      const [p, s] = await Promise.all([pq, sq])
+      if (p.error) throw new Error(p.error.message)
+      if (s.error) throw new Error(s.error.message)
+      setPain((p.data ?? []) as PainRow[])
+      setSymptomEpisodes((s.data ?? []) as SymptomRow[])
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
   }, [user, range])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData, location.key])
+
+  useEffect(() => {
+    function onPageShow (e: PageTransitionEvent) {
+      if (e.persisted) void loadData()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [loadData])
 
   // Top pain areas
   const areaStats = useMemo(() => {

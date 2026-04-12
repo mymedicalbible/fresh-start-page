@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import Lottie from 'lottie-react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import type { User } from '@supabase/supabase-js'
@@ -27,7 +28,12 @@ import {
 } from '../lib/apptQuestionsDraft'
 import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
 import { dismissPendingDockNorm, loadDismissedPendingDockNorms } from '../lib/pendingDockDismiss'
-import { gameTokensEnabled, tryGrantHandoffSummaryTokens } from '../lib/gameTokens'
+import {
+  fetchGameState,
+  gameTokensEnabled,
+  tryGrantHandoffSummaryTokens,
+  type ActivePlushie,
+} from '../lib/gameTokens'
 
 type UpcomingAppt = {
   id: string
@@ -152,6 +158,17 @@ function ScrapSticker ({
       <span className="scrap-sticker-title">{title}</span>
       <span className="scrap-sticker-sub">{sub}</span>
     </Link>
+  )
+}
+
+function DashPlushieLottie ({ data, className }: { data: object; className?: string }) {
+  return (
+    <Lottie
+      animationData={data}
+      loop
+      className={className}
+      style={{ width: '100%', height: '100%' }}
+    />
   )
 }
 
@@ -554,6 +571,16 @@ export function DashboardPage () {
   const dashTranscriberRef = useRef<VisitTranscriberHandle>(null)
   const [transcribeModalOpen, setTranscribeModalOpen] = useState(false)
 
+  const [dashGame, setDashGame] = useState<{
+    balance: number
+    next_price: number
+    owned_active: boolean
+    active_plushie: ActivePlushie | null
+  } | null>(null)
+  const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
+  const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
+  const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
+
   /** Live clock for banner label (ticks every 30 s) */
   const [nowMs, setNowMs] = useState(() => Date.now())
   useEffect(() => {
@@ -566,6 +593,70 @@ export function DashboardPage () {
       if (apptBannerLongPressTimerRef.current) clearTimeout(apptBannerLongPressTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user?.id || !gameTokensEnabled()) {
+      setDashGame(null)
+      setDashPlushieLottie(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const s = await fetchGameState()
+      if (cancelled) return
+      if (!s.ok) {
+        setDashGame(null)
+        return
+      }
+      setDashGame({
+        balance: s.balance,
+        next_price: s.next_price,
+        owned_active: s.owned_active,
+        active_plushie: s.active_plushie,
+      })
+      try {
+        const dismissed = sessionStorage.getItem('mb-plushie-afford-dismissed') === '1'
+        if (!s.owned_active && s.balance >= s.next_price && !dismissed) {
+          setPlushieAffordOpen(true)
+        }
+      } catch { /* ignore */ }
+      try {
+        if (sessionStorage.getItem('mb-dash-plushie-celebrate') === '1') {
+          sessionStorage.removeItem('mb-dash-plushie-celebrate')
+          if (s.owned_active) setPlushieDashCelebrate(true)
+        }
+      } catch { /* ignore */ }
+    })()
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!dashGame?.owned_active || !dashGame.active_plushie?.lottie_path) {
+      setDashPlushieLottie(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(dashGame.active_plushie!.lottie_path)
+        if (!res.ok) {
+          if (!cancelled) setDashPlushieLottie(null)
+          return
+        }
+        const json = (await res.json()) as object
+        if (!cancelled) setDashPlushieLottie(json)
+      } catch {
+        if (!cancelled) setDashPlushieLottie(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [dashGame?.owned_active, dashGame?.active_plushie?.lottie_path])
+
+  useEffect(() => {
+    if (!plushieDashCelebrate) return
+    const t = window.setTimeout(() => setPlushieDashCelebrate(false), 1400)
+    return () => clearTimeout(t)
+  }, [plushieDashCelebrate])
 
   /** Bottom sheet: open questions for upcoming appt doctor — with inline answering */
   const [apptOpenQsPopup, setApptOpenQsPopup] = useState<null | {
@@ -1391,7 +1482,7 @@ export function DashboardPage () {
           position: 'fixed',
           top: 14,
           right: 14,
-          /* Above .scrap-pending-section (100) and .bottom-nav (100), below modals (205+) */
+          /* Above pending stickers / bottom-nav, below modals (205+) */
           zIndex: 150,
           width: 58,
           height: 58,
@@ -1570,6 +1661,71 @@ export function DashboardPage () {
         document.body,
       )}
 
+      {plushieAffordOpen && gameTokensEnabled() && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="plushie-afford-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 8201,
+            background: 'rgba(15, 23, 42, 0.35)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => {
+            try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
+            setPlushieAffordOpen(false)
+          }}
+        >
+          <div
+            className="card shadow"
+            style={{
+              maxWidth: 380,
+              width: '100%',
+              borderRadius: 16,
+              padding: 20,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="plushie-afford-title" style={{ margin: '0 0 10px', fontSize: '1.1rem' }}>
+              Enough tokens for plushie
+            </h2>
+            <p className="muted" style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 16 }}>
+              You have enough tokens to unlock this week&apos;s plushie in the shop.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link
+                className="btn btn-primary"
+                style={{ flex: 1, minWidth: 140, justifyContent: 'center', display: 'inline-flex' }}
+                to="/app/plushies"
+                onClick={() => {
+                  try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
+                  setPlushieAffordOpen(false)
+                }}
+              >
+                Open plushie shop
+              </Link>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1, minWidth: 100 }}
+                onClick={() => {
+                  try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
+                  setPlushieAffordOpen(false)
+                }}
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="scrapbook-dashboard">
 
         <header className="scrap-dash-header">
@@ -1581,24 +1737,15 @@ export function DashboardPage () {
           </div>
         </header>
 
-        {/* Pending visit sticky notes — above appointments so they stay visible */}
-        {hasAnyPendingVisits && (
-          <PendingVisitStickers
-            entries={pendingDockEntries}
-            onNavigate={(resumeId, label) => {
-              void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
-            }}
-            onDismiss={(norm) => {
-              if (user?.id) dismissPendingDockNorm(user.id, norm)
-              setPendingVisitsByNorm((prev) => {
-                const next = { ...prev }
-                delete next[norm]
-                return next
-              })
-            }}
-          />
-        )}
-
+        <div className="scrap-appt-banner-wrap">
+          {dashGame?.owned_active && dashPlushieLottie && (
+            <div
+              className={`scrap-dash-plushie${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+              aria-hidden
+            >
+              <DashPlushieLottie data={dashPlushieLottie} className="scrap-dash-plushie-lottie" />
+            </div>
+          )}
         {(() => {
           // Label: upcoming / in progress / just finished (timing), or most recent past when nothing is upcoming
           const a = upcoming[0]
@@ -1707,6 +1854,24 @@ export function DashboardPage () {
         </section>
           )
         })()}
+        </div>
+
+        {hasAnyPendingVisits && (
+          <PendingVisitStickers
+            entries={pendingDockEntries}
+            onNavigate={(resumeId, label) => {
+              void openApptQuestionsPopup(label, { resumeId, doctorLabel: label })
+            }}
+            onDismiss={(norm) => {
+              if (user?.id) dismissPendingDockNorm(user.id, norm)
+              setPendingVisitsByNorm((prev) => {
+                const next = { ...prev }
+                delete next[norm]
+                return next
+              })
+            }}
+          />
+        )}
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">

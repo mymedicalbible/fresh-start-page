@@ -88,6 +88,9 @@ export function PlushieShopPage () {
       return
     }
     setBanner(`Unlocked! Spent ${r.spent} tokens.`)
+    try {
+      sessionStorage.setItem('mb-dash-plushie-celebrate', '1')
+    } catch { /* ignore */ }
     await load()
   }
 
