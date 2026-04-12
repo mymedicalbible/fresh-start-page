@@ -5,6 +5,7 @@ import { extractVisitFieldsFromTranscript, type ExtractedVisitFields, type Trans
 import { pushTranscriptArchive } from '../lib/transcriptArchive'
 import { formatExtractedClinicalSummary } from '../lib/transcriptVisitFormat'
 import { downloadTranscriptPdf } from '../lib/transcriptPdf'
+import { diagnosisStatusLabel } from '../lib/diagnosisStatusOptions'
 import { AppConfirmDialog } from './AppConfirmDialog'
 
 type Props = {
@@ -379,6 +380,24 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                   <div style={{ fontSize: '0.9rem' }}>{extracted.reason_for_visit.trim()}</div>
                 </div>
               )}
+              {(extracted.diagnoses ?? []).filter((d) => d.diagnosis?.trim()).map((d, i) => (
+                <div
+                  key={`diag-${i}`}
+                  style={{
+                    padding: '10px 14px',
+                    marginBottom: 10,
+                    background: 'var(--surface-alt, #f9f9f6)',
+                    borderRadius: 10,
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                    → Diagnosis directory
+                  </div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{d.diagnosis.trim()}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>{diagnosisStatusLabel(d.status)}</div>
+                </div>
+              ))}
               {extracted.summary.map((item, i) => (
                 <div key={i} style={{
                   padding: '10px 14px',
@@ -394,7 +413,8 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                   <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>{item.value}</div>
                 </div>
               ))}
-              {extracted.summary.length === 0 && (
+              {extracted.summary.length === 0 && !extracted.reason_for_visit?.trim()
+                && !(extracted.diagnoses ?? []).some((d) => d.diagnosis?.trim()) && (
                 <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>No fields extracted.</p>
               )}
             </div>

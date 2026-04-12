@@ -22,6 +22,13 @@ import {
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 import { AppConfirmDialog } from './AppConfirmDialog'
 import { normalizeExtractedFields, type ExtractedVisitFields } from '../lib/transcriptExtract'
+import {
+  DIAGNOSIS_STATUS_OPTIONS,
+  dedupeDiagnosisRows,
+  type DiagnosisDirectoryStatus,
+} from '../lib/diagnosisStatusOptions'
+import { upsertDiagnosesFromVisit } from '../lib/diagnosisDirectoryFromVisit'
+import { splitDoseFrequencyFromCombined } from '../lib/medDoseParse'
 import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
 import { buildClinicalNotesSupplement } from '../lib/transcriptVisitFormat'
 import { formatVisitDateLong } from '../lib/formatTime12h'
@@ -52,6 +59,7 @@ function draftLooksMeaningful (d: VisitWizardDraftV1) {
     d.notes.trim() ||
     d.nextApptDate.trim() ||
     d.dvTests.some((t) => t.test_name.trim() || t.reason.trim()) ||
+    (d.dvDiagnoses?.some((x) => x.diagnosis.trim()) ?? false) ||
     d.dvMeds.length > 0 ||
     d.newMedEntry.medication.trim()
   )
@@ -119,6 +127,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const visitFileInputRef = useRef<HTMLInputElement>(null)
 
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
+  const [dvDiagnoses, setDvDiagnoses] = useState<{ diagnosis: string; status: DiagnosisDirectoryStatus }[]>([])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '', prn: false })
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [findings, setFindings] = useState('')
@@ -129,6 +138,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const [nextApptEndTime, setNextApptEndTime] = useState('')
 
   const [openTests, setOpenTests] = useState(false)
+  const [openDiagnoses, setOpenDiagnoses] = useState(false)
   const [openMeds, setOpenMeds] = useState(false)
   const [openClinical, setOpenClinical] = useState(false)
   const [openDocs, setOpenDocs] = useState(false)
@@ -165,6 +175,10 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     if (fields.tests?.length) {
       setDvTests(fields.tests.map((t) => ({ test_name: t.test_name, reason: t.reason })))
       setOpenTests(true)
+    }
+    if (fields.diagnoses?.length) {
+      setDvDiagnoses(dedupeDiagnosisRows(fields.diagnoses))
+      setOpenDiagnoses(true)
     }
     if (fields.medications?.length) {
       setDvMeds((prev) => {
@@ -225,6 +239,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       reason,
       questionLines: questionLines.map((q) => ({ ...q })),
       dvTests: dvTests.map((t) => ({ ...t })),
+      dvDiagnoses: dvDiagnoses.map((d) => ({ ...d })),
       dvMeds: dvMeds.map((m) => ({ ...m })),
       newMedEntry: { ...newMedEntry },
       findings,
@@ -234,7 +249,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       nextApptTime,
       nextApptEndTime,
     }
-  }, [user, step, visitId, visitDate, visitTime, doctorMode, selectedName, newDoctorName, specialty, reason, questionLines, dvTests, dvMeds, newMedEntry, findings, instructions, notes, nextApptDate, nextApptTime, nextApptEndTime])
+  }, [user, step, visitId, visitDate, visitTime, doctorMode, selectedName, newDoctorName, specialty, reason, questionLines, dvTests, dvDiagnoses, dvMeds, newMedEntry, findings, instructions, notes, nextApptDate, nextApptTime, nextApptEndTime])
 
   const isWizardDirty = useCallback(() => {
     if (step >= 2) return true
@@ -248,11 +263,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       notes.trim() ||
       nextApptDate.trim() ||
       dvTests.some((t) => t.test_name.trim() || t.reason.trim()) ||
+      dvDiagnoses.some((d) => d.diagnosis.trim()) ||
       dvMeds.length > 0 ||
       newMedEntry.medication.trim() ||
       questionLines.some((q) => q.text.trim())
     )
-  }, [step, visitId, reason, effectiveName, specialty, findings, instructions, notes, nextApptDate, dvTests, dvMeds, newMedEntry, questionLines])
+  }, [step, visitId, reason, effectiveName, specialty, findings, instructions, notes, nextApptDate, dvTests, dvDiagnoses, dvMeds, newMedEntry, questionLines])
 
   function applyDraft (d: VisitWizardDraftV1) {
     setStep(d.step)
@@ -266,6 +282,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setReason(d.reason)
     setQuestionLines(d.questionLines.length ? d.questionLines : [{ text: '', priority: 'Medium' }])
     setDvTests(d.dvTests.length ? d.dvTests : [{ test_name: '', reason: '' }])
+    setDvDiagnoses(d.dvDiagnoses?.length ? dedupeDiagnosisRows(d.dvDiagnoses) : [])
     setDvMeds(d.dvMeds)
     setNewMedEntry({
       medication: d.newMedEntry.medication,
@@ -280,10 +297,12 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setNextApptTime(d.nextApptTime)
     setNextApptEndTime(d.nextApptEndTime)
     const hasTests = d.dvTests.some((t) => t.test_name.trim() || t.reason.trim()) || d.dvTests.length > 1
+    const hasDiags = (d.dvDiagnoses?.some((x) => x.diagnosis.trim()) ?? false)
     const hasMeds = d.dvMeds.length > 0 || !!d.newMedEntry.medication.trim()
     const hasClinical = !!(d.findings.trim() || d.instructions.trim() || d.notes.trim())
     const hasNext = !!(d.nextApptDate.trim() || d.nextApptTime.trim() || d.nextApptEndTime.trim())
     setOpenTests(hasTests)
+    setOpenDiagnoses(hasDiags)
     setOpenMeds(hasMeds)
     setOpenClinical(hasClinical)
     setOpenDocs(false)
@@ -355,7 +374,13 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     const prefix = `Prescribed by: ${name}%`
     const { data } = await supabase.from('current_medications').select('id, medication, dose').eq('user_id', user.id).ilike('notes', prefix)
     const meds = (data ?? []) as { id: string; medication: string; dose: string | null }[]
-    setDvMeds(meds.map((m) => ({ medication: m.medication, dose: m.dose ?? '', action: 'keep' as const })))
+    const fromDb = meds.map((m) => ({ medication: m.medication, dose: m.dose ?? '', action: 'keep' as const }))
+    /** Keep meds not yet in DB (e.g. from transcript) instead of overwriting the list. */
+    setDvMeds((prev) => {
+      const dbKeys = new Set(fromDb.map((m) => m.medication.trim().toLowerCase()))
+      const extras = prev.filter((m) => !dbKeys.has(m.medication.trim().toLowerCase()))
+      return [...fromDb, ...extras]
+    })
   }
 
   useEffect(() => {
@@ -520,6 +545,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setBusy(true)
     try {
       const validTests = dvTests.filter((t) => t.test_name.trim())
+      const validDiags = dedupeDiagnosisRows(dvDiagnoses.filter((d) => d.diagnosis.trim()))
       const testsStr = validTests.map((t) => t.test_name.trim()).join(', ') || null
       const medsStr = [
         ...dvMeds.filter((m) => m.action === 'keep').map((m) => `${m.medication}${m.dose ? ` (${m.dose})` : ''}`),
@@ -575,6 +601,10 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
         )
       }
 
+      if (!asPending && validDiags.length > 0) {
+        await upsertDiagnosesFromVisit(supabase, user.id, effectiveName, visitDate, validDiags)
+      }
+
       if (!asPending && nextApptDate) {
         const apptPayload: Record<string, unknown> = {
           user_id: user.id,
@@ -598,15 +628,36 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           await supabase.from('current_medications').delete().eq('user_id', user.id).eq('medication', m.medication)
         }
       }
+      if (!asPending) {
+        for (const m of dvMeds) {
+          if (m.action !== 'keep') continue
+          const medName = m.medication.trim()
+          if (!medName) continue
+          const { dose, frequency } = splitDoseFrequencyFromCombined(m.dose)
+          const { error: upErr } = await supabase.from('current_medications').upsert({
+            user_id: user.id,
+            medication: medName,
+            dose,
+            frequency,
+            notes: `Prescribed by: ${effectiveName}`,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,medication' })
+          if (upErr) console.warn('current_medications upsert:', upErr.message)
+        }
+      }
       if (!asPending && newMedEntry.medication.trim()) {
-        await supabase.from('current_medications').upsert({
-          user_id: user.id,
-          medication: newMedEntry.medication.trim(),
-          dose: newMedEntry.dose || null,
-          frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
-          notes: `Prescribed by: ${effectiveName}`,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,medication' })
+        const key = newMedEntry.medication.trim().toLowerCase()
+        const alreadyKept = dvMeds.some((m) => m.action === 'keep' && m.medication.trim().toLowerCase() === key)
+        if (!alreadyKept) {
+          await supabase.from('current_medications').upsert({
+            user_id: user.id,
+            medication: newMedEntry.medication.trim(),
+            dose: newMedEntry.dose || null,
+            frequency: newMedEntry.prn ? 'As needed' : (newMedEntry.frequency.trim() || null),
+            notes: `Prescribed by: ${effectiveName}`,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,medication' })
+        }
       }
 
       void ensureDoctorProfile(user.id, effectiveName, specialty || null)
@@ -712,13 +763,13 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     if (bundleRaw) {
       try {
         const b = JSON.parse(bundleRaw) as {
-          fields: ExtractedVisitFields
+          fields: Record<string, unknown>
           transcript?: string
           doctorName?: string
           visitDate?: string
         }
         sessionStorage.removeItem(bundleKey)
-        fields = b.fields
+        fields = normalizeExtractedFields(b.fields)
         const vd = (b.visitDate ?? '').trim()
         if (/^\d{4}-\d{2}-\d{2}/.test(vd)) {
           setVisitDate(vd.slice(0, 10))
@@ -997,7 +1048,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
               {formatVisitDateLong(visitDate)}
             </div>
           </div>
-          <p style={{ margin: '0 0 14px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds & follow-up</p>
+          <p style={{ margin: '0 0 14px', fontSize: '0.9rem', color: '#475569' }}>Tests, meds, diagnoses & follow-up</p>
 
           <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
             <button
@@ -1090,6 +1141,60 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                     />
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-block"
+              style={{ justifyContent: 'space-between', textAlign: 'left', borderRadius: '12px 12px 0 0', fontWeight: 600 }}
+              onClick={() => setOpenDiagnoses((o) => !o)}
+            >
+              <span>Diagnosis directory</span>
+              <span className="muted" style={{ fontWeight: 400, fontSize: '0.78rem' }}>{openDiagnoses ? 'Hide' : '+ Review or add diagnoses'}</span>
+            </button>
+            {openDiagnoses && (
+              <div style={{ padding: '0 12px 12px' }}>
+                <p style={{ margin: '0 0 10px', fontSize: '0.76rem', color: '#64748b', lineHeight: 1.4 }}>
+                  Rows here update your Diagnosis directory when you save the visit as complete. They are not written on “save for later.”
+                </p>
+                {dvDiagnoses.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                    <input
+                      style={{ ...WIZARD_TX_INLINE, flex: '2 1 140px' }}
+                      placeholder="Diagnosis name"
+                      value={d.diagnosis}
+                      onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, diagnosis: e.target.value } : x))}
+                    />
+                    <select
+                      style={{ ...WIZARD_TX_INLINE, flex: '1 1 120px', minHeight: 38 }}
+                      value={d.status}
+                      onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, status: e.target.value as DiagnosisDirectoryStatus } : x))}
+                    >
+                      {DIAGNOSIS_STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setDvDiagnoses((p) => p.filter((_, j) => j !== i))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.8rem' }}
+                  onClick={() => setDvDiagnoses((p) => [...p, { diagnosis: '', status: 'Suspected' }])}
+                >
+                  + Add diagnosis row
+                </button>
               </div>
             )}
           </div>

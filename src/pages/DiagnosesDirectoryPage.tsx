@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
+import { DIAGNOSIS_STATUS_OPTIONS } from '../lib/diagnosisStatusOptions'
 
 
 type DiagnosisRow = {
@@ -43,14 +44,6 @@ const DIAGNOSIS_SUGGESTIONS = [
   'Small Fiber Neuropathy', 'Migraine', 'Cluster Headaches',
   'Sleep Apnea', 'Narcolepsy', 'Restless Leg Syndrome',
   'Anxiety Disorder', 'Depression', 'PTSD', 'ADHD', 'Autism Spectrum',
-]
-
-
-const STATUS_OPTIONS = [
-  { value: 'Suspected', label: '🟡 Suspected', color: '#fef3c7', text: '#92400e' },
-  { value: 'Confirmed', label: '🟢 Confirmed', color: '#d1fae5', text: '#065f46' },
-  { value: 'Ruled Out', label: '🔴 Ruled out', color: '#fee2e2', text: '#991b1b' },
-  { value: 'Resolved', label: '⚪ Resolved', color: '#f3f4f6', text: '#374151' },
 ]
 
 
@@ -190,7 +183,7 @@ export function DiagnosesDirectoryPage () {
 
 
   const statusStyle = (status: string) => {
-    const s = STATUS_OPTIONS.find((x) => x.value === status)
+    const s = DIAGNOSIS_STATUS_OPTIONS.find((x) => x.value === status)
     return s ? { background: s.color, color: s.text } : {}
   }
 
@@ -281,7 +274,7 @@ export function DiagnosesDirectoryPage () {
           <div className="form-group">
             <label>Status</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {STATUS_OPTIONS.map((s) => (
+              {DIAGNOSIS_STATUS_OPTIONS.map((s) => (
                 <button key={s.value} type="button"
                   style={{
                     padding: '6px 14px', borderRadius: 20, fontSize: '0.85rem',

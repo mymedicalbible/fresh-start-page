@@ -1,3 +1,5 @@
+import type { DiagnosisDirectoryStatus } from './diagnosisStatusOptions'
+
 export const VISIT_WIZARD_DRAFT_KEY = 'mb-visit-wizard-draft-v1'
 
 export type VisitWizardDraftV1 = {
@@ -14,6 +16,8 @@ export type VisitWizardDraftV1 = {
   reason: string
   questionLines: { text: string; priority: string }[]
   dvTests: { test_name: string; reason: string }[]
+  /** Diagnosis directory rows from transcript or manual entry (optional for older saved drafts). */
+  dvDiagnoses?: { diagnosis: string; status: DiagnosisDirectoryStatus }[]
   dvMeds: { medication: string; dose: string; action: 'keep' | 'remove' }[]
   newMedEntry: { medication: string; dose: string; frequency: string; prn?: boolean }
   findings: string

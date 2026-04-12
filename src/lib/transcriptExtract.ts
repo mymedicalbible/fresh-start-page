@@ -1,5 +1,10 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import {
+  dedupeDiagnosisRows,
+  type DiagnosisDirectoryStatus,
+  normalizeDiagnosisDirectoryStatus,
+} from './diagnosisStatusOptions'
 
 export type ExtractedVisitFields = {
   /** Chief complaint / why the patient came in (not exam findings). */
@@ -9,6 +14,8 @@ export type ExtractedVisitFields = {
   notes: string
   tests: { test_name: string; reason: string }[]
   medications: { medication: string; dose: string; frequency: string }[]
+  /** Structured rows for the diagnosis directory (confirmed, suspected, ruled out, resolved). */
+  diagnoses: { diagnosis: string; status: DiagnosisDirectoryStatus }[]
   follow_up_date: string
   follow_up_time: string
   summary: { field: string; value: string; destination: string }[]
@@ -91,6 +98,14 @@ FIELD DEFINITIONS — keep content in exactly ONE place; do not duplicate the sa
 
 5) "medications" — every drug discussed (new, changed, continued, stopped). One object per distinct medication. Dose and frequency in the structured fields.
 
+6) "diagnoses" — structured list for the patient's diagnosis directory. Each object: condition name + ONE status from exactly this set: "Suspected", "Confirmed", "Ruled Out", "Resolved".
+   - "Confirmed": clinician states the patient has this diagnosis or it is established.
+   - "Suspected": differential, "we're considering", working diagnosis, or not yet confirmed.
+   - "Ruled Out": clinician explicitly says this diagnosis does NOT apply or was excluded.
+   - "Resolved": prior diagnosis no longer active or cleared.
+   Include ONLY diagnoses clearly tied to clinical assessment in the visit (not casual mentions). If none, use [].
+   Do not stuff the full differential into duplicate rows; one row per distinct condition with the best-fitting status.
+
 CRITICAL:
 - Never paste the full transcript into any one field.
 - Avoid repeating the same sentence in findings, instructions, and notes.
@@ -109,6 +124,7 @@ Return ONLY a JSON object with exactly these fields. No preamble, no markdown, n
   "notes": "logistics/admin only",
   "tests": [{ "test_name": "name of test", "reason": "why ordered" }],
   "medications": [{ "medication": "name", "dose": "dose if mentioned", "frequency": "frequency if mentioned" }],
+  "diagnoses": [{ "diagnosis": "condition name", "status": "Suspected" | "Confirmed" | "Ruled Out" | "Resolved" }],
   "follow_up_date": "YYYY-MM-DD or empty",
   "follow_up_time": "HH:MM only if explicit clock time stated; else empty",
   "summary": [{ "field": "label", "value": "brief value", "destination": "visit log section" }]
@@ -177,6 +193,20 @@ export function normalizeExtractedFields (raw: Record<string, unknown>): Extract
         }
       })
     : []
+  const diagRaw = raw.diagnoses
+  const diagnosesParsed: { diagnosis: string; status: DiagnosisDirectoryStatus }[] = Array.isArray(diagRaw)
+    ? diagRaw.map((d) => {
+        if (!d || typeof d !== 'object') return { diagnosis: '', status: 'Suspected' as DiagnosisDirectoryStatus }
+        const o = d as Record<string, unknown>
+        const diagnosis = typeof o.diagnosis === 'string' ? o.diagnosis : ''
+        const statusRaw = typeof o.status === 'string' ? o.status : ''
+        return {
+          diagnosis,
+          status: normalizeDiagnosisDirectoryStatus(statusRaw || 'Suspected'),
+        }
+      })
+    : []
+  const diagnoses = dedupeDiagnosisRows(diagnosesParsed)
   const sumRaw = raw.summary
   const summary: { field: string; value: string; destination: string }[] = Array.isArray(sumRaw)
     ? sumRaw.map((x) => {
@@ -196,6 +226,7 @@ export function normalizeExtractedFields (raw: Record<string, unknown>): Extract
     notes: s('notes'),
     tests,
     medications,
+    diagnoses,
     follow_up_date: s('follow_up_date'),
     follow_up_time: s('follow_up_time'),
     summary,

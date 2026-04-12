@@ -581,6 +581,39 @@ export function DashboardPage () {
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
   const dashTranscriberRef = useRef<VisitTranscriberHandle>(null)
   const [transcribeModalOpen, setTranscribeModalOpen] = useState(false)
+  /** Meds / diagnoses for extract context (VisitTranscriber prompt). */
+  const [transcriptExtractMeds, setTranscriptExtractMeds] = useState<string[]>([])
+  const [transcriptExtractDiags, setTranscriptExtractDiags] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!user?.id || !transcribeModalOpen) return
+    let cancelled = false
+    void (async () => {
+      const [medRes, diagRes] = await Promise.all([
+        supabase.from('current_medications').select('medication').eq('user_id', user.id).order('medication'),
+        supabase
+          .from('diagnoses_directory')
+          .select('diagnosis, status')
+          .eq('user_id', user.id)
+          .order('date_diagnosed', { ascending: false })
+          .limit(50),
+      ])
+      if (cancelled) return
+      setTranscriptExtractMeds(
+        (medRes.data ?? []).map((r) => String((r as { medication?: string }).medication ?? '').trim()).filter(Boolean),
+      )
+      setTranscriptExtractDiags(
+        (diagRes.data ?? []).map((r) => {
+          const row = r as { diagnosis?: string | null; status?: string | null }
+          const d = String(row.diagnosis ?? '').trim()
+          const s = String(row.status ?? '').trim()
+          if (!d) return ''
+          return s ? `${d} (${s})` : d
+        }).filter(Boolean),
+      )
+    })()
+    return () => { cancelled = true }
+  }, [user?.id, transcribeModalOpen])
 
   const [dashGame, setDashGame] = useState<{
     balance: number
@@ -1636,8 +1669,8 @@ export function DashboardPage () {
               ref={dashTranscriberRef}
               doctorName=""
               visitDate={localISODate()}
-              existingMeds={[]}
-              knownDiagnoses={[]}
+              existingMeds={transcriptExtractMeds}
+              knownDiagnoses={transcriptExtractDiags}
               onExtracted={handleDashTranscriptExtracted}
             />
           </div>

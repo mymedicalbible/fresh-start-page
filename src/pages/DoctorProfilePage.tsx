@@ -7,6 +7,7 @@ import { useDoctorNoteModal } from '../contexts/DoctorNoteModalContext'
 import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsVisitLogged'
 import { formatTime12h } from '../lib/formatTime12h'
 import { VisitNotesWithTranscriptFold } from '../components/VisitNotesWithTranscriptFold'
+import { DIAGNOSIS_STATUS_OPTIONS } from '../lib/diagnosisStatusOptions'
 
 
 /* ──────────────── Types ──────────────── */
@@ -43,12 +44,6 @@ type ProfileNoteRow = { id: string; body: string; created_at: string }
 
 
 /* ──────────────── Constants ──────────────── */
-const STATUS_OPTIONS = [
-  { value: 'Suspected', label: '🟡 Suspected', color: '#fef3c7', text: '#92400e' },
-  { value: 'Confirmed', label: '🟢 Confirmed', color: '#d1fae5', text: '#065f46' },
-  { value: 'Ruled Out', label: '🔴 Ruled out', color: '#fee2e2', text: '#991b1b' },
-  { value: 'Resolved', label: '⚪ Resolved', color: '#f3f4f6', text: '#374151' },
-]
 
 function todayISO () { return new Date().toISOString().slice(0, 10) }
 
@@ -898,12 +893,12 @@ export function DoctorProfilePage () {
               <div>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8, color: '#555' }}>Existing diagnoses</div>
                 {diagDir.map((d) => {
-                  const s = STATUS_OPTIONS.find((x) => x.value === d.status)
+                  const s = DIAGNOSIS_STATUS_OPTIONS.find((x) => x.value === d.status)
                   return (
                     <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 8px', borderRadius: 8, background: s?.color ?? '#f9f9f9', marginBottom: 5 }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 600, color: s?.text }}>{d.diagnosis}</span>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        {STATUS_OPTIONS.filter((x) => x.value !== d.status).map((x) => (
+                        {DIAGNOSIS_STATUS_OPTIONS.filter((x) => x.value !== d.status).map((x) => (
                           <button key={x.value} type="button" className="btn btn-ghost"
                             style={{ fontSize: '0.7rem', padding: '2px 6px', background: x.color, color: x.text }}
                             onClick={() => updateDiagStatus(d.id, x.value)}>{x.value}</button>
@@ -944,7 +939,7 @@ export function DoctorProfilePage () {
         {diagDir.length > 0 && (
           <div style={{ display: 'grid', gap: 8, marginBottom: diagnoses.length > 0 ? 16 : 0 }}>
             {diagDir.map((d) => {
-              const s = STATUS_OPTIONS.find((x) => x.value === d.status)
+              const s = DIAGNOSIS_STATUS_OPTIONS.find((x) => x.value === d.status)
               return (
                 <div key={d.id} style={{ padding: '10px 12px', borderRadius: 10, background: s?.color ?? '#f9f9f9' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -953,7 +948,7 @@ export function DoctorProfilePage () {
                   </div>
                   {d.date_diagnosed && <div className="muted" style={{ fontSize: '0.8rem', marginTop: 2 }}>Since: {d.date_diagnosed}</div>}
                   <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
-                    {STATUS_OPTIONS.filter((x) => x.value !== d.status).map((x) => (
+                    {DIAGNOSIS_STATUS_OPTIONS.filter((x) => x.value !== d.status).map((x) => (
                       <button key={x.value} type="button" className="btn btn-ghost"
                         style={{ fontSize: '0.7rem', padding: '2px 8px', background: '#fff', color: x.text, border: `1px solid ${x.color}` }}
                         onClick={() => updateDiagStatus(d.id, x.value)}>{x.label}</button>

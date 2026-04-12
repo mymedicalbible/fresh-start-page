@@ -21,6 +21,14 @@ export function formatExtractedClinicalSummary (f: ExtractedVisitFields): string
       ).join('\n')}`,
     )
   }
+  const diags = (f.diagnoses ?? []).filter((d) => d.diagnosis?.trim())
+  if (diags.length) {
+    blocks.push(
+      `Diagnoses (directory)\n${diags.map((d) =>
+        `• ${d.diagnosis.trim()} — ${d.status}`,
+      ).join('\n')}`,
+    )
+  }
   if (f.follow_up_date?.trim() || f.follow_up_time?.trim()) {
     const bits = [f.follow_up_date?.trim(), f.follow_up_time?.trim()].filter(Boolean)
     if (bits.length) blocks.push(`Follow-up\n${bits.join(' · ')}`)
