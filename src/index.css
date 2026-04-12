@@ -1028,6 +1028,11 @@ textarea { min-height: 88px; resize: vertical; }
   background: rgba(130, 168, 130, 0.65);
 }
 
+/* Above corner plushie on home appointment card */
+.scrap-sticky--upcoming .scrap-tape--green {
+  z-index: 5;
+}
+
 .scrap-tape--pink {
   top: -7px;
   left: 50%;
@@ -1080,56 +1085,18 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
 }
 
-/* Top band: panda left column, title + reminders right (no overlap) */
-.scrap-appt-banner-toprow {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 8px 12px;
-  margin-top: 2px;
-}
-
-.scrap-appt-banner-toprow-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.scrap-appt-banner-toprow-text .scrap-sticky-label {
-  margin-bottom: 6px;
-}
-
-.scrap-dash-plushie--in-toprow {
-  position: relative;
-  flex: 0 0 auto;
-  align-self: flex-start;
-  width: min(200px, 46vw);
-  height: min(200px, 46vw);
-  margin: -4px 0 4px -6px;
-  pointer-events: none;
-  transform-origin: center bottom;
-  filter: drop-shadow(0 2px 4px rgba(74, 55, 40, 0.2));
-}
-
-.scrap-dash-plushie--in-toprow::after {
-  content: '';
+/* Plushie: decorative overlay at top-left of yellow card only (same DOM flow as no plushie) */
+.scrap-dash-plushie--corner {
   position: absolute;
-  left: 14%;
-  right: 14%;
-  bottom: 0;
-  height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse 100% 80% at 50% 0%,
-    rgba(45, 35, 28, 0.32) 0%,
-    rgba(45, 35, 28, 0.1) 45%,
-    transparent 72%
-  );
-  transform: translateY(30%);
+  left: -6px;
+  top: -14px;
+  width: min(152px, 40vw);
+  height: min(152px, 40vw);
+  z-index: 4;
   pointer-events: none;
-  z-index: 0;
 }
 
-.scrap-dash-plushie--in-toprow .scrap-dash-plushie-lottie {
+.scrap-dash-plushie--corner .scrap-dash-plushie-lottie {
   position: relative;
   z-index: 1;
 }
@@ -1140,23 +1107,32 @@ textarea { min-height: 88px; resize: vertical; }
   height: 100% !important;
 }
 
-.scrap-dash-plushie--in-toprow.scrap-dash-plushie--enter {
+.scrap-dash-plushie--corner.scrap-dash-plushie--enter {
   animation: scrap-dash-plushie-enter 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes scrap-dash-plushie-enter {
   from {
     opacity: 0;
-    transform: translateY(22px) scale(0.88);
+    transform: translateY(18px) scale(0.9);
   }
   65% {
     opacity: 1;
-    transform: translateY(-3px) scale(1.02);
+    transform: translateY(-2px) scale(1.02);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.scrap-sticky--upcoming--has-dash-plushie .scrap-sticky-label--appt-plushie-pad {
+  padding-left: min(108px, 30vw);
+  box-sizing: border-box;
+}
+
+.scrap-sticky--upcoming--has-dash-plushie .scrap-reminders-prompt {
+  margin-left: min(108px, 30vw);
 }
 
 .scrap-sticky--upcoming {
@@ -1168,10 +1144,6 @@ textarea { min-height: 88px; resize: vertical; }
   padding: 22px 16px 16px;
   box-shadow: 0 6px 22px rgba(74, 55, 40, 0.12), 0 2px 6px rgba(74, 55, 40, 0.06);
   border: 1px solid rgba(74, 55, 40, 0.12);
-}
-
-.scrap-sticky--upcoming--has-dash-plushie {
-  padding-top: 14px;
 }
 
 .scrap-sticky-label {
