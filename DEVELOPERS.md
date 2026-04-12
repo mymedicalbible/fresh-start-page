@@ -53,7 +53,8 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 | Area | Path / entry | What you get |
 |------|----------------|--------------|
 | **Dashboard** | `/app` | Upcoming appointments, pending-visit nudge, **Log today** grid (pain, symptoms, questions, visit), **Clinical handoff** (opens a slide-up panel—not a full-page form), **Your care & records** bento links |
-| **Quick log** | `/app/log` | Fast flows for pain and symptoms; navigation to archives after save |
+| **Quick log** | `/app/log` | Fast flows for pain and symptoms (home **Log today** tiles; not bottom nav) |
+| **Archives** | `/app/archives` | Hub links to visits, questions, transcripts, diagnoses (same as standalone routes) |
 | **Records** | `/app/charts-trends`, `/app/records` (same hub; `/app/flares` redirects) | Pain / episode archives, summaries, embedded Analytics tab |
 | **Analytics** | `/app/analytics` | Standalone charts (Recharts); data stays in the browser unless you screenshot/share |
 | **Visits** | `/app/visits` | Visit wizard; **after save, returns to dashboard** by default |
@@ -75,6 +76,7 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 | `/login` | Login |
 | `/app` | Dashboard (home) |
 | `/app/log` | Quick log |
+| `/app/archives` | Archives hub |
 | `/app/charts-trends` | Records hub (canonical with bottom nav) |
 | `/app/records` | Records hub (alias) |
 | `/app/flares` | Redirects to `/app/charts-trends` |

@@ -8,7 +8,7 @@ type NavItem =
 
 const NAV_ITEMS: NavItem[] = [
   { kind: 'path', path: '/app', label: 'home' },
-  { kind: 'path', path: '/app/log', label: 'log' },
+  { kind: 'path', path: '/app/archives', label: 'archives' },
   { kind: 'note', label: 'note' },
   { kind: 'path', path: '/app/charts-trends', label: 'charts/trends' },
   { kind: 'path', path: '/app/more', label: 'more' },
@@ -22,11 +22,12 @@ function IconHome () {
   )
 }
 
-function IconLog () {
+function IconArchives () {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-      <path d="M9 8h6M9 12h6M9 16h4" />
+      <path d="M4 5h16v14H4z" />
+      <path d="M4 5V4a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v1" />
+      <path d="M9 12h6" />
     </svg>
   )
 }
@@ -58,7 +59,7 @@ function IconChartsTrends () {
   )
 }
 
-const NAV_ICONS = [IconHome, IconLog, IconNote, IconChartsTrends, IconMore] as const
+const NAV_ICONS = [IconHome, IconArchives, IconNote, IconChartsTrends, IconMore] as const
 
 export function AppLayout () {
   const { user } = useAuth()
@@ -77,6 +78,20 @@ export function AppLayout () {
         pathname.startsWith('/app/records') ||
         pathname === '/app/flares' ||
         pathname.startsWith('/app/flares')
+      )
+    }
+    if (path === '/app/archives') {
+      return (
+        pathname === '/app/archives' ||
+        pathname.startsWith('/app/archives/') ||
+        pathname === '/app/visits' ||
+        pathname.startsWith('/app/visits/') ||
+        pathname === '/app/questions' ||
+        pathname.startsWith('/app/questions/') ||
+        pathname === '/app/transcripts' ||
+        pathname.startsWith('/app/transcripts/') ||
+        pathname === '/app/diagnoses' ||
+        pathname.startsWith('/app/diagnoses/')
       )
     }
     return pathname === path || pathname.startsWith(`${path}/`)

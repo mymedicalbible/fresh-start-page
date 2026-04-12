@@ -12,7 +12,7 @@ function ScrapSticker ({
   )
 }
 
-export function MorePage () {
+export function ArchivesPage () {
   return (
     <div className="scrapbook-inner scrap-more-page">
       <BackButton fallbackTo="/app" />
@@ -21,8 +21,10 @@ export function MorePage () {
           <span /><span /><span />
         </div>
         <div className="scrap-sticker-grid">
-          <ScrapSticker to="/app/profile" title="Account" sub="profile & export" tone="cream" />
-          <ScrapSticker to="/app/plushies" title="Plushies" sub="tokens & shop" tone="cream" />
+          <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
+          <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
+          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="visit recordings" tone="lavender" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
         </div>
       </div>
     </div>

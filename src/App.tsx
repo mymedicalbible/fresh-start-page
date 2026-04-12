@@ -16,6 +16,7 @@ import { DiagnosesDirectoryPage } from './pages/DiagnosesDirectoryPage'
 import { VisitsPage } from './pages/VisitsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { MorePage } from './pages/MorePage'
+import { ArchivesPage } from './pages/ArchivesPage'
 import { TranscriptsPage } from './pages/TranscriptsPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { PlushieShopPage } from './pages/PlushieShopPage'
@@ -41,6 +42,7 @@ export default function App () {
       <Route path="/app" element={<Protected><AppLayout /></Protected>}>
         <Route index element={<DashboardPage />} />
         <Route path="log" element={<QuickLogPage />} />
+        <Route path="archives" element={<ArchivesPage />} />
         <Route path="charts-trends" element={<RecordsPage />} />
         <Route path="records" element={<RecordsPage />} />
         <Route path="flares" element={<RedirectFlaresToChartsTrends />} />

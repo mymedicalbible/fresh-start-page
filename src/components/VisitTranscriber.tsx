@@ -253,7 +253,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       {archiveAfter && (
         <AppConfirmDialog
           title="Save transcript?"
-          message="Save a copy under More → Transcripts? This device only."
+          message="Save a copy under Archives → Transcripts? This device only."
           confirmLabel="Save copy"
           cancelLabel="Don't save"
           onConfirm={() => finishArchiveChoice(true)}

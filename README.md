@@ -15,7 +15,7 @@ The running name in code is `medical-tracker-web`; data lives in **Supabase** (y
 - **Pending visits** — visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
 - **Log today** — shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
 - **Doctor handoff summary** — opens a panel that builds a **first-person narrative** from your saved data (recent pain/episodes, meds, changes, visits, questions). You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and each generation can be **archived on this device** for later.
-- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **More** (bottom nav) for visits, questions, transcripts, diagnoses, plushies, and account shortcuts.
+- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **Archives** (bottom nav) for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies**.
 - **Account** — link at the bottom of the dashboard to profile.
 
 ### Quick log (`/app/log`)
@@ -31,7 +31,7 @@ Searchable history with tabs:
 - **Summaries** — **device-local archive** of generated handoff summaries (same idea as in the handoff panel; not a second cloud list).
 - **Analytics** — same charts as the standalone Analytics page (`/app/analytics`), embedded here.
 
-Visit transcripts you save from the transcription flow live under **More → Transcripts** (`/app/transcripts`); that archive is **device-local**.
+Visit transcripts you save from the transcription flow live under **Archives → Transcripts** (`/app/transcripts`); that archive is **device-local**.
 
 ### Analytics (`/app/analytics`)
 
@@ -81,9 +81,13 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 - Optional **game token** economy and **shop** (when enabled in your Supabase setup): collect tokens, unlock plushie animations; your **active** plushie can appear on the home dashboard mascot area.
 
+### Archives (`/app/archives`)
+
+- Shortcuts to **Visits**, **Questions**, **Transcripts** (visit recordings), and **Diagnoses** — same destinations as their standalone routes (`/app/visits`, etc.).
+
 ### More (`/app/more`)
 
-- Shortcuts to **Visits**, **Questions**, **Transcripts**, **Diagnoses**, **Account** (profile & export), and **Plushies** (tokens & shop).
+- Shortcuts to **Account** (profile & export) and **Plushies** (tokens & shop).
 
 ### Doctor note (bottom nav)
 
@@ -154,6 +158,7 @@ Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supa
 |------|------|
 | `/app` | Dashboard |
 | `/app/log` | Quick log |
+| `/app/archives` | Archives hub (visits, questions, transcripts, diagnoses) |
 | `/app/charts-trends`, `/app/records`, `/app/flares` (redirect) | Records (charts/trends in nav) |
 | `/app/analytics` | Analytics |
 | `/app/meds` | Medications |
