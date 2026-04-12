@@ -1744,7 +1744,7 @@ export function DashboardPage () {
           let bannerLabel = 'APPOINTMENTS'
           if (apptBannerSource === 'past') {
             bannerLabel = 'MOST RECENT APPOINTMENT'
-          } else           if (apptBannerSource === 'upcoming' && a) {
+          } else if (apptBannerSource === 'upcoming' && a) {
             const startMs = new Date(`${a.appointment_date}T${a.appointment_time ?? '00:00'}`).getTime()
             const endMs = startMs + 90 * 60 * 1000
             if (nowMs >= endMs) bannerLabel = 'MOST RECENT APPOINTMENT'
@@ -1763,34 +1763,62 @@ export function DashboardPage () {
           onPointerCancel={onApptBannerPointerEnd}
           onClickCapture={onApptBannerClickCapture}
         >
-          {hasDashPlushie && (
-            <div
-              className={`scrap-dash-plushie scrap-dash-plushie--on-banner-top${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
-              aria-hidden
-            >
-              <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
-            </div>
-          )}
           <span className="scrap-tape scrap-tape--green" aria-hidden />
-          <div className={`scrap-sticky-label${hasDashPlushie ? ' scrap-sticky-label--appt-plushie-offset' : ''}`}>{bannerLabel}</div>
-          {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
-            <button
-              type="button"
-              className="btn btn-ghost scrap-reminders-prompt"
-              onClick={() => {
-                void Notification.requestPermission().then((p) => {
-                  if (p === 'granted') {
-                    scheduleApptNotifications(
-                      upcomingAllFull.length ? upcomingAllFull : upcoming,
-                      apptPendingQ,
-                    )
-                  }
-                })
-              }}
-            >
-              Enable visit reminders
-            </button>
-          )}
+          {hasDashPlushie
+            ? (
+              <div className="scrap-appt-banner-toprow">
+                <div
+                  className={`scrap-dash-plushie scrap-dash-plushie--in-toprow${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+                  aria-hidden
+                >
+                  <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+                </div>
+                <div className="scrap-appt-banner-toprow-text">
+                  <div className="scrap-sticky-label">{bannerLabel}</div>
+                  {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost scrap-reminders-prompt"
+                      onClick={() => {
+                        void Notification.requestPermission().then((p) => {
+                          if (p === 'granted') {
+                            scheduleApptNotifications(
+                              upcomingAllFull.length ? upcomingAllFull : upcoming,
+                              apptPendingQ,
+                            )
+                          }
+                        })
+                      }}
+                    >
+                      Enable visit reminders
+                    </button>
+                  )}
+                </div>
+              </div>
+              )
+            : (
+              <>
+                <div className="scrap-sticky-label">{bannerLabel}</div>
+                {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost scrap-reminders-prompt"
+                    onClick={() => {
+                      void Notification.requestPermission().then((p) => {
+                        if (p === 'granted') {
+                          scheduleApptNotifications(
+                            upcomingAllFull.length ? upcomingAllFull : upcoming,
+                            apptPendingQ,
+                          )
+                        }
+                      })
+                    }}
+                  >
+                    Enable visit reminders
+                  </button>
+                )}
+              </>
+              )}
           {apptBannerSource === 'none' && (
             <p className="scrap-body scrap-body--muted">No upcoming appointments.</p>
           )}

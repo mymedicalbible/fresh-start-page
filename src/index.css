@@ -1080,53 +1080,56 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
 }
 
-/* Dashboard plushie: top-left of banner, weight on the rim (not floating) */
-.scrap-dash-plushie--on-banner-top {
-  position: absolute;
-  left: -10px;
-  top: 0;
-  /* Less lift = more of the figure sits on the card; reads grounded, not hovering */
-  transform: translateY(-26%);
-  width: min(200px, 52vw);
-  height: min(200px, 52vw);
-  z-index: 6;
-  pointer-events: none;
-  transform-origin: left bottom;
-  /* Tight contact shadow + soft ambient — not a big floating halo */
-  filter: drop-shadow(0 2px 3px rgba(74, 55, 40, 0.22));
-  overflow: visible;
+/* Top band: panda left column, title + reminders right (no overlap) */
+.scrap-appt-banner-toprow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px 12px;
+  margin-top: 2px;
 }
 
-/* Contact ellipse where the plush meets the banner */
-.scrap-dash-plushie--on-banner-top::after {
+.scrap-appt-banner-toprow-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.scrap-appt-banner-toprow-text .scrap-sticky-label {
+  margin-bottom: 6px;
+}
+
+.scrap-dash-plushie--in-toprow {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: min(200px, 46vw);
+  height: min(200px, 46vw);
+  margin: -4px 0 4px -6px;
+  pointer-events: none;
+  transform-origin: center bottom;
+  filter: drop-shadow(0 2px 4px rgba(74, 55, 40, 0.2));
+}
+
+.scrap-dash-plushie--in-toprow::after {
   content: '';
   position: absolute;
   left: 14%;
   right: 14%;
   bottom: 0;
-  height: 22px;
+  height: 20px;
   border-radius: 50%;
   background: radial-gradient(
     ellipse 100% 80% at 50% 0%,
-    rgba(45, 35, 28, 0.38) 0%,
-    rgba(45, 35, 28, 0.12) 42%,
+    rgba(45, 35, 28, 0.32) 0%,
+    rgba(45, 35, 28, 0.1) 45%,
     transparent 72%
   );
-  transform: translateY(35%);
+  transform: translateY(30%);
   pointer-events: none;
   z-index: 0;
 }
 
-.scrap-sticky--upcoming--has-dash-plushie .scrap-sticky-label--appt-plushie-offset {
-  padding-left: min(112px, 32vw);
-  box-sizing: border-box;
-}
-
-.scrap-sticky--upcoming--has-dash-plushie .scrap-reminders-prompt {
-  margin-left: min(112px, 32vw);
-}
-
-.scrap-dash-plushie--on-banner-top .scrap-dash-plushie-lottie {
+.scrap-dash-plushie--in-toprow .scrap-dash-plushie-lottie {
   position: relative;
   z-index: 1;
 }
@@ -1137,22 +1140,22 @@ textarea { min-height: 88px; resize: vertical; }
   height: 100% !important;
 }
 
-.scrap-dash-plushie--on-banner-top.scrap-dash-plushie--enter {
+.scrap-dash-plushie--in-toprow.scrap-dash-plushie--enter {
   animation: scrap-dash-plushie-enter 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes scrap-dash-plushie-enter {
   from {
     opacity: 0;
-    transform: translateY(calc(-26% + 28px)) scale(0.86);
+    transform: translateY(22px) scale(0.88);
   }
   65% {
     opacity: 1;
-    transform: translateY(calc(-26% - 4px)) scale(1.02);
+    transform: translateY(-3px) scale(1.02);
   }
   to {
     opacity: 1;
-    transform: translateY(-26%) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -1165,6 +1168,10 @@ textarea { min-height: 88px; resize: vertical; }
   padding: 22px 16px 16px;
   box-shadow: 0 6px 22px rgba(74, 55, 40, 0.12), 0 2px 6px rgba(74, 55, 40, 0.06);
   border: 1px solid rgba(74, 55, 40, 0.12);
+}
+
+.scrap-sticky--upcoming--has-dash-plushie {
+  padding-top: 14px;
 }
 
 .scrap-sticky-label {
