@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
@@ -16,9 +17,75 @@ type CatalogRow = {
   slot_index: number
 }
 
+/** Match Postgres `game_get_state`: slot = mod((current_date - anchor) / 7, 5) using UTC calendar days. */
+function computeNextRotationUtcMs (anchorStr: string): number | null {
+  try {
+    const parts = anchorStr.trim().split('-').map(Number)
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return null
+    const [y, mo, d] = parts
+    const anchor = new Date(Date.UTC(y, mo - 1, d))
+    const now = new Date()
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const daysSince = Math.floor((todayUtc.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000))
+    const weekIndex = Math.floor(daysSince / 7)
+    return anchor.getTime() + (weekIndex + 1) * 7 * 24 * 60 * 60 * 1000
+  } catch {
+    return null
+  }
+}
+
+function formatCountdown (remainingMs: number): { d: number; h: number; m: number; s: number } {
+  const sec = Math.max(0, Math.floor(remainingMs / 1000))
+  return {
+    d: Math.floor(sec / 86400),
+    h: Math.floor((sec % 86400) / 3600),
+    m: Math.floor((sec % 3600) / 60),
+    s: sec % 60,
+  }
+}
+
+function PlushPolaroid ({ path, name }: { path: string; name: string }) {
+  const [data, setData] = useState<object | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(path)
+        if (!res.ok || cancelled) return
+        setData(await res.json() as object)
+      } catch {
+        if (!cancelled) setData(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [path])
+
+  return (
+    <div className="plush-shop-polaroid">
+      <span className="plush-shop-polaroid-pin" aria-hidden />
+      <div className="plush-shop-polaroid-frame">
+        {data
+          ? (
+            <Lottie
+              animationData={data}
+              loop
+              rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+              className="plush-shop-polaroid-lottie"
+            />
+            )
+          : (
+            <span className="plush-shop-polaroid-loading" aria-hidden>…</span>
+            )}
+      </div>
+      <div className="plush-shop-polaroid-caption">{name}</div>
+    </div>
+  )
+}
+
 export function PlushieShopPage () {
   const [balance, setBalance] = useState<number | null>(null)
-  const [rotationSlot, setRotationSlot] = useState(0)
   const [activePlushie, setActivePlushie] = useState<ActivePlushie | null>(null)
   const [nextPrice, setNextPrice] = useState(10)
   const [ownedActive, setOwnedActive] = useState(false)
@@ -28,13 +95,17 @@ export function PlushieShopPage () {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
+  const [rotationAnchorStr, setRotationAnchorStr] = useState<string | null>(null)
+  const [countdownRemainMs, setCountdownRemainMs] = useState(0)
+  const [myPlushiesOpen, setMyPlushiesOpen] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
-    const [state, cat, un] = await Promise.all([
+    const [state, cat, un, cfg] = await Promise.all([
       fetchGameState(),
       supabase.from('plushie_catalog').select('id, slug, name, lottie_path, slot_index').order('slot_index'),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
+      supabase.from('game_config').select('value').eq('key', 'rotation_anchor').maybeSingle(),
     ])
     if (cat.error) {
       setError(cat.error.message)
@@ -48,12 +119,13 @@ export function PlushieShopPage () {
     const ids = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
     setUnlockedIds(ids)
 
+    setRotationAnchorStr(!cfg.error && cfg.data?.value ? cfg.data.value : null)
+
     if (!state.ok) {
       setError(state.error)
       return
     }
     setBalance(state.balance)
-    setRotationSlot(state.rotation_slot)
     setActivePlushie(state.active_plushie)
     setNextPrice(state.next_price)
     setOwnedActive(state.owned_active)
@@ -75,6 +147,40 @@ export function PlushieShopPage () {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (!myPlushiesOpen) return
+    function onKey (e: KeyboardEvent) {
+      if (e.key === 'Escape') setMyPlushiesOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [myPlushiesOpen])
+
+  useEffect(() => {
+    if (!rotationAnchorStr) {
+      setCountdownRemainMs(0)
+      return
+    }
+    const tick = () => {
+      const target = computeNextRotationUtcMs(rotationAnchorStr)
+      if (target == null) {
+        setCountdownRemainMs(0)
+        return
+      }
+      setCountdownRemainMs(Math.max(0, target - Date.now()))
+    }
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [rotationAnchorStr])
+
+  const cd = useMemo(() => formatCountdown(countdownRemainMs), [countdownRemainMs])
+
+  const unlockedPlushies = useMemo(
+    () => catalog.filter((p) => unlockedIds.has(p.id)),
+    [catalog, unlockedIds],
+  )
+
   async function onPurchase () {
     if (busy) return
     setBusy(true)
@@ -94,168 +200,159 @@ export function PlushieShopPage () {
     await load()
   }
 
+  const overlay = myPlushiesOpen
+    ? createPortal(
+        <div
+          className="plush-shop-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="plush-shop-overlay-title"
+        >
+          <div
+            className="plush-shop-overlay-backdrop"
+            role="presentation"
+            onClick={() => setMyPlushiesOpen(false)}
+          />
+          <div className="plush-shop-overlay-panel">
+            <div className="plush-shop-overlay-header">
+              <h2 id="plush-shop-overlay-title" className="plush-shop-overlay-title">
+                My Plushies
+              </h2>
+              <button
+                type="button"
+                className="btn btn-secondary plush-shop-overlay-close"
+                onClick={() => setMyPlushiesOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            {unlockedPlushies.length === 0
+              ? (
+                <p className="plush-shop-overlay-empty muted">
+                  You haven&apos;t unlocked any plushies yet. Earn tokens and buy this week&apos;s friend from the shop.
+                </p>
+                )
+              : (
+                <div className="plush-shop-polaroid-grid">
+                  {unlockedPlushies.map((p) => (
+                    <PlushPolaroid key={p.id} path={p.lottie_path} name={p.name} />
+                  ))}
+                </div>
+                )}
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
   return (
-    <div style={{ paddingBottom: 48 }}>
+    <div className="plush-shop-page">
       <BackButton fallbackTo="/app/more" />
 
-      <div className="card" style={{ marginTop: 12 }}>
-        <h2 style={{ marginTop: 0 }}>Plushie shop (trial)</h2>
-        <p className="muted" style={{ fontSize: '0.88rem', lineHeight: 1.5, marginBottom: 12 }}>
+      <div className="card plush-shop-disclaimer">
+        <h2 className="plush-shop-disclaimer-title">Plushie shop</h2>
+        <p className="muted plush-shop-disclaimer-text">
           Optional fun: earn tokens by logging pain, episodes, questions, visits, handoff summaries, and transcript visits.
           This is not medical advice and has no cash value. Prices rise by 2 tokens after each plushie you unlock (no cap in this trial).
         </p>
-        {error && <div className="banner error" style={{ marginBottom: 12 }}>{error}</div>}
-        {banner && <div className="banner" style={{ marginBottom: 12, background: 'var(--mint-surface, #ecfdf5)', borderColor: 'var(--mint)' }}>{banner}</div>}
-        <p style={{ margin: '0 0 16px', fontWeight: 700 }}>
-          Your tokens: {balance === null ? '…' : balance}
+        {error && <div className="banner error plush-shop-banner">{error}</div>}
+        {banner && (
+          <div className="banner plush-shop-banner" style={{ background: 'var(--mint-surface, #ecfdf5)', borderColor: 'var(--mint)' }}>
+            {banner}
+          </div>
+        )}
+        <p className="plush-shop-token-line">
+          Your tokens:
+          {' '}
+          <strong>{balance === null ? '…' : balance}</strong>
         </p>
       </div>
 
       {activePlushie && (
-        <div
-          className="card"
-          style={{
-            marginTop: 14,
-            textAlign: 'center',
-            overflow: 'hidden',
-            background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 42%, var(--surface-alt, #fffef9) 42%)',
-            border: '1.5px solid var(--border)',
-            padding: '20px 16px 20px',
-          }}
-        >
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.75)', marginBottom: 12 }}>
-            THIS WEEK&apos;S PLUSHIE
-          </div>
-
-          {/* Spotlight: beam + stage for the active Lottie */}
-          <div
-            style={{
-              position: 'relative',
-              margin: '0 auto 16px',
-              maxWidth: 340,
-              minHeight: 200,
-              paddingBottom: 8,
-            }}
-          >
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: 0,
-                transform: 'translateX(-50%)',
-                width: 'min(100%, 300px)',
-                height: 260,
-                background: [
-                  'radial-gradient(ellipse 48% 38% at 50% 44%, rgba(255,255,255,0.97) 0%, rgba(255,251,235,0.75) 22%, rgba(254,243,199,0.35) 38%, rgba(251,191,36,0.12) 52%, transparent 68%)',
-                ].join(','),
-                pointerEvents: 'none',
-                zIndex: 0,
-              }}
-            />
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: 4,
-                transform: 'translateX(-50%)',
-                width: '72%',
-                height: 28,
-                background: 'radial-gradient(ellipse closest-side, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.08) 45%, transparent 72%)',
-                pointerEvents: 'none',
-                zIndex: 0,
-              }}
-            />
-            <div style={{ position: 'relative', zIndex: 1, padding: '4px 8px 0' }}>
+        <section className="plush-shop-hero-card" aria-labelledby="plush-shop-hero-heading">
+          <div className="plush-shop-hero-inner">
+            <span className="plush-shop-hero-badge">This week&apos;s plushie</span>
+            <div className="plush-shop-hero-stage">
               {lottieData
                 ? (
                   <Lottie
                     animationData={lottieData}
                     loop
                     rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-                    style={{
-                      width: '100%',
-                      maxWidth: 300,
-                      height: 220,
-                      margin: '0 auto',
-                      display: 'block',
-                    }}
+                    className="plush-shop-hero-lottie"
                   />
                   )
                 : (
-                  <div style={{ fontSize: '4rem', lineHeight: 1.2, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden>🧸</div>
+                  <div className="plush-shop-hero-fallback" aria-hidden>🧸</div>
                   )}
             </div>
+            <h3 id="plush-shop-hero-heading" className="plush-shop-hero-name">{activePlushie.name}</h3>
+            <p className="muted plush-shop-hero-tagline">
+              {ownedActive
+                ? 'You already own this week\'s plushie.'
+                : `A new friend for your dashboard — unlock with tokens.`}
+            </p>
+            <p className="plush-shop-hero-price">
+              <span aria-hidden>✨</span>
+              {' '}
+              {ownedActive ? 'Owned' : `${nextPrice} tokens`}
+            </p>
+            {!ownedActive && (
+              <button
+                type="button"
+                className="btn btn-primary plush-shop-hero-buy"
+                disabled={busy || (balance !== null && balance < nextPrice)}
+                onClick={() => void onPurchase()}
+              >
+                {busy ? 'Working…' : `Spend ${nextPrice} tokens`}
+              </button>
+            )}
           </div>
-
-          <div style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: 6, color: 'var(--text)' }}>{activePlushie.name}</div>
-          <p className="muted" style={{ fontSize: '0.85rem', margin: '0 0 14px' }}>
-            {ownedActive
-              ? 'You already own this week\'s plushie.'
-              : `Cost: ${nextPrice} tokens`}
-          </p>
-          {!ownedActive && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ minWidth: 200, minHeight: 48 }}
-              disabled={busy || (balance !== null && balance < nextPrice)}
-              onClick={() => void onPurchase()}
-            >
-              {busy ? 'Working…' : `Spend ${nextPrice} tokens`}
-            </button>
-          )}
-        </div>
+        </section>
       )}
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0, fontSize: '1rem' }}>All plushies (5-week rotation)</h3>
-        <p className="muted" style={{ fontSize: '0.82rem', marginTop: 0 }}>
-          Silhouettes are locked until you unlock them. The highlighted slot is available this week.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 12, marginTop: 14 }}>
-          {catalog.map((p) => {
-            const owned = unlockedIds.has(p.id)
-            const isWeek = p.slot_index === rotationSlot
-            return (
-              <div
-                key={p.id}
-                style={{
-                  borderRadius: 12,
-                  border: isWeek ? '2px solid var(--mint-dark, #065f46)' : '1px solid var(--border)',
-                  padding: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: 88,
-                  background: isWeek ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg)',
-                }}
-              >
-                {owned
-                  ? (
-                    <span
-                      style={{
-                        fontSize: '1.75rem',
-                        fontWeight: 800,
-                        color: 'var(--mint-dark, #065f46)',
-                        lineHeight: 1,
-                      }}
-                      aria-label="Unlocked"
-                    >
-                      ✓
-                    </span>
-                    )
-                  : (
-                    <span className="scrap-account-plushie-mystery-mark" aria-hidden>
-                      ?
-                    </span>
-                    )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      {rotationAnchorStr && (
+        <section className="plush-shop-next-card" aria-labelledby="plush-shop-next-heading">
+          <h3 id="plush-shop-next-heading" className="plush-shop-next-title">Coming next week…</h3>
+          <div className="plush-shop-mystery-box" aria-hidden>
+            <div className="plush-shop-mystery-lid" />
+            <div className="plush-shop-mystery-body">
+              <span className="plush-shop-mystery-q">?</span>
+            </div>
+            <span className="plush-shop-mystery-spark" aria-hidden>✨</span>
+          </div>
+          <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
+          <p className="plush-shop-next-line plush-shop-next-line--sub">Come back when the timer hits zero to find out who.</p>
+          <div className="plush-shop-countdown" role="timer" aria-live="polite" aria-atomic="true">
+            <div className="plush-shop-countdown-cell">
+              <span className="plush-shop-countdown-num">{String(cd.d).padStart(2, '0')}</span>
+              <span className="plush-shop-countdown-label">days</span>
+            </div>
+            <div className="plush-shop-countdown-cell">
+              <span className="plush-shop-countdown-num">{String(cd.h).padStart(2, '0')}</span>
+              <span className="plush-shop-countdown-label">hrs</span>
+            </div>
+            <div className="plush-shop-countdown-cell">
+              <span className="plush-shop-countdown-num">{String(cd.m).padStart(2, '0')}</span>
+              <span className="plush-shop-countdown-label">min</span>
+            </div>
+            <div className="plush-shop-countdown-cell">
+              <span className="plush-shop-countdown-num">{String(cd.s).padStart(2, '0')}</span>
+              <span className="plush-shop-countdown-label">sec</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <button
+        type="button"
+        className="btn btn-primary plush-shop-my-plushies-btn"
+        onClick={() => setMyPlushiesOpen(true)}
+      >
+        My Plushies
+      </button>
+
+      {overlay}
     </div>
   )
 }

@@ -3031,3 +3031,361 @@ button.scrap-appt-q:focus-visible {
   font-size: 1.05rem;
   font-weight: 600;
 }
+
+/* ─── Plushie shop (kawaii cards + My Plushies overlay) ─── */
+.plush-shop-page {
+  padding-bottom: 56px;
+}
+
+.plush-shop-disclaimer-title {
+  margin-top: 0;
+  font-family: var(--font-scrap, inherit);
+}
+
+.plush-shop-disclaimer-text {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.plush-shop-banner {
+  margin-bottom: 12px;
+}
+
+.plush-shop-token-line {
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+
+.plush-shop-hero-card {
+  margin-top: 14px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(167, 139, 250, 0.35);
+  background: linear-gradient(180deg, #f3e8ff 0%, #fce7f3 45%, #fdf2f8 100%);
+  box-shadow: 0 8px 28px rgba(88, 28, 135, 0.08);
+  padding: 20px 18px 24px;
+  text-align: center;
+}
+
+.plush-shop-hero-inner {
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.plush-shop-hero-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #4c1d95;
+  background: rgba(196, 181, 253, 0.45);
+  margin-bottom: 14px;
+}
+
+.plush-shop-hero-stage {
+  margin: 0 auto 14px;
+  min-height: 200px;
+  max-width: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plush-shop-hero-lottie {
+  width: 100% !important;
+  max-width: 280px;
+  height: 220px !important;
+}
+
+.plush-shop-hero-fallback {
+  font-size: 4rem;
+  line-height: 1.2;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plush-shop-hero-name {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--font-scrap, inherit);
+}
+
+.plush-shop-hero-tagline {
+  font-size: 0.88rem;
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+
+.plush-shop-hero-price {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.plush-shop-hero-buy {
+  min-width: 200px;
+  min-height: 48px;
+}
+
+.plush-shop-next-card {
+  margin-top: 18px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(251, 182, 206, 0.45);
+  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+  padding: 22px 18px 24px;
+  text-align: center;
+}
+
+.plush-shop-next-title {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #1e3a5f;
+  font-family: var(--font-scrap, inherit);
+}
+
+.plush-shop-mystery-box {
+  position: relative;
+  width: 140px;
+  height: 120px;
+  margin: 0 auto 16px;
+}
+
+.plush-shop-mystery-body {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 72px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
+  box-shadow: 0 6px 16px rgba(91, 33, 182, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plush-shop-mystery-lid {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 36px;
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(180deg, #ddd6fe 0%, #c4b5fd 100%);
+  box-shadow: 0 2px 8px rgba(91, 33, 182, 0.2);
+}
+
+.plush-shop-mystery-q {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(67, 56, 202, 0.4);
+}
+
+.plush-shop-mystery-spark {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  font-size: 1.1rem;
+  opacity: 0.85;
+}
+
+.plush-shop-next-line {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.plush-shop-next-line--sub {
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.plush-shop-countdown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.plush-shop-countdown-cell {
+  min-width: 52px;
+  padding: 8px 6px 6px;
+  border-radius: 10px;
+  background: #1e3a5f;
+  color: #fce7f3;
+}
+
+.plush-shop-countdown-num {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.plush-shop-countdown-label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: lowercase;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.plush-shop-my-plushies-btn {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 24px auto 0;
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.plush-shop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 520px) {
+  .plush-shop-overlay {
+    align-items: center;
+  }
+}
+
+.plush-shop-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.plush-shop-overlay-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  border-radius: 16px 16px 12px 12px;
+  background: #fffef0;
+  border: 1.5px solid rgba(180, 160, 90, 0.25);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  padding: 16px 16px 24px;
+}
+
+.plush-shop-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(180, 160, 90, 0.2);
+}
+
+.plush-shop-overlay-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-family: var(--font-scrap, inherit);
+  color: var(--text);
+}
+
+.plush-shop-overlay-close {
+  flex-shrink: 0;
+}
+
+.plush-shop-overlay-empty {
+  margin: 12px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.plush-shop-polaroid-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8px 4px 12px;
+}
+
+.plush-shop-polaroid {
+  position: relative;
+  width: 148px;
+  padding: 10px 10px 36px;
+  background: #fffefb;
+  border-radius: 3px;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(74, 55, 40, 0.1);
+  transform: rotate(-2deg);
+}
+
+.plush-shop-polaroid:nth-child(even) {
+  transform: rotate(2.5deg);
+}
+
+.plush-shop-polaroid-pin {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.plush-shop-polaroid-frame {
+  width: 128px;
+  height: 128px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plush-shop-polaroid-lottie {
+  width: 120px !important;
+  height: 120px !important;
+}
+
+.plush-shop-polaroid-loading {
+  font-size: 1.5rem;
+  color: var(--scrap-muted, #78716c);
+}
+
+.plush-shop-polaroid-caption {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--scrap-muted, #57534e);
+  font-family: var(--font-scrap, inherit);
+  line-height: 1.25;
+}
