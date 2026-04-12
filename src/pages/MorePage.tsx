@@ -1,25 +1,16 @@
-import type { ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
-import {
-  DoodleCharts,
-  DoodleDiagnoses,
-  DoodleQuestions,
-  DoodleVisits,
-} from './morePageDoodles'
 
-type DoodleNavItem = {
-  to: string
-  label: string
-  Doodle: ComponentType
+function ScrapSticker ({
+  to, title, sub, tone,
+}: { to: string; title: string; sub?: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
+  return (
+    <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
+      <span className="scrap-sticker-title">{title}</span>
+      {sub ? <span className="scrap-sticker-sub">{sub}</span> : null}
+    </Link>
+  )
 }
-
-const DOODLE_NAV: DoodleNavItem[] = [
-  { to: '/app/visits', label: 'Visits', Doodle: DoodleVisits },
-  { to: '/app/questions', label: 'Questions', Doodle: DoodleQuestions },
-  { to: '/app/analytics', label: 'Charts & trends', Doodle: DoodleCharts },
-  { to: '/app/diagnoses', label: 'Diagnoses', Doodle: DoodleDiagnoses },
-]
 
 export function MorePage () {
   return (
@@ -29,21 +20,13 @@ export function MorePage () {
         <div className="scrap-more-notebook-holes" aria-hidden>
           <span /><span /><span />
         </div>
-        <nav className="scrap-more-doodles" aria-label="More navigation">
-          {DOODLE_NAV.map(({ to, label, Doodle }) => (
-            <Link key={to} to={to} className="scrap-more-doodle">
-              <Doodle />
-              <span className="scrap-more-doodle-label">{label}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="scrap-more-marker-row" aria-label="Account and plushies">
-          <Link to="/app/profile" className="scrap-more-marker scrap-more-marker--account">
-            Account
-          </Link>
-          <Link to="/app/plushies" className="scrap-more-marker scrap-more-marker--plushies">
-            Plushies
-          </Link>
+        <div className="scrap-sticker-grid">
+          <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
+          <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
+          <ScrapSticker to="/app/analytics" title="Charts & trends" tone="lavender" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
+          <ScrapSticker to="/app/profile" title="Account" sub="profile & export" tone="cream" />
+          <ScrapSticker to="/app/plushies" title="Plushies" sub="tokens & shop" tone="cream" />
         </div>
       </div>
     </div>
