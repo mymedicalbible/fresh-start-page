@@ -34,6 +34,7 @@ import {
   tryGrantHandoffSummaryTokens,
   type ActivePlushie,
 } from '../lib/gameTokens'
+import { DashboardWeather } from '../components/DashboardWeather'
 import { fetchWeatherSnapshot, type WeatherSnapshot } from '../lib/weatherSnapshot'
 
 type UpcomingAppt = {
@@ -1749,93 +1750,13 @@ export function DashboardPage () {
           </div>
         </header>
 
-        {weather && (() => {
-          const p = weather.pressure_change_24h
-          const trend =
-            p === null ? '→' : p > 3 ? '↑' : p < -3 ? '↓' : '→'
-          const g = weather.grass_pollen
-          const pollenLabel =
-            g === null
-              ? null
-              : g < 10
-                ? 'Low pollen'
-                : g <= 50
-                  ? 'Mod pollen'
-                  : 'High pollen'
-          return (
-            <div style={{ marginBottom: 14 }}>
-              <button
-                type="button"
-                onClick={() => setWeatherPanelOpen((o) => !o)}
-                aria-expanded={weatherPanelOpen}
-                aria-controls="dash-weather-detail"
-                id="dash-weather-chip"
-                className="scrap-date-pill"
-                style={{
-                  cursor: 'pointer',
-                  border: '1px solid rgba(125, 107, 90, 0.35)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '6px 10px',
-                  fontSize: '0.78rem',
-                  color: 'var(--scrap-muted)',
-                  padding: '6px 12px',
-                  lineHeight: 1.35,
-                  background: 'rgba(250, 246, 237, 0.85)',
-                }}
-              >
-                <span style={{ color: 'var(--scrap-ink)' }}>
-                  {weather.temperature_c.toFixed(1)}°C
-                </span>
-                <span aria-hidden>{trend}</span>
-                {pollenLabel && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      opacity: 0.95,
-                      borderLeft: '1px solid rgba(125, 107, 90, 0.35)',
-                      paddingLeft: 10,
-                    }}
-                  >
-                    {pollenLabel}
-                  </span>
-                )}
-              </button>
-              {weatherPanelOpen && (
-                <div
-                  id="dash-weather-detail"
-                  role="region"
-                  aria-labelledby="dash-weather-chip"
-                  className="scrap-sticky scrap-sticky--upcoming"
-                  style={{ marginTop: 10, padding: '12px 14px', textAlign: 'left' }}
-                >
-                  <span className="scrap-tape scrap-tape--sky" aria-hidden />
-                  <div style={{ fontSize: '0.8rem', color: 'var(--scrap-ink)', display: 'grid', gap: 6 }}>
-                    <div>
-                      <span className="muted">Fetched</span>{' '}
-                      {Number.isFinite(Date.parse(weather.fetched_at))
-                        ? format(new Date(weather.fetched_at), 'PPp')
-                        : weather.fetched_at}
-                    </div>
-                    <div><span className="muted">Location</span> {weather.latitude.toFixed(4)}, {weather.longitude.toFixed(4)}</div>
-                    <div><span className="muted">Conditions</span> {weather.conditions_label}</div>
-                    <div><span className="muted">Temperature</span> {weather.temperature_c.toFixed(1)}°C</div>
-                    <div><span className="muted">Humidity</span> {weather.humidity_pct}%</div>
-                    <div><span className="muted">Pressure</span> {weather.pressure_hpa.toFixed(1)} hPa{p !== null ? ` (${p >= 0 ? '+' : ''}${p.toFixed(1)} vs 24h)` : ''}</div>
-                    <div><span className="muted">Precipitation</span> {weather.precipitation_mm} mm</div>
-                    <div><span className="muted">UV index</span> {weather.uv_index}</div>
-                    <div><span className="muted">Wind</span> {weather.wind_kph} km/h</div>
-                    <div><span className="muted">Grass pollen</span> {weather.grass_pollen ?? '—'}</div>
-                    <div><span className="muted">Tree pollen</span> {weather.tree_pollen ?? '—'}</div>
-                    <div><span className="muted">Weed pollen</span> {weather.weed_pollen ?? '—'}</div>
-                    <div><span className="muted">AQI (US)</span> {weather.aqi ?? '—'}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })()}
+        {weather && (
+          <DashboardWeather
+            weather={weather}
+            panelOpen={weatherPanelOpen}
+            onToggle={() => setWeatherPanelOpen((o) => !o)}
+          />
+        )}
 
         <div className="scrap-appt-banner-wrap">
         {(() => {

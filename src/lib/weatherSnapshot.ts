@@ -5,7 +5,11 @@ export interface WeatherSnapshot {
   fetched_at: string
   latitude: number
   longitude: number
+  /** Human-readable place name when reverse geocoding succeeds; omit from UI if missing. */
+  location_label?: string | null
   temperature_c: number
+  /** Apparent / “feels like” °C; omitted on older stored rows. */
+  feels_like_c?: number
   humidity_pct: number
   pressure_hpa: number
   pressure_change_24h: number | null
@@ -88,7 +92,42 @@ function isValidWeatherSnapshot (x: unknown): x is WeatherSnapshot {
     const v = o[k]
     if (v !== null && v !== undefined && (typeof v !== 'number' || !Number.isFinite(v))) return false
   }
+  if ('feels_like_c' in o && o.feels_like_c !== null && o.feels_like_c !== undefined) {
+    if (typeof o.feels_like_c !== 'number' || !Number.isFinite(o.feels_like_c)) return false
+  }
+  if ('location_label' in o) {
+    const ll = o.location_label
+    if (ll !== null && ll !== undefined && typeof ll !== 'string') return false
+  }
   return typeof o.conditions_label === 'string'
+}
+
+/** Client-side reverse geocode (no key). Returns null on failure — hide location in UI. */
+export async function fetchLocationLabel (lat: number, lng: number): Promise<string | null> {
+  try {
+    const url =
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}` +
+      `&longitude=${encodeURIComponent(lng)}&localityLanguage=en`
+    const r = await fetch(url)
+    if (!r.ok) return null
+    const j = (await r.json()) as Record<string, unknown>
+    const city = [j.city, j.locality, j.village].find(
+      (x) => typeof x === 'string' && String(x).trim().length > 0,
+    ) as string | undefined
+    const rawCode = j.principalSubdivisionCode
+    let state = ''
+    if (typeof rawCode === 'string') {
+      const parts = rawCode.split('-')
+      state = parts[parts.length - 1] ?? ''
+    }
+    if (city && state.length === 2 && /^[A-Za-z]{2}$/.test(state)) {
+      return `${city.trim()}, ${state.toUpperCase()}`
+    }
+    if (city) return city.trim()
+    return null
+  } catch {
+    return null
+  }
 }
 
 function getPosition (): Promise<{ latitude: number; longitude: number } | null> {
@@ -123,7 +162,21 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
           ? Date.parse((parsed as { fetched_at: string }).fetched_at)
           : NaN
       if (Number.isFinite(at) && Date.now() - at < CACHE_MS && isValidWeatherSnapshot(parsed)) {
-        return parsed
+        const snap = parsed as WeatherSnapshot
+        if (!snap.location_label?.trim()) {
+          const label = await fetchLocationLabel(snap.latitude, snap.longitude)
+          if (label) {
+            const next: WeatherSnapshot = { ...snap, location_label: label }
+            try {
+              sessionStorage.setItem(CACHE_KEY, JSON.stringify(next))
+            } catch { /* ignore */ }
+            if (import.meta.env.DEV) {
+              console.debug('[mb-weather]', { latitude: snap.latitude, longitude: snap.longitude, location_label: label })
+            }
+            return next
+          }
+        }
+        return snap
       }
     }
   } catch {
@@ -138,7 +191,8 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
   const forecastParams = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lng),
-    current: 'temperature_2m,relative_humidity_2m,surface_pressure,precipitation,wind_speed_10m,uv_index,weather_code',
+    current:
+      'temperature_2m,apparent_temperature,relative_humidity_2m,surface_pressure,precipitation,wind_speed_10m,uv_index,weather_code',
     hourly: 'surface_pressure',
     timezone: 'auto',
     forecast_days: '2',
@@ -185,6 +239,7 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
 
     const cur = fc.current ?? {}
     const temp = num(cur.temperature_2m)
+    const apparent = num(cur.apparent_temperature)
     const humidity = num(cur.relative_humidity_2m)
     const pressureNow = num(cur.surface_pressure)
     // Open-Meteo can omit or null some current fields; use safe defaults so we still return a snapshot.
@@ -196,6 +251,8 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
     if (temp === null || humidity === null || pressureNow === null) {
       return null
     }
+
+    const feelsLikeC = apparent ?? temp
 
     const conditionsLabel =
       wcode === null ? 'Unknown' : weatherCodeToLabel(Math.round(wcode))
@@ -231,11 +288,19 @@ export async function fetchWeatherSnapshot (): Promise<WeatherSnapshot | null> {
     const aqCur = aq.current ?? {}
     const aqiVal = num(aqCur.us_aqi)
 
+    const locationLabel = await fetchLocationLabel(lat, lng)
+
+    if (import.meta.env.DEV) {
+      console.debug('[mb-weather]', { latitude: lat, longitude: lng, location_label: locationLabel })
+    }
+
     const snapshot: WeatherSnapshot = {
       fetched_at: new Date().toISOString(),
       latitude: lat,
       longitude: lng,
+      location_label: locationLabel,
       temperature_c: temp,
+      feels_like_c: feelsLikeC,
       humidity_pct: humidity,
       pressure_hpa: pressureNow,
       pressure_change_24h: pressureChange24h,
