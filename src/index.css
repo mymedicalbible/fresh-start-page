@@ -173,14 +173,100 @@ button, input, select, textarea { font: inherit; }
   flex-shrink: 0;
 }
 
-.scrap-more-page--hub .scrap-more-notebook-sheet {
-  margin-top: 0;
-  border-radius: 0;
-  border: none;
-  box-shadow: none;
+/* More hub: large offset sticky notes + daisy pins (no lined paper) */
+.scrap-more-sticky-stack {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding: 8px 14px 56px;
   width: 100%;
-  max-width: none;
-  min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 56px);
+  max-width: 22rem;
+  margin: 0 auto;
+  min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 52px);
+  box-sizing: border-box;
+}
+
+.scrap-more-sticky {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 152px;
+  padding: 38px 24px 28px;
+  text-decoration: none;
+  border-radius: 3px 5px 4px 4px;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.05),
+    3px 8px 22px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.scrap-more-sticky--account {
+  transform: rotate(-2.2deg) translateX(-8px);
+  background: linear-gradient(158deg, #1a4a6e 0%, #1d4ed8 38%, #1e3a8a 72%, #172554 100%);
+  color: #f8fafc;
+}
+
+.scrap-more-sticky--plushies {
+  transform: rotate(2.4deg) translateX(10px);
+  margin-top: 2px;
+  background: linear-gradient(168deg, #fdf2f8 0%, #fbcfe8 35%, #f472b6 78%, #db2777 100%);
+  color: #4a044e;
+}
+
+.scrap-more-sticky-pin-wrap {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22));
+  pointer-events: none;
+}
+
+.scrap-more-sticky-title {
+  font-family: var(--font-crayon);
+  font-size: 2.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+}
+
+.scrap-more-sticky--account .scrap-more-sticky-title {
+  color: #f0f9ff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.scrap-more-sticky--plushies .scrap-more-sticky-title {
+  color: #831843;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.scrap-more-sticky-sub {
+  font-family: var(--font-scrap);
+  font-size: 1.12rem;
+  line-height: 1.4;
+}
+
+.scrap-more-sticky--account .scrap-more-sticky-sub {
+  color: rgba(240, 249, 255, 0.93);
+}
+
+.scrap-more-sticky--plushies .scrap-more-sticky-sub {
+  color: rgba(76, 29, 58, 0.94);
+}
+
+.scrap-more-sticky--account:active {
+  transform: scale(0.985) rotate(-2.2deg) translateX(-8px);
+}
+
+.scrap-more-sticky--plushies:active {
+  transform: scale(0.985) rotate(2.4deg) translateX(10px);
 }
 
 /* ============================================================
@@ -2892,44 +2978,6 @@ button.scrap-appt-q:focus-visible {
   font-family: var(--font-scrap);
   font-size: 1.02rem;
   color: rgba(74, 55, 40, 0.78);
-}
-
-/* More hub: crayon-style titles (Account / Plushies) */
-.scrap-sticker-title--crayon-a {
-  font-family: var(--font-crayon);
-  font-size: 1.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.15;
-  color: #156b9a;
-  transform: rotate(-1.1deg);
-  display: inline-block;
-  text-shadow:
-    0.03em 0.03em 0 rgba(255, 255, 255, 0.7),
-    1px 0 0 rgba(21, 107, 154, 0.35),
-    -1px 1px 0 rgba(12, 74, 110, 0.22),
-    0 2px 5px rgba(12, 74, 110, 0.12);
-}
-
-.scrap-sticker-title--crayon-b {
-  font-family: var(--font-crayon);
-  font-size: 1.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
-  color: #a61f58;
-  transform: rotate(0.9deg);
-  display: inline-block;
-  text-shadow:
-    0.03em 0.03em 0 rgba(255, 255, 255, 0.7),
-    1px 0 0 rgba(166, 31, 88, 0.32),
-    -1px 1px 0 rgba(110, 22, 58, 0.24),
-    0 2px 5px rgba(110, 22, 58, 0.1);
-}
-
-.scrap-more-page--hub .scrap-sticker-sub {
-  color: rgba(55, 45, 38, 0.85);
-  font-weight: 500;
 }
 
 /* More / Archives: lined paper + colored sticker row + overlapping tape cards */
