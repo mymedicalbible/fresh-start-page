@@ -1074,25 +1074,61 @@ textarea { min-height: 88px; resize: vertical; }
   background: rgba(120, 90, 70, 0.5);
 }
 
-/* Upcoming sticky */
+/* Appointment banner wrapper */
 .scrap-appt-banner-wrap {
   position: relative;
+  overflow: visible;
 }
 
-.scrap-appt-banner-wrap:has(.scrap-dash-plushie) {
-  margin-top: 168px;
-}
-
-.scrap-dash-plushie {
+/* Dashboard plushie: top-left of banner, weight on the rim (not floating) */
+.scrap-dash-plushie--on-banner-top {
   position: absolute;
-  left: -36px;
-  top: -148px;
-  width: min(300px, 78vw);
-  height: min(300px, 78vw);
+  left: -10px;
+  top: 0;
+  /* Less lift = more of the figure sits on the card; reads grounded, not hovering */
+  transform: translateY(-26%);
+  width: min(200px, 52vw);
+  height: min(200px, 52vw);
+  z-index: 6;
   pointer-events: none;
-  z-index: 3;
   transform-origin: left bottom;
-  filter: drop-shadow(0 4px 12px rgba(74, 55, 40, 0.24));
+  /* Tight contact shadow + soft ambient — not a big floating halo */
+  filter: drop-shadow(0 2px 3px rgba(74, 55, 40, 0.22));
+  overflow: visible;
+}
+
+/* Contact ellipse where the plush meets the banner */
+.scrap-dash-plushie--on-banner-top::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 0;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 100% 80% at 50% 0%,
+    rgba(45, 35, 28, 0.38) 0%,
+    rgba(45, 35, 28, 0.12) 42%,
+    transparent 72%
+  );
+  transform: translateY(35%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scrap-sticky--upcoming--has-dash-plushie .scrap-sticky-label--appt-plushie-offset {
+  padding-left: min(112px, 32vw);
+  box-sizing: border-box;
+}
+
+.scrap-sticky--upcoming--has-dash-plushie .scrap-reminders-prompt {
+  margin-left: min(112px, 32vw);
+}
+
+.scrap-dash-plushie--on-banner-top .scrap-dash-plushie-lottie {
+  position: relative;
+  z-index: 1;
 }
 
 .scrap-dash-plushie-lottie,
@@ -1101,28 +1137,29 @@ textarea { min-height: 88px; resize: vertical; }
   height: 100% !important;
 }
 
-.scrap-dash-plushie--enter {
+.scrap-dash-plushie--on-banner-top.scrap-dash-plushie--enter {
   animation: scrap-dash-plushie-enter 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes scrap-dash-plushie-enter {
   from {
     opacity: 0;
-    transform: translate(-8px, 56px) scale(0.88);
+    transform: translateY(calc(-26% + 28px)) scale(0.86);
   }
   65% {
     opacity: 1;
-    transform: translate(-8px, -6px) scale(1.02);
+    transform: translateY(calc(-26% - 4px)) scale(1.02);
   }
   to {
     opacity: 1;
-    transform: translate(-8px, 0) scale(1);
+    transform: translateY(-26%) scale(1);
   }
 }
 
 .scrap-sticky--upcoming {
   position: relative;
   z-index: 1;
+  overflow: visible;
   background: linear-gradient(180deg, #fff8dc 0%, #fffbeb 100%);
   border-radius: 10px;
   padding: 22px 16px 16px;
