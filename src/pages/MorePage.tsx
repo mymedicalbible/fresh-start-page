@@ -55,7 +55,7 @@ function PolaroidNavCard ({
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="more-polaroid-link group relative block w-[min(88vw,220px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
+      className="more-polaroid-link group relative block w-[min(92vw,300px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
     >
       <div
         className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_14px_32px_rgba(45,38,42,0.22),0_4px_12px_rgba(0,0,0,0.08)] transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_rgba(45,38,42,0.26),0_6px_14px_rgba(0,0,0,0.1)] group-active:translate-y-0`}
@@ -85,7 +85,7 @@ export function MorePage () {
       <div className="relative flex min-h-0 flex-1 flex-col">
         <PressedFlowerPhotos />
 
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10 px-4 py-8 sm:flex-row sm:gap-14 sm:py-10">
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-4 py-8 sm:flex-row sm:gap-16 md:gap-20 sm:py-10">
           <PolaroidNavCard
             to="/app/profile"
             title="Account"

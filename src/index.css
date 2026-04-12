@@ -265,10 +265,10 @@ body:has(.scrap-more-page--hub) {
 
 .more-polaroid__tape {
   position: absolute;
-  top: -8px;
-  left: 8px;
-  width: 58px;
-  height: 20px;
+  top: -11px;
+  left: 11px;
+  width: 78px;
+  height: 27px;
   border-radius: 2px;
   z-index: 2;
   opacity: 0.78;
@@ -288,7 +288,7 @@ body:has(.scrap-more-page--hub) {
 
 .more-polaroid__tape--rose {
   left: auto;
-  right: 10px;
+  right: 14px;
   transform: rotate(19deg);
   background:
     repeating-linear-gradient(
@@ -302,8 +302,8 @@ body:has(.scrap-more-page--hub) {
 }
 
 .more-polaroid__photo {
-  margin: 10px 10px 0 10px;
-  min-height: 138px;
+  margin: 14px 14px 0 14px;
+  min-height: 190px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -328,7 +328,7 @@ body:has(.scrap-more-page--hub) {
 
 .more-polaroid__title {
   font-family: var(--font-crayon);
-  font-size: clamp(1.65rem, 8vw, 2rem);
+  font-size: clamp(2rem, 5.5vw, 2.65rem);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: 0.02em;
@@ -344,16 +344,16 @@ body:has(.scrap-more-page--hub) {
 }
 
 .more-polaroid__caption-strip {
-  min-height: 54px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 12px 14px;
+  padding: 12px 14px 18px;
 }
 
 .more-polaroid__caption {
   font-family: var(--font-scrap);
-  font-size: clamp(0.72rem, 3.2vw, 0.9rem);
+  font-size: clamp(0.92rem, 2.6vw, 1.08rem);
   line-height: 1.35;
   color: rgba(74, 55, 40, 0.78);
   text-align: center;
