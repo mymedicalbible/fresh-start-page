@@ -157,15 +157,26 @@ button, input, select, textarea { font: inherit; }
   width: 100%;
   padding-left: 0;
   padding-right: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .scrapbook-sheet:has(.scrap-more-page--hub) {
-  padding: 0 0 0;
+  padding: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .scrap-more-page--hub.scrapbook-inner {
   padding-left: 0;
   padding-right: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .scrap-more-hub-back {
@@ -173,7 +184,7 @@ button, input, select, textarea { font: inherit; }
   flex-shrink: 0;
 }
 
-/* Grass strip: fixed above bottom nav (z-index below nav) */
+/* Grass strip: fixed above bottom nav; white in artwork blends away (multiply) */
 .more-grass-footer {
   position: fixed;
   left: 0;
@@ -182,13 +193,18 @@ button, input, select, textarea { font: inherit; }
   z-index: 99;
   pointer-events: none;
   line-height: 0;
+  background: transparent;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .more-grass-footer img {
   width: 100%;
   height: auto;
   display: block;
-  vertical-align: bottom;
+  /* Opaque white (#fff) × cork behind → cork shows through */
+  mix-blend-mode: multiply;
 }
 
 /* ── More hub: cork board + pinned square sticky notes ─────────────── */
@@ -198,9 +214,8 @@ button, input, select, textarea { font: inherit; }
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 56px);
-  /* Leave room so notes aren’t covered by the fixed grass strip */
-  padding: 16px 12px clamp(72px, 22vw, 140px);
+  min-height: 0;
+  padding: 12px 12px 0;
   box-sizing: border-box;
   background-color: #9d7a5c;
   background-image:
@@ -3189,6 +3204,12 @@ button.scrap-appt-q:focus-visible {
   min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 72px);
   padding-bottom: 48px;
   box-sizing: border-box;
+}
+
+/* Cork hub: generic More min-height/padding would clip the board; flex fills the sheet */
+.scrap-more-page.scrap-more-page--hub.scrapbook-inner {
+  min-height: 0;
+  padding-bottom: 0;
 }
 
 .scrap-more-notebook-sheet {
