@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import {
   formatAqiDetail,
   formatBarometerLine,
+  formatPollenGrainsPerM3,
   formatPrecipitationDisplay,
   formatTempF,
   formatUvIndexDetail,
@@ -13,10 +14,12 @@ import {
   weatherIconIdForConditions,
   type WeatherDisplayIconId,
 } from '../lib/weatherDisplay'
+import type { PollenAlertLevel, WeatherCorrelationResult } from '../lib/weatherCorrelationInsights'
 import type { WeatherSnapshot } from '../lib/weatherSnapshot'
 
 type Props = {
   weather: WeatherSnapshot
+  correlation: WeatherCorrelationResult | null
 }
 
 /** Subtle sun — cozy scrapbook palette. Swap per `iconId` when assets exist. */
@@ -79,17 +82,114 @@ const valueStyle: CSSProperties = {
   textAlign: 'right',
 }
 
+/** When correlation is still loading or failed, still flag obvious high/moderate grass pollen. */
+function pollenAlertDisplay (
+  weather: WeatherSnapshot,
+  correlation: WeatherCorrelationResult | null,
+): { level: PollenAlertLevel; median: number | null } {
+  if (correlation) {
+    return {
+      level: correlation.pollenAlert,
+      median: correlation.grassPollenMedianHistory,
+    }
+  }
+  const G = weather.grass_pollen
+  if (G == null || !Number.isFinite(G)) return { level: null, median: null }
+  if (G > 50) return { level: 'high', median: null }
+  if (G > 10) return { level: 'moderate', median: null }
+  return { level: null, median: null }
+}
+
+function PollenAlertBanner ({
+  level,
+  median,
+}: {
+  level: PollenAlertLevel
+  median: number | null
+}) {
+  if (!level) return null
+  const base: CSSProperties = {
+    fontSize: '0.78rem',
+    lineHeight: 1.45,
+    padding: '8px 10px',
+    borderRadius: 10,
+    marginBottom: 10,
+    border: '1px solid rgba(180, 83, 9, 0.35)',
+    background: 'rgba(254, 243, 199, 0.65)',
+    color: 'var(--scrap-ink)',
+  }
+  if (level === 'high') {
+    return (
+      <div role="status" style={base}>
+        <strong>Pollen alert:</strong> grass pollen is <strong>high</strong> right now.
+      </div>
+    )
+  }
+  if (level === 'above_your_usual') {
+    return (
+      <div role="status" style={base}>
+        <strong>Pollen alert:</strong> grass pollen is <strong>higher than your usual</strong> in recent pain logs
+        {median != null && Number.isFinite(median)
+          ? ` (median ${median < 10 ? median.toFixed(1) : Math.round(median)} grains/m³).`
+          : '.'}
+      </div>
+    )
+  }
+  return (
+    <div role="status" style={base}>
+      <strong>Pollen alert:</strong> grass pollen is <strong>elevated</strong> (moderate) right now.
+    </div>
+  )
+}
+
+function PollenNumberLine ({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--scrap-muted)' }}>{label}</span>
+      <span style={{ textAlign: 'right' }}>
+        {formatPollenGrainsPerM3(value)} ({grassPollenBucketLabel(value)})
+      </span>
+    </div>
+  )
+}
+
+function PollenTreeWeedLine ({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--scrap-muted)' }}>{label}</span>
+      <span style={{ textAlign: 'right' }}>
+        {formatPollenGrainsPerM3(value)} ({treeWeedPollenBucketLabel(value)})
+      </span>
+    </div>
+  )
+}
+
 function WeatherMoreModal ({
   weather,
+  correlation,
   open,
   onClose,
   titleId,
 }: {
   weather: WeatherSnapshot
+  correlation: WeatherCorrelationResult | null
   open: boolean
   onClose: () => void
   titleId: string
 }) {
+  const alertDisp = pollenAlertDisplay(weather, correlation)
   const feelsC = weather.feels_like_c ?? weather.temperature_c
   const pDelta = weather.pressure_change_24h
   const hasPollenDetail =
@@ -147,6 +247,8 @@ function WeatherMoreModal ({
           </button>
         </div>
 
+        <PollenAlertBanner level={alertDisp.level} median={alertDisp.median} />
+
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={rowStyle}>
             <span style={labelStyle}>Feels like</span>
@@ -177,44 +279,37 @@ function WeatherMoreModal ({
                 borderTop: '1px solid rgba(125, 107, 90, 0.2)',
               }}
             >
-              <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>Pollen (Open-Meteo)</div>
-              <div style={{ display: 'grid', gap: 6, fontSize: '0.84rem', color: 'var(--scrap-ink)' }}>
+              <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>Pollen (grains/m³)</div>
+              <div style={{ display: 'grid', gap: 8, fontSize: '0.84rem', color: 'var(--scrap-ink)' }}>
                 {weather.grass_pollen != null && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: 'var(--scrap-muted)' }}>Grass</span>
-                    <span>{grassPollenBucketLabel(weather.grass_pollen)}</span>
-                  </div>
+                  <PollenNumberLine label="Grass" value={weather.grass_pollen} />
                 )}
                 {weather.tree_pollen != null && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: 'var(--scrap-muted)' }}>Tree</span>
-                    <span>{treeWeedPollenBucketLabel(weather.tree_pollen)}</span>
-                  </div>
+                  <PollenTreeWeedLine label="Tree (birch + alder)" value={weather.tree_pollen} />
                 )}
                 {weather.weed_pollen != null && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: 'var(--scrap-muted)' }}>Weed</span>
-                    <span>{treeWeedPollenBucketLabel(weather.weed_pollen)}</span>
-                  </div>
+                  <PollenTreeWeedLine label="Weed (ragweed + mugwort)" value={weather.weed_pollen} />
                 )}
               </div>
             </div>
           )}
 
-          <p
-            className="muted"
-            style={{
-              fontSize: '0.78rem',
-              lineHeight: 1.5,
-              margin: '14px 0 0',
-              paddingTop: 12,
-              borderTop: '1px solid rgba(125, 107, 90, 0.15)',
-            }}
-          >
-            Open-Meteo combines forecast fields (temperature, humidity, pressure, wind, UV, precipitation) with a separate
-            air-quality feed (AQI, pollen). Medical Bible saves a snapshot when you log pain so you can look for patterns
-            over time—open Charts for weather-related views.
-          </p>
+          {correlation && correlation.lines.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: '1px solid rgba(125, 107, 90, 0.2)',
+              }}
+            >
+              <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>Your pain vs this kind of weather</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
+                {correlation.lines.map((line, i) => (
+                  <li key={i} style={{ marginBottom: 6 }}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>,
@@ -222,11 +317,13 @@ function WeatherMoreModal ({
   )
 }
 
-export function DashboardWeather ({ weather }: Props) {
+export function DashboardWeather ({ weather, correlation }: Props) {
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const summaryId = useId()
   const moreTitleId = useId()
+
+  const alertDisp = pollenAlertDisplay(weather, correlation)
 
   const pDelta = weather.pressure_change_24h
   const g = weather.grass_pollen
@@ -322,6 +419,8 @@ export function DashboardWeather ({ weather }: Props) {
             Weather
           </h3>
 
+          <PollenAlertBanner level={alertDisp.level} median={alertDisp.median} />
+
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {weather.location_label && weather.location_label.trim() && (
               <div style={rowStyle}>
@@ -343,10 +442,35 @@ export function DashboardWeather ({ weather }: Props) {
                 {weather.aqi != null ? formatAqiDetail(weather.aqi) : 'Unavailable'}
               </span>
             </div>
-            <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <div style={rowStyle}>
               <span style={labelStyle}>Precipitation</span>
               <span style={valueStyle}>{formatPrecipitationDisplay(weather.precipitation_mm)}</span>
             </div>
+            {weather.grass_pollen != null && (
+              <div style={{ ...rowStyle, borderBottom: 'none' }}>
+                <span style={labelStyle}>Grass pollen</span>
+                <span style={valueStyle}>
+                  {formatPollenGrainsPerM3(weather.grass_pollen)} ({grassPollenBucketLabel(weather.grass_pollen)})
+                </span>
+              </div>
+            )}
+
+            {correlation && correlation.lines.length > 0 && (
+              <div
+                style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: '1px solid rgba(125, 107, 90, 0.2)',
+                }}
+              >
+                <div style={{ ...labelStyle, marginBottom: 6, display: 'block' }}>Your pain vs this weather</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
+                  {correlation.lines.map((line, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <button
               type="button"
@@ -367,6 +491,7 @@ export function DashboardWeather ({ weather }: Props) {
 
       <WeatherMoreModal
         weather={weather}
+        correlation={correlation}
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         titleId={moreTitleId}

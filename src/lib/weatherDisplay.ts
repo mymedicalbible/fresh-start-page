@@ -97,6 +97,12 @@ export function grassPollenBucketLabel (g: number): 'Low' | 'Moderate' | 'High' 
   return 'High'
 }
 
+/** Open-Meteo pollen units: grains/m³ */
+export function formatPollenGrainsPerM3 (n: number): string {
+  const r = Math.abs(n) >= 100 ? Math.round(n).toString() : n.toFixed(1)
+  return `${r} grains/m³`
+}
+
 export function treeWeedPollenBucketLabel (g: number): 'Low' | 'Moderate' | 'High' {
   return grassPollenBucketLabel(g)
 }

@@ -35,6 +35,10 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { DashboardWeather } from '../components/DashboardWeather'
+import {
+  buildWeatherCorrelationInsights,
+  type WeatherCorrelationResult,
+} from '../lib/weatherCorrelationInsights'
 import { fetchWeatherSnapshot, type WeatherSnapshot } from '../lib/weatherSnapshot'
 
 type UpcomingAppt = {
@@ -583,6 +587,7 @@ export function DashboardPage () {
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
   const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
+  const [weatherCorrelation, setWeatherCorrelation] = useState<WeatherCorrelationResult | null>(null)
 
   /** Live clock for banner label (ticks every 30 s) */
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -599,6 +604,30 @@ export function DashboardPage () {
     })()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (!user?.id || !weather) {
+      setWeatherCorrelation(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase
+        .from('pain_entries')
+        .select('intensity, weather_snapshot')
+        .eq('user_id', user.id)
+        .not('weather_snapshot', 'is', null)
+        .order('entry_date', { ascending: false })
+        .limit(200)
+      if (cancelled) return
+      if (error) {
+        setWeatherCorrelation(null)
+        return
+      }
+      setWeatherCorrelation(buildWeatherCorrelationInsights(weather, data ?? []))
+    })()
+    return () => { cancelled = true }
+  }, [user?.id, weather])
 
   useEffect(() => {
     return () => {
@@ -1749,7 +1778,9 @@ export function DashboardPage () {
           </div>
         </header>
 
-        {weather && <DashboardWeather weather={weather} />}
+        {weather && (
+          <DashboardWeather weather={weather} correlation={weatherCorrelation} />
+        )}
 
         <div className="scrap-appt-banner-wrap">
         {(() => {
