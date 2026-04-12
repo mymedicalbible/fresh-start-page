@@ -3034,18 +3034,9 @@ button.scrap-appt-q:focus-visible {
 
 /* ─── Plushie shop (kawaii cards + My Plushies overlay) ─── */
 .plush-shop-page {
-  padding-bottom: 56px;
-}
-
-.plush-shop-disclaimer-title {
-  margin-top: 0;
-  font-family: var(--font-scrap, inherit);
-}
-
-.plush-shop-disclaimer-text {
-  font-size: 0.88rem;
-  line-height: 1.5;
-  margin-bottom: 12px;
+  padding: 0 0 80px;
+  background: #fdf2f4;
+  min-height: 100vh;
 }
 
 .plush-shop-banner {
@@ -3053,17 +3044,17 @@ button.scrap-appt-q:focus-visible {
 }
 
 .plush-shop-token-line {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 1rem;
 }
 
 .plush-shop-hero-card {
-  margin-top: 14px;
-  border-radius: 20px;
-  border: 1.5px solid rgba(251, 182, 206, 0.55);
-  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 45%, #fce7f3 100%);
-  box-shadow: 0 8px 28px rgba(190, 24, 93, 0.08);
-  padding: 20px 18px 24px;
+  margin: 12px 16px 0;
+  border-radius: 28px;
+  border: none;
+  background: linear-gradient(160deg, #fce7f3 0%, #ffe4e6 50%, #fdf2f4 100%);
+  box-shadow: 0 4px 24px rgba(190, 24, 93, 0.1);
+  padding: 28px 20px 28px;
   text-align: center;
 }
 
@@ -3073,21 +3064,22 @@ button.scrap-appt-q:focus-visible {
 }
 
 .plush-shop-hero-badge {
-  display: inline-block;
-  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
   color: #9f1239;
-  background: rgba(251, 207, 232, 0.75);
-  margin-bottom: 14px;
+  background: rgba(251, 207, 232, 0.8);
+  margin-bottom: 10px;
 }
 
 .plush-shop-hero-stage {
-  margin: 0 auto 14px;
-  min-height: 200px;
-  max-width: 300px;
+  margin: 0 auto 10px;
+  min-height: 240px;
+  max-width: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3095,24 +3087,24 @@ button.scrap-appt-q:focus-visible {
 
 .plush-shop-hero-lottie {
   width: 100% !important;
-  max-width: 280px;
-  height: 220px !important;
+  max-width: 300px;
+  height: 260px !important;
 }
 
 .plush-shop-hero-fallback {
   font-size: 4rem;
   line-height: 1.2;
-  min-height: 200px;
+  min-height: 240px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .plush-shop-hero-name {
-  margin: 0 0 8px;
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: var(--text);
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #1e293b;
   font-family: var(--font-scrap, inherit);
 }
 
@@ -3124,49 +3116,54 @@ button.scrap-appt-q:focus-visible {
 
 .plush-shop-hero-price {
   margin: 0 0 16px;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text);
+  color: #b45309;
 }
 
 .plush-shop-hero-buy {
-  min-width: 200px;
-  min-height: 48px;
+  min-width: 220px;
+  min-height: 52px;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-top: 4px;
 }
 
 .plush-shop-next-card {
-  margin-top: 18px;
-  border-radius: 20px;
-  border: 1.5px solid rgba(251, 182, 206, 0.5);
-  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 55%, #fbcfe8 100%);
-  padding: 22px 18px 24px;
+  margin: 18px 16px 0;
+  border-radius: 28px;
+  border: none;
+  background: linear-gradient(160deg, #fce7f3 0%, #ffe4e6 55%, #fdf2f4 100%);
+  box-shadow: 0 4px 24px rgba(190, 24, 93, 0.08);
+  padding: 28px 20px 28px;
   text-align: center;
 }
 
 .plush-shop-next-title {
-  margin: 0 0 16px;
-  font-size: 1.2rem;
+  margin: 0 0 20px;
+  font-size: 1.3rem;
   font-weight: 800;
-  color: #1e3a5f;
+  color: #1e293b;
   font-family: var(--font-scrap, inherit);
 }
 
 .plush-shop-mystery-box {
+  width: 100%;
+  max-width: 240px;
+  height: 200px;
+  margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  max-width: 200px;
-  height: 160px;
-  margin: 0 auto 16px;
 }
 
 .plush-shop-mystery-svg {
   width: 100%;
-  max-width: 180px;
+  max-width: 220px;
   height: auto;
   display: block;
-  filter: drop-shadow(0 6px 14px rgba(157, 23, 77, 0.18));
+  filter: drop-shadow(0 8px 20px rgba(109, 40, 217, 0.2));
 }
 
 .plush-shop-next-line {
@@ -3189,35 +3186,36 @@ button.scrap-appt-q:focus-visible {
 }
 
 .plush-shop-countdown-cell {
-  min-width: 52px;
-  padding: 8px 6px 6px;
-  border-radius: 12px;
-  background: #1c1917;
+  min-width: 58px;
+  padding: 10px 8px 8px;
+  border-radius: 14px;
+  background: #1e1b4b;
 }
 
 .plush-shop-countdown-num {
   display: block;
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  color: #ffffff;
   line-height: 1.2;
-  color: #fb7185;
 }
 
 .plush-shop-countdown-label {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   text-transform: lowercase;
-  color: #a8a29e;
-  margin-top: 2px;
+  color: #a5b4fc;
+  margin-top: 3px;
 }
 
 .plush-shop-my-plushies-btn {
   display: block;
-  width: 100%;
+  width: calc(100% - 32px);
   max-width: 360px;
   margin: 24px auto 0;
   min-height: 52px;
+  border-radius: 999px;
   font-size: 1.05rem;
   font-weight: 700;
 }

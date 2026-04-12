@@ -46,78 +46,59 @@ function formatCountdown (remainingMs: number): { d: number; h: number; m: numbe
 
 function PlushMysteryGiftSvg () {
   const gid = useId().replace(/:/g, '')
-  const lid = `plushGiftLid-${gid}`
-  const box = `plushGiftBox-${gid}`
-  const ribbon = `plushGiftRibbon-${gid}`
+  const lid = `lid-${gid}`
+  const boxG = `box-${gid}`
+  const rib = `rib-${gid}`
   return (
-    <svg
-      className="plush-shop-mystery-svg"
-      viewBox="0 0 200 200"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
+    <svg className="plush-shop-mystery-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden>
       <defs>
         <linearGradient id={lid} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#fff1f2" />
-          <stop offset="100%" stopColor="#fecdd3" />
+          <stop offset="0%" stopColor="#e9d5ff" />
+          <stop offset="100%" stopColor="#d8b4fe" />
         </linearGradient>
-        <linearGradient id={box} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#fce7f3" />
-          <stop offset="100%" stopColor="#fbcfe8" />
+        <linearGradient id={boxG} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ede9fe" />
+          <stop offset="100%" stopColor="#ddd6fe" />
         </linearGradient>
-        <linearGradient id={ribbon} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#f472b6" />
-          <stop offset="100%" stopColor="#ec4899" />
+        <linearGradient id={rib} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#f9a8d4" />
+          <stop offset="100%" stopColor="#f472b6" />
         </linearGradient>
       </defs>
-      {/* Lid */}
-      <rect
-        x="32"
-        y="52"
-        width="136"
-        height="44"
-        rx="8"
-        fill={`url(#${lid})`}
-        stroke="rgba(190, 24, 93, 0.15)"
-        strokeWidth="1"
-      />
-      {/* Ribbon band on lid */}
-      <rect x="32" y="74" width="136" height="16" fill={`url(#${ribbon})`} opacity="0.95" />
       {/* Box body */}
-      <rect
-        x="40"
-        y="94"
-        width="120"
-        height="86"
-        rx="10"
-        fill={`url(#${box})`}
-        stroke="rgba(190, 24, 93, 0.12)"
-        strokeWidth="1"
-      />
-      {/* Vertical ribbon (front) */}
-      <rect x="92" y="94" width="16" height="86" fill={`url(#${ribbon})`} opacity="0.92" />
-      {/* Bow */}
-      <ellipse cx="88" cy="58" rx="14" ry="11" fill="#f9a8d4" stroke="#ec4899" strokeWidth="0.75" />
-      <ellipse cx="112" cy="58" rx="14" ry="11" fill="#f9a8d4" stroke="#ec4899" strokeWidth="0.75" />
-      <circle cx="100" cy="58" r="9" fill={`url(#${ribbon})`} />
-      {/* Gold sparkles */}
-      <circle cx="54" cy="128" r="4" fill="#fbbf24" opacity="0.95" />
-      <circle cx="152" cy="118" r="3.5" fill="#fbbf24" opacity="0.9" />
-      <circle cx="162" cy="152" r="3" fill="#fbbf24" opacity="0.85" />
-      <circle cx="42" cy="108" r="2.5" fill="#fcd34d" opacity="0.9" />
+      <rect x="30" y="105" width="160" height="100" rx="18" fill={`url(#${boxG})`} />
+      {/* Polka dots on body */}
+      <circle cx="60" cy="135" r="5" fill="white" opacity="0.45" />
+      <circle cx="90" cy="155" r="4" fill="white" opacity="0.35" />
+      <circle cx="145" cy="130" r="5" fill="white" opacity="0.45" />
+      <circle cx="170" cy="160" r="4" fill="white" opacity="0.35" />
+      <circle cx="55" cy="175" r="3.5" fill="white" opacity="0.3" />
+      {/* Lid */}
+      <rect x="22" y="68" width="176" height="46" rx="14" fill={`url(#${lid})`} />
+      {/* Polka dots on lid */}
+      <circle cx="55" cy="85" r="4" fill="white" opacity="0.4" />
+      <circle cx="155" cy="88" r="4" fill="white" opacity="0.4" />
+      {/* Ribbon vertical on body */}
+      <rect x="100" y="105" width="20" height="100" fill={`url(#${rib})`} opacity="0.85" />
+      {/* Ribbon horizontal on lid */}
+      <rect x="22" y="84" width="176" height="16" fill={`url(#${rib})`} opacity="0.85" rx="4" />
+      {/* Bow left loop */}
+      <ellipse cx="82" cy="68" rx="30" ry="20" fill="#f9a8d4" stroke="#f472b6" strokeWidth="1.5" opacity="0.95" />
+      {/* Bow right loop */}
+      <ellipse cx="138" cy="68" rx="30" ry="20" fill="#f9a8d4" stroke="#f472b6" strokeWidth="1.5" opacity="0.95" />
+      {/* Bow center knot */}
+      <ellipse cx="110" cy="68" rx="16" ry="14" fill="#f472b6" />
+      {/* Left bow tail */}
+      <path d="M94 80 Q75 100 60 108" stroke="#f9a8d4" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.8" />
+      {/* Right bow tail */}
+      <path d="M126 80 Q145 100 160 108" stroke="#f9a8d4" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.8" />
       {/* Question mark */}
-      <text
-        x="100"
-        y="152"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="#db2777"
-        fontSize="46"
-        fontWeight="800"
-        fontFamily="system-ui, Segoe UI, sans-serif"
-      >
-        ?
-      </text>
+      <text x="110" y="172" textAnchor="middle" dominantBaseline="middle" fill="#7c3aed" fontSize="52" fontWeight="900" fontFamily="system-ui, sans-serif">?</text>
+      {/* Sparkles */}
+      <circle cx="188" cy="72" r="5" fill="#fbbf24" opacity="0.9" />
+      <circle cx="28" cy="90" r="4" fill="#fbbf24" opacity="0.8" />
+      <circle cx="195" cy="130" r="3.5" fill="#fcd34d" opacity="0.85" />
+      <circle cx="20" cy="155" r="3" fill="#fcd34d" opacity="0.8" />
     </svg>
   )
 }
@@ -327,29 +308,26 @@ export function PlushieShopPage () {
     <div className="plush-shop-page">
       <BackButton fallbackTo="/app/more" />
 
-      <div className="card plush-shop-disclaimer">
-        <h2 className="plush-shop-disclaimer-title">Plushie shop</h2>
-        <p className="muted plush-shop-disclaimer-text">
-          Optional fun: earn tokens by logging pain, episodes, questions, visits, handoff summaries, and transcript visits.
-          This is not medical advice and has no cash value. Prices rise by 2 tokens after each plushie you unlock (no cap in this trial).
-        </p>
+      <div style={{ padding: '0 18px 0', marginBottom: 4 }}>
         {error && <div className="banner error plush-shop-banner">{error}</div>}
         {banner && (
-          <div className="banner plush-shop-banner" style={{ background: 'var(--mint-surface, #ecfdf5)', borderColor: 'var(--mint)' }}>
+          <div className="banner plush-shop-banner" style={{ background: '#ecfdf5', borderColor: '#6ee7b7' }}>
             {banner}
           </div>
         )}
         <p className="plush-shop-token-line">
-          Your tokens:
+          ✨
           {' '}
           <strong>{balance === null ? '…' : balance}</strong>
+          {' '}
+          tokens
         </p>
       </div>
 
       {activePlushie && (
         <section className="plush-shop-hero-card" aria-labelledby="plush-shop-hero-heading">
           <div className="plush-shop-hero-inner">
-            <span className="plush-shop-hero-badge">This week&apos;s plushie!</span>
+            <span className="plush-shop-hero-badge">✨ This Week&apos;s Plushie!</span>
             <div className="plush-shop-hero-stage">
               {lottieData
                 ? (
@@ -371,7 +349,7 @@ export function PlushieShopPage () {
                 : `A new friend for your dashboard — unlock with tokens.`}
             </p>
             <p className="plush-shop-hero-price">
-              <span aria-hidden>✨</span>
+              <span aria-hidden>⬡</span>
               {' '}
               {ownedActive ? 'Owned' : `${nextPrice} tokens`}
             </p>
