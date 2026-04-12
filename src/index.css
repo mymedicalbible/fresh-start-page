@@ -1028,7 +1028,7 @@ textarea { min-height: 88px; resize: vertical; }
   background: rgba(130, 168, 130, 0.65);
 }
 
-/* Above corner plushie on home appointment card */
+/* Above appointment banner content */
 .scrap-sticky--upcoming .scrap-tape--green {
   z-index: 5;
 }
@@ -1085,28 +1085,82 @@ textarea { min-height: 88px; resize: vertical; }
   overflow: visible;
 }
 
-/* First line inside the appointment card: centered under the green washi tape */
-.scrap-sticky--upcoming .scrap-sticky-label--appt-under-tape {
+/* Top row: optional left mascot slot (cream box) + title/reminders — hero stays full width below */
+.scrap-appt-banner-mast {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+}
+
+.scrap-appt-banner-mast--has-plushie {
+  grid-template-columns: minmax(128px, 40%) minmax(0, 1fr);
+}
+
+@media (max-width: 420px) {
+  .scrap-appt-banner-mast--has-plushie {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .scrap-appt-banner-mast--has-plushie .scrap-dash-mascot-slot {
+    max-width: 240px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-self: center;
+  }
+}
+
+@media (min-width: 421px) {
+  .scrap-appt-banner-mast--has-plushie .scrap-dash-mascot-slot {
+    justify-self: start;
+  }
+}
+
+/* Dedicated cream/beige mascot area (matches date-pill tone) — panda centered inside, no overlap with hero */
+.scrap-dash-mascot-slot {
+  border-radius: 10px;
+  background: rgba(245, 235, 216, 0.9);
+  border: 1px solid rgba(74, 55, 40, 0.12);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.scrap-appt-banner-main {
+  min-width: 0;
+}
+
+/* Title row: centered under the green tape (tape is on the section, above this mast row) */
+.scrap-appt-banner-main .scrap-sticky-label--appt-under-tape {
   text-align: center;
   width: 100%;
   margin-top: 0;
   margin-bottom: 10px;
 }
 
-/* Plushie: overlay only (absolute) — no extra padding on the card for the mascot; no CSS shadows */
-.scrap-dash-plushie--corner {
-  position: absolute;
-  left: -10px;
-  top: -16px;
-  width: min(260px, 64vw);
-  height: min(260px, 64vw);
-  z-index: 4;
+/* Plushie sits in the mascot slot only — in-flow, not absolute over the card */
+.scrap-dash-plushie--slot {
+  width: min(100%, 200px);
+  height: min(100%, 200px);
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
   filter: none;
   box-shadow: none;
 }
 
-.scrap-dash-plushie--corner .scrap-dash-plushie-lottie {
+.scrap-dash-plushie--slot .scrap-dash-plushie-lottie {
   position: relative;
   z-index: 1;
   filter: none !important;
@@ -1119,12 +1173,12 @@ textarea { min-height: 88px; resize: vertical; }
   height: 100% !important;
 }
 
-.scrap-dash-plushie--corner svg,
-.scrap-dash-plushie--corner svg * {
+.scrap-dash-plushie--slot svg,
+.scrap-dash-plushie--slot svg * {
   filter: none !important;
 }
 
-.scrap-dash-plushie--corner.scrap-dash-plushie--enter {
+.scrap-dash-plushie--slot.scrap-dash-plushie--enter {
   animation: scrap-dash-plushie-enter 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 

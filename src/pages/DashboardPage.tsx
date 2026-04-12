@@ -1764,36 +1764,41 @@ export function DashboardPage () {
           onClickCapture={onApptBannerClickCapture}
         >
           <span className="scrap-tape scrap-tape--green" aria-hidden />
-          {hasDashPlushie && (
-            <div
-              className={`scrap-dash-plushie scrap-dash-plushie--corner${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
-              aria-hidden
-            >
-              <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+          <div className={hasDashPlushie ? 'scrap-appt-banner-mast scrap-appt-banner-mast--has-plushie' : 'scrap-appt-banner-mast'}>
+            {hasDashPlushie && (
+              <div className="scrap-dash-mascot-slot" aria-hidden>
+                <div
+                  className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+                >
+                  <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+                </div>
+              </div>
+            )}
+            <div className="scrap-appt-banner-main">
+              <div className="scrap-sticky-label scrap-sticky-label--appt-under-tape">{bannerLabel}</div>
+              {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
+                <button
+                  type="button"
+                  className="btn btn-ghost scrap-reminders-prompt"
+                  onClick={() => {
+                    void Notification.requestPermission().then((p) => {
+                      if (p === 'granted') {
+                        scheduleApptNotifications(
+                          upcomingAllFull.length ? upcomingAllFull : upcoming,
+                          apptPendingQ,
+                        )
+                      }
+                    })
+                  }}
+                >
+                  Enable visit reminders
+                </button>
+              )}
+              {apptBannerSource === 'none' && (
+                <p className="scrap-body scrap-body--muted">No upcoming appointments.</p>
+              )}
             </div>
-          )}
-          <div className="scrap-sticky-label scrap-sticky-label--appt-under-tape">{bannerLabel}</div>
-          {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
-            <button
-              type="button"
-              className="btn btn-ghost scrap-reminders-prompt"
-              onClick={() => {
-                void Notification.requestPermission().then((p) => {
-                  if (p === 'granted') {
-                    scheduleApptNotifications(
-                      upcomingAllFull.length ? upcomingAllFull : upcoming,
-                      apptPendingQ,
-                    )
-                  }
-                })
-              }}
-            >
-              Enable visit reminders
-            </button>
-          )}
-          {apptBannerSource === 'none' && (
-            <p className="scrap-body scrap-body--muted">No upcoming appointments.</p>
-          )}
+          </div>
           {upcoming.length > 0 && (
             <div className="scrap-upcoming-hero">
               {upcoming[0].doctorId ? (
