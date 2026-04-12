@@ -94,6 +94,10 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+body:has(.scrap-more-page--hub) {
+  background: var(--cork-bg);
+}
+
 #root { min-height: 100dvh; }
 
 a {
@@ -149,6 +153,12 @@ button, input, select, textarea { font: inherit; }
     );
   background-size: auto, auto, auto, auto, auto, auto;
   background-attachment: fixed;
+}
+
+/* Ensure nothing above .app-shell shows through on the More hub */
+.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub),
+.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) > * {
+  background-color: var(--cork-bg);
 }
 
 .app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) .scrap-layout-header {
