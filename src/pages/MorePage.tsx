@@ -1,114 +1,138 @@
+import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
-import { CorkBoardBackground, StickyNote } from '../components/more'
+
+/** Flat pressed-flower decorations (muted, low opacity). */
+function PressedFlowerDecor () {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+      {/* Lavender sprig — top left */}
+      <svg
+        className="absolute -left-1 top-[12%] h-24 w-20 opacity-[0.26] sm:h-28 sm:w-24"
+        viewBox="0 0 80 100"
+        fill="none"
+        style={{ transform: 'rotate(-18deg)' }}
+      >
+        <path d="M40 96V18" stroke="#7c6b8a" strokeWidth="1.4" strokeLinecap="round" />
+        <ellipse cx="34" cy="22" rx="5" ry="7" fill="#9b8ab8" transform="rotate(-25 34 22)" opacity="0.85" />
+        <ellipse cx="46" cy="18" rx="5" ry="7" fill="#a898c4" transform="rotate(18 46 18)" opacity="0.8" />
+        <ellipse cx="38" cy="12" rx="4" ry="6" fill="#8a7aa8" transform="rotate(-8 38 12)" opacity="0.75" />
+        <path d="M36 38c-4-2-6-8-4-12" stroke="#6b5d7a" strokeWidth="1" fill="none" />
+        <ellipse cx="32" cy="32" rx="4" ry="5" fill="#9b8ab8" opacity="0.7" />
+        <ellipse cx="44" cy="36" rx="4" ry="5" fill="#8f7eaa" opacity="0.65" />
+      </svg>
+
+      {/* Tiny daisy — bottom right */}
+      <svg
+        className="absolute -bottom-2 right-2 h-20 w-20 opacity-[0.24] sm:right-6 sm:h-24 sm:w-24"
+        viewBox="0 0 64 64"
+        style={{ transform: 'rotate(14deg)' }}
+      >
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+          <ellipse
+            key={i}
+            cx="32"
+            cy="20"
+            rx="5"
+            ry="9"
+            fill="#e8e0dc"
+            transform={`rotate(${deg} 32 32)`}
+            opacity="0.92"
+          />
+        ))}
+        <circle cx="32" cy="32" r="5" fill="#d4c4b8" />
+        <circle cx="32" cy="32" r="2.5" fill="#b8a898" />
+      </svg>
+
+      {/* Small leaf — upper right edge */}
+      <svg
+        className="absolute right-0 top-[22%] h-16 w-14 opacity-[0.22] sm:right-4"
+        viewBox="0 0 56 48"
+        style={{ transform: 'rotate(32deg)' }}
+      >
+        <path
+          d="M28 44c-8-12-10-28 2-38 12 8 10 24 2 38"
+          fill="#8faa8a"
+          opacity="0.75"
+        />
+        <path d="M28 44V12" stroke="#6b8a62" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+      </svg>
+    </div>
+  )
+}
+
+type PolaroidNavCardProps = {
+  to: string
+  title: string
+  caption: string
+  photoClass: 'more-polaroid__photo--account' | 'more-polaroid__photo--plushies'
+  tapeClass: '' | 'more-polaroid__tape--rose'
+  frameRotateClass: string
+  ariaLabel: string
+}
+
+function PolaroidNavCard ({
+  to,
+  title,
+  caption,
+  photoClass,
+  tapeClass,
+  frameRotateClass,
+  ariaLabel,
+}: PolaroidNavCardProps) {
+  return (
+    <Link
+      to={to}
+      aria-label={ariaLabel}
+      className="more-polaroid-link group relative block w-[min(88vw,220px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
+    >
+      <div
+        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_14px_32px_rgba(45,38,42,0.22),0_4px_12px_rgba(0,0,0,0.08)] transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_rgba(45,38,42,0.26),0_6px_14px_rgba(0,0,0,0.1)] group-active:translate-y-0`}
+      >
+        <span
+          className={`more-polaroid__tape ${tapeClass}`.trim()}
+          aria-hidden
+        />
+        <div className={`more-polaroid__photo ${photoClass}`}>
+          <span className="more-polaroid__title">{title}</span>
+        </div>
+        <div className="more-polaroid__caption-strip">
+          <span className="more-polaroid__caption">{caption}</span>
+        </div>
+      </div>
+    </Link>
+  )
+}
 
 export function MorePage () {
   return (
-    <div className="scrapbook-inner scrap-more-page scrap-more-page--hub">
-      <div className="scrap-more-hub-back">
+    <div className="scrapbook-inner scrap-more-page scrap-more-page--hub flex min-h-0 flex-1 flex-col">
+      <div className="scrap-more-hub-back shrink-0 px-4 pb-2.5 pt-1">
         <BackButton fallbackTo="/app" />
       </div>
-      <CorkBoardBackground>
-        <div className="cork-board__notes">
-          <StickyNote
+
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <PressedFlowerDecor />
+
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10 px-4 py-8 sm:flex-row sm:gap-14 sm:py-10">
+          <PolaroidNavCard
             to="/app/profile"
             title="Account"
-            subtitle="Profile & settings"
-            variant="account"
+            caption="profile & settings"
+            photoClass="more-polaroid__photo--account"
+            tapeClass=""
+            frameRotateClass="-rotate-[2.5deg]"
+            ariaLabel="Account — profile and settings"
           />
-          <StickyNote
+          <PolaroidNavCard
             to="/app/plushies"
             title="Plushies"
-            subtitle="Shop & collect"
-            variant="plushies"
+            caption="shop & collect"
+            photoClass="more-polaroid__photo--plushies"
+            tapeClass="more-polaroid__tape--rose"
+            frameRotateClass="rotate-[2.5deg]"
+            ariaLabel="Plushies — shop and collect"
           />
         </div>
-      </CorkBoardBackground>
-      <div className="more-grass-footer" aria-hidden>
-        <svg viewBox="0 0 390 130" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: 'auto', display: 'block' }}>
-          {/* Ground base */}
-          <ellipse cx="195" cy="122" rx="220" ry="20" fill="#4a7c2f" />
-          <ellipse cx="195" cy="120" rx="220" ry="16" fill="#5a9438" />
-
-          {/* Back grass layer */}
-          {[15,30,45,58,72,88,102,118,132,148,162,178,192,208,222,238,252,268,282,298,312,328,342,358,372].map((x, i) => (
-            <path key={`bg${i}`}
-              d={`M${x},115 Q${x+(i%2===0?-5:5)},${95+i%4*3} ${x+(i%3===0?2:-2)},${82+i%5*4}`}
-              stroke="#3d6b25" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.7"
-            />
-          ))}
-
-          {/* Front grass blades */}
-          {[10,22,36,50,63,78,92,107,122,137,151,166,180,195,210,224,238,253,267,281,296,310,324,338,352,366,378].map((x, i) => (
-            <path key={`fg${i}`}
-              d={`M${x},118 Q${x+(i%2===0?-7:7)},${100+i%3*5} ${x+(i%2===0?3:-3)},${88+i%4*6}`}
-              stroke="#6abf45" strokeWidth="2" fill="none" strokeLinecap="round"
-            />
-          ))}
-
-          {/* Tall plant stems */}
-          {[65, 145, 195, 265, 325].map((x, i) => (
-            <line key={`stem${i}`} x1={x} y1="115" x2={x+(i%2===0?-3:3)} y2={30+i%3*12}
-              stroke="#3d6b25" strokeWidth="2.5" strokeLinecap="round" />
-          ))}
-
-          {/* Leaves on stems */}
-          {[
-            [58, 75, -35], [73, 80, 30],
-            [138, 65, -30], [152, 72, 28],
-            [188, 58, -25], [202, 65, 22],
-            [258, 70, -32], [272, 76, 28],
-            [318, 68, -28], [332, 74, 25],
-          ].map(([x, y, rot], i) => (
-            <ellipse key={`leaf${i}`} cx={x} cy={y} rx="12" ry="5"
-              fill="#4a8a2e" transform={`rotate(${rot} ${x} ${y})`} opacity="0.9" />
-          ))}
-
-          {/* Orange daisy flowers */}
-          {[65, 195, 325].map((x, i) => {
-            const y = [28, 18, 32][i]
-            return (
-              <g key={`flower${i}`} transform={`translate(${x},${y})`}>
-                {[0,40,80,120,160,200,240,280,320].map((deg, j) => (
-                  <ellipse key={j} cx="0" cy="-8" rx="3.5" ry="6"
-                    fill="#f97316" transform={`rotate(${deg})`} opacity="0.95" />
-                ))}
-                <circle cx="0" cy="0" r="5.5" fill="#fbbf24" />
-                <circle cx="0" cy="0" r="3" fill="#f59e0b" />
-              </g>
-            )
-          })}
-
-          {/* White dandelion puffs */}
-          {[115, 175, 255, 310].map((x, i) => {
-            const stemY = 55 + i * 6
-            return (
-              <g key={`dand${i}`}>
-                <line x1={x} y1="115" x2={x} y2={stemY}
-                  stroke="#3d6b25" strokeWidth="1.5" strokeLinecap="round" />
-                {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, j) => (
-                  <line key={j}
-                    x1={x} y1={stemY}
-                    x2={x + Math.sin(deg * Math.PI / 180) * 11}
-                    y2={stemY - Math.cos(deg * Math.PI / 180) * 11}
-                    stroke="white" strokeWidth="1.1" strokeLinecap="round" opacity="0.85"
-                  />
-                ))}
-                <circle cx={x} cy={stemY} r="2.5" fill="white" opacity="0.9" />
-              </g>
-            )
-          })}
-
-          {/* Small white flower clusters */}
-          {[40, 145, 230, 355].map((x, i) => (
-            <g key={`wf${i}`} transform={`translate(${x}, ${72 + i % 2 * 8})`}>
-              {[0, 72, 144, 216, 288].map((deg, j) => (
-                <ellipse key={j} cx="0" cy="-5" rx="2.5" ry="4"
-                  fill="white" transform={`rotate(${deg})`} opacity="0.9" />
-              ))}
-              <circle cx="0" cy="0" r="2.5" fill="#fef9c3" />
-            </g>
-          ))}
-        </svg>
       </div>
     </div>
   )

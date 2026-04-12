@@ -1,5 +1,2 @@
-export { CorkBoardBackground } from './CorkBoardBackground'
 export { DaisyPin } from './DaisyPin'
 export { PlushiesSparkles } from './PlushiesSparkles'
-export { StickyNote } from './StickyNote'
-export type { StickyNoteProps, StickyNoteVariant } from './StickyNote'
