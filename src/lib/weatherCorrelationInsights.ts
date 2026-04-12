@@ -1,7 +1,8 @@
 import type { WeatherSnapshot } from './weatherSnapshot'
 import { grassPollenBucketLabel } from './weatherDisplay'
 
-type PainRow = {
+/** Rows passed to `buildWeatherCorrelationInsights` (stored snapshot and/or historical enrichment). */
+export type PainCorrelationRow = {
   intensity: number | null
   weather_snapshot: unknown
 }
@@ -64,11 +65,13 @@ export type WeatherCorrelationResult = {
 }
 
 /**
- * Compares the current forecast snapshot to historical pain + episode (symptom) logs that stored weather.
+ * Compares the current forecast snapshot to pain + symptom logs with stored `weather_snapshot`,
+ * optionally after dashboard enrichment from Open-Meteo **archive** for the last ~30 days when
+ * snapshots were missing (see `historicalWeather.ts`).
  */
 export function buildWeatherCorrelationInsights (
   current: WeatherSnapshot,
-  painRows: PainRow[],
+  painRows: PainCorrelationRow[],
   symptomRows: SymptomLogRow[] = [],
 ): WeatherCorrelationResult {
   const lines: string[] = []

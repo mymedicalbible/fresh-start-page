@@ -40,6 +40,11 @@ import {
   type WeatherCorrelationResult,
 } from '../lib/weatherCorrelationInsights'
 import { fetchWeatherSnapshot, type WeatherSnapshot } from '../lib/weatherSnapshot'
+import {
+  enrichCorrelationRowsWithHistoricalWeather,
+  correlationLookbackMinEntryDate,
+  correlationLookbackMinLoggedAtIso,
+} from '../lib/historicalWeather'
 
 type UpcomingAppt = {
   id: string
@@ -612,19 +617,21 @@ export function DashboardPage () {
     }
     let cancelled = false
     void (async () => {
+      const minEntry = correlationLookbackMinEntryDate()
+      const minLogged = correlationLookbackMinLoggedAtIso()
       const [painRes, symRes] = await Promise.all([
         supabase
           .from('pain_entries')
-          .select('intensity, weather_snapshot')
+          .select('intensity, weather_snapshot, entry_date, entry_time')
           .eq('user_id', user.id)
-          .not('weather_snapshot', 'is', null)
+          .gte('entry_date', minEntry)
           .order('entry_date', { ascending: false })
           .limit(200),
         supabase
           .from('symptom_logs')
-          .select('symptoms, weather_snapshot')
+          .select('symptoms, weather_snapshot, logged_at')
           .eq('user_id', user.id)
-          .not('weather_snapshot', 'is', null)
+          .gte('logged_at', minLogged)
           .order('logged_at', { ascending: false })
           .limit(200),
       ])
@@ -633,8 +640,15 @@ export function DashboardPage () {
         setWeatherCorrelation(null)
         return
       }
+      const enriched = await enrichCorrelationRowsWithHistoricalWeather({
+        lat: weather.latitude,
+        lng: weather.longitude,
+        painRows: painRes.data ?? [],
+        symptomRows: symRes.data ?? [],
+      })
+      if (cancelled) return
       setWeatherCorrelation(
-        buildWeatherCorrelationInsights(weather, painRes.data ?? [], symRes.data ?? []),
+        buildWeatherCorrelationInsights(weather, enriched.pain, enriched.symptom),
       )
     })()
     return () => { cancelled = true }
