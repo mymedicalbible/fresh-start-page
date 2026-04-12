@@ -1,0 +1,10 @@
+-- Reset plushie tokens and unlocks for testing (Supabase SQL Editor).
+-- First purchase costs 10 tokens when you have zero prior unlocks (game_get_state / game_purchase_active_plushie).
+--
+-- Single user — uncomment and set your auth user id (auth.users.id):
+-- delete from public.token_ledger where user_id = 'YOUR_USER_UUID_HERE';
+-- delete from public.user_plushie_unlocks where user_id = 'YOUR_USER_UUID_HERE';
+--
+-- All users — dev/staging ONLY; uncomment only if you intend to wipe everyone:
+-- delete from public.token_ledger;
+-- delete from public.user_plushie_unlocks;

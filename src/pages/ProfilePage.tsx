@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import Lottie from 'lottie-react'
 import type { User } from '@supabase/supabase-js'
@@ -7,8 +7,6 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
 import { runExportDownload } from '../lib/fullDataExport'
-
-const PANDA_LOTTIE_PATH = '/lottie/panda-popcorn.json'
 
 function PandaLottieLoop ({ data, className }: { data: object; className?: string }) {
   return (
@@ -69,6 +67,7 @@ function memberSinceLabel (user: User): string {
 
 export function ProfilePage () {
   const { user, signOut } = useAuth()
+  const { pathname: profilePath } = useLocation()
   const email = user?.email ?? ''
 
   const [painCount, setPainCount] = useState<number | null>(null)
@@ -90,6 +89,7 @@ export function ProfilePage () {
   const [exportBusy, setExportBusy] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
+  const [activePlushieLottiePath, setActivePlushieLottiePath] = useState<string | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -123,11 +123,15 @@ export function ProfilePage () {
     }
     if (!gameTokensEnabled()) {
       setTokensOff(true)
+      setActivePlushieLottiePath(null)
+      setPandaLottieData(null)
       return
     }
     const state = await fetchGameState()
     if (!state.ok) {
       setTokensOff(true)
+      setActivePlushieLottiePath(null)
+      setPandaLottieData(null)
       return
     }
     setTokensOff(false)
@@ -135,29 +139,36 @@ export function ProfilePage () {
     setNextPrice(state.next_price)
     setActivePlushieName(state.active_plushie.name)
     setOwnedActive(state.owned_active)
+    setActivePlushieLottiePath(state.active_plushie?.lottie_path ?? null)
   }, [user])
 
   useEffect(() => {
     void loadStats()
     void loadGameAndPlushies()
-  }, [loadStats, loadGameAndPlushies])
+  }, [loadStats, loadGameAndPlushies, profilePath])
 
   useEffect(() => {
+    if (!ownedActive || !activePlushieLottiePath) {
+      setPandaLottieData(null)
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(PANDA_LOTTIE_PATH)
+        const res = await fetch(activePlushieLottiePath)
         if (res.ok && !cancelled) {
           setPandaLottieData(await res.json() as object)
+        } else if (!cancelled) {
+          setPandaLottieData(null)
         }
       } catch {
-        /* ignore */
+        if (!cancelled) setPandaLottieData(null)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [ownedActive, activePlushieLottiePath])
 
   async function onChangePassword () {
     setAccountBanner(null)

@@ -34,7 +34,6 @@ import {
   tryGrantHandoffSummaryTokens,
   type ActivePlushie,
 } from '../lib/gameTokens'
-import pandaPopcorn from '../assets/lottie/panda-popcorn.json'
 
 type UpcomingAppt = {
   id: string
@@ -629,7 +628,7 @@ export function DashboardPage () {
       } catch { /* ignore */ }
     })()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, dashPath])
 
   useEffect(() => {
     if (!dashGame?.owned_active || !dashGame.active_plushie?.lottie_path) {
@@ -1765,17 +1764,16 @@ export function DashboardPage () {
           onClickCapture={onApptBannerClickCapture}
         >
           <span className="scrap-tape scrap-tape--green" aria-hidden />
-          <div className="scrap-appt-banner-mast scrap-appt-banner-mast--has-plushie">
-            <div className="scrap-dash-mascot-slot" aria-hidden>
-              <div
-                className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
-              >
-                <DashPlushieLottie
-                  data={hasDashPlushie ? dashPlushieLottie! : (pandaPopcorn as object)}
-                  className="scrap-dash-plushie-lottie"
-                />
+          <div className={hasDashPlushie ? 'scrap-appt-banner-mast scrap-appt-banner-mast--has-plushie' : 'scrap-appt-banner-mast'}>
+            {hasDashPlushie && (
+              <div className="scrap-dash-mascot-slot" aria-hidden>
+                <div
+                  className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+                >
+                  <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+                </div>
               </div>
-            </div>
+            )}
             <div className="scrap-appt-banner-main">
               <div className="scrap-sticky-label scrap-sticky-label--appt-under-tape">{bannerLabel}</div>
               {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
