@@ -8,8 +8,8 @@ export function DaisyPin () {
     <svg
       className="cork-daisy-pin"
       viewBox="0 0 48 48"
-      width={32}
-      height={32}
+      width={64}
+      height={64}
       aria-hidden
     >
       <defs>
