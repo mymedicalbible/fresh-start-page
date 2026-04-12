@@ -574,7 +574,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
                                 name="Pressure"
                                 unit=" hPa"
                                 tick={{ fontSize: 10 }}
-                                stroke="var(--muted)"
+                                stroke="var(--muted-foreground)"
                               />
                               <YAxis
                                 type="number"
@@ -582,7 +582,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
                                 name="Pain"
                                 domain={[0, 10]}
                                 tick={{ fontSize: 10 }}
-                                stroke="var(--muted)"
+                                stroke="var(--muted-foreground)"
                                 width={36}
                               />
                               <Tooltip
@@ -607,8 +607,8 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={weatherBarData} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
                               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                              <XAxis dataKey="bucket" tick={{ fontSize: 10 }} stroke="var(--muted)" />
-                              <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="var(--muted)" width={36} />
+                              <XAxis dataKey="bucket" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                              <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={36} />
                               <Tooltip formatter={(v: number) => [`${v}/10`, 'Avg pain']} />
                               <Bar dataKey="avg" fill="#a78bfa" name="Avg pain" radius={[4, 4, 0, 0]} />
                             </BarChart>

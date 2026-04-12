@@ -48,8 +48,8 @@ export function PainSummaryChart ({ data, title = 'Pain intensity' }: { data: Pa
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted)" />
-            <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tickFormatter={(v) => `${v}/10`} tick={{ fontSize: 10 }} stroke="var(--muted)" width={40} />
+            <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+            <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tickFormatter={(v) => `${v}/10`} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
             <Tooltip formatter={(v: number) => [`${v}/10`, 'Pain']} labelFormatter={(l) => l} />
             <Area type="monotone" dataKey="intensity" stroke="none" fill="url(#painArea)" />
             <Line

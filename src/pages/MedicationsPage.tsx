@@ -1108,7 +1108,7 @@ export function MedicationsPage () {
                   <div className="muted" style={{ fontSize: '0.78rem' }}>Rx: {prescribedBy}</div>
                 )}
               </div>
-              <span style={{ color: 'var(--muted)', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+              <span style={{ color: 'var(--muted-foreground)', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
             </div>
 
             {isOpen && (
@@ -1180,7 +1180,7 @@ export function MedicationsPage () {
                               background: 'var(--bg)',
                               borderRadius: 10,
                               border: '1px solid var(--border)',
-                              color: 'var(--muted)',
+                              color: 'var(--muted-foreground)',
                             }}
                           >
                             <div style={{ fontWeight: 600, color: 'var(--sky-ink)' }}>
@@ -1214,7 +1214,7 @@ export function MedicationsPage () {
               onClick={() => setExpandedKey(isOpen ? null : rowKey)}
             >
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: 'var(--muted)' }}>{a.medication}</div>
+                <div style={{ fontWeight: 700, color: 'var(--muted-foreground)' }}>{a.medication}</div>
                 <div className="muted" style={{ fontSize: '0.84rem' }}>
                   {[a.dose, a.frequency].filter(Boolean).join(' · ') || '—'}
                   {a.purpose ? ` · ${a.purpose}` : ''}
@@ -1226,7 +1226,7 @@ export function MedicationsPage () {
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div className="muted" style={{ fontSize: '0.75rem' }}>Stopped</div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{a.stopped_date ?? '—'}</div>
-                <span style={{ color: 'var(--muted)', fontSize: '0.75rem', display: 'block', marginTop: 4 }}>{isOpen ? '▲' : '▼'}</span>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '0.75rem', display: 'block', marginTop: 4 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
             </div>
             {isOpen && (
@@ -1235,7 +1235,7 @@ export function MedicationsPage () {
                   <div className="muted" style={{ fontSize: '0.84rem', marginBottom: 6 }}>Started: {a.start_date}</div>
                 )}
                 {a.reason_stopped && (
-                  <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, fontSize: '0.83rem', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                  <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, fontSize: '0.83rem', color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}>
                     Reason: {a.reason_stopped}
                   </div>
                 )}

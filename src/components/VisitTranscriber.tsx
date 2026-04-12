@@ -287,8 +287,8 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
         {status === 'recording' && recordingPaused && (
           <span style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600 }}>Paused</span>
         )}
-        {status === 'connecting' && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Connecting…</span>}
-        {status === 'processing' && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Processing…</span>}
+        {status === 'connecting' && <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Connecting…</span>}
+        {status === 'processing' && <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>Processing…</span>}
       </div>
 
       {error && (
@@ -322,7 +322,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
       {transcript && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 6 }}>Live transcript</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--muted-foreground)', marginBottom: 6 }}>Live transcript</div>
           <div style={{ ...TX, maxHeight: 160, overflowY: 'auto', padding: '10px 12px', background: 'var(--surface-alt, #f9f9f6)', borderRadius: 8, border: '1px solid var(--border)' }}>
             {transcript}
           </div>
@@ -360,7 +360,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
           }}>
             <div style={{ padding: '18px 20px 14px', borderBottom: '1.5px solid var(--border)', flexShrink: 0 }}>
               <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>What we found</div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: 4 }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--muted-foreground)', marginTop: 4 }}>
                 Review what will be added to your visit log
               </div>
             </div>
@@ -374,7 +374,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
                     → Reason for visit
                   </div>
                   <div style={{ fontSize: '0.9rem' }}>{extracted.reason_for_visit.trim()}</div>
@@ -391,11 +391,11 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                     border: '1px solid var(--border)',
                   }}
                 >
-                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
                     → Diagnosis directory
                   </div>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{d.diagnosis.trim()}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>{diagnosisStatusLabel(d.status)}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', marginTop: 2 }}>{diagnosisStatusLabel(d.status)}</div>
                 </div>
               ))}
               {extracted.summary.map((item, i) => (
@@ -406,16 +406,16 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted-foreground)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
                     → {item.destination}
                   </div>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{item.field}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>{item.value}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted-foreground)', marginTop: 2 }}>{item.value}</div>
                 </div>
               ))}
               {extracted.summary.length === 0 && !extracted.reason_for_visit?.trim()
                 && !(extracted.diagnoses ?? []).some((d) => d.diagnosis?.trim()) && (
-                <p style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>No fields extracted.</p>
+                <p style={{ color: 'var(--muted-foreground)', fontSize: '0.88rem' }}>No fields extracted.</p>
               )}
             </div>
 

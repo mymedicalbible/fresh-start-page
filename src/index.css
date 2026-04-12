@@ -85,11 +85,12 @@
   --scrap-paper: #faf6ed;
   --scrap-grid: rgba(188, 168, 140, 0.32);
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Must stay dark — Tailwind text-foreground / shadcn use these (oklch was unreliable in some builds) */
+  --foreground: var(--text);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: var(--text);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: var(--text);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
@@ -105,7 +106,7 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-foreground: var(--text);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
@@ -456,7 +457,7 @@ button, input, select, textarea { font: inherit; }
 .top-bar-date {
   font-size: 0.88rem;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-top: 4px;
 }
 
@@ -481,7 +482,7 @@ button, input, select, textarea { font: inherit; }
 
 .top-bar .subtitle {
   font-size: 0.78rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-top: 2px;
 }
 
@@ -508,7 +509,7 @@ button, input, select, textarea { font: inherit; }
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -567,7 +568,7 @@ button, input, select, textarea { font: inherit; }
 .btn-ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   box-shadow: none;
 }
 .btn-ghost:hover:not(:disabled) { color: var(--text); }
@@ -671,7 +672,7 @@ button, input, select, textarea { font: inherit; }
 .bento-cell .bento-hint {
   font-size: 0.72rem;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 /* ============================================================
@@ -700,7 +701,7 @@ button, input, select, textarea { font: inherit; }
 }
 .nav-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .nav-card .label { font-weight: 600; font-size: 0.95rem; }
-.nav-card .hint  { font-size: 0.78rem; color: var(--muted); }
+.nav-card .hint  { font-size: 0.78rem; color: var(--muted-foreground); }
 
 /* ============================================================
    BADGE
@@ -735,7 +736,7 @@ button, input, select, textarea { font: inherit; }
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 6px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -813,7 +814,7 @@ textarea { min-height: 88px; resize: vertical; }
    ============================================================ */
 .charts-wrap { width: 100%; height: 280px; }
 
-.muted { color: var(--muted); font-size: 0.88rem; }
+.muted { color: var(--muted-foreground); font-size: 0.88rem; }
 
 .login-wrap {
   min-height: 100dvh;
@@ -863,7 +864,7 @@ textarea { min-height: 88px; resize: vertical; }
   flex: 1;
   max-width: 76px;
   cursor: pointer;
-  color: var(--muted);
+  color: var(--muted-foreground);
   transition: color 0.15s ease, background 0.15s ease;
   border-radius: 12px;
 }
@@ -991,7 +992,7 @@ textarea { min-height: 88px; resize: vertical; }
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-top: 8px;
 }
 
@@ -1088,7 +1089,7 @@ textarea { min-height: 88px; resize: vertical; }
 .quick-log-circle-hint {
   font-size: 0.68rem;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--muted-foreground);
   text-align: center;
   line-height: 1.25;
   max-width: 7.5rem;
@@ -1145,7 +1146,7 @@ textarea { min-height: 88px; resize: vertical; }
   margin: 10px 0 0;
   font-size: 0.76rem;
   text-align: center;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .home-hub-links a {
@@ -1169,7 +1170,7 @@ textarea { min-height: 88px; resize: vertical; }
 
 .recent-slim-meta {
   font-size: 0.7rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -3417,14 +3418,14 @@ button.scrap-appt-q:focus-visible {
   cursor: pointer;
   font-size: 1.35rem;
   line-height: 1;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .doctor-note-field-label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 6px;
 }
 
@@ -3959,4 +3960,26 @@ button.scrap-appt-q:focus-visible {
   html {
     @apply font-sans;
   }
+}
+
+/* Readable UI text + lists (Tailwind text-* tokens + bullet clipping) */
+html {
+  color-scheme: only light;
+}
+
+#root {
+  color: var(--text);
+}
+
+.app-shell.app-shell--scrapbook ul,
+.app-shell.app-shell--scrapbook ol {
+  padding-left: 1.5rem;
+  margin-left: 0;
+  overflow: visible;
+  list-style-position: outside;
+}
+
+.app-shell.app-shell--scrapbook .app-page--scrapbook,
+.app-shell.app-shell--scrapbook .scrapbook-sheet {
+  overflow-x: visible;
 }
