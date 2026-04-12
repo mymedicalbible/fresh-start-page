@@ -17,7 +17,13 @@ type CatalogRow = {
   slot_index: number
 }
 
-/** Match Postgres `game_get_state`: slot = mod((current_date - anchor) / 7, 5) using UTC calendar days. */
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Next time the weekly slot advances — matches Postgres `game_get_state`:
+ * `slot := mod((current_date - anchor) / 7, 5)` using **UTC** calendar days (same as Supabase `current_date`).
+ * Reset occurs at **00:00:00 UTC** on that boundary (not “next Monday” in local time unless it lines up).
+ */
 function computeNextRotationUtcMs (anchorStr: string): number | null {
   try {
     const parts = anchorStr.trim().split('-').map(Number)
@@ -26,9 +32,9 @@ function computeNextRotationUtcMs (anchorStr: string): number | null {
     const anchor = new Date(Date.UTC(y, mo - 1, d))
     const now = new Date()
     const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const daysSince = Math.floor((todayUtc.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000))
-    const weekIndex = Math.floor(daysSince / 7)
-    return anchor.getTime() + (weekIndex + 1) * 7 * 24 * 60 * 60 * 1000
+    const daysSince = Math.floor((todayUtc.getTime() - anchor.getTime()) / DAY_MS)
+    const weeksElapsed = Math.floor(daysSince / 7)
+    return anchor.getTime() + (weeksElapsed + 1) * 7 * DAY_MS
   } catch {
     return null
   }
@@ -235,6 +241,22 @@ export function PlushieShopPage () {
 
   const cd = useMemo(() => formatCountdown(countdownRemainMs), [countdownRemainMs])
 
+  const nextRotationAtMs = useMemo(() => {
+    if (!rotationAnchorStr) return null
+    return computeNextRotationUtcMs(rotationAnchorStr)
+  }, [rotationAnchorStr])
+
+  const nextRotationLabel = useMemo(() => {
+    if (nextRotationAtMs == null) return null
+    return new Date(nextRotationAtMs).toLocaleString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }, [nextRotationAtMs])
+
   const unlockedPlushies = useMemo(
     () => catalog.filter((p) => unlockedIds.has(p.id)),
     [catalog, unlockedIds],
@@ -401,6 +423,14 @@ export function PlushieShopPage () {
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
           <p className="plush-shop-next-line plush-shop-next-line--sub">Come back when the timer hits zero to find out who.</p>
+          {nextRotationLabel != null && nextRotationAtMs != null && countdownRemainMs > 0 && (
+            <p className="plush-shop-next-line plush-shop-next-line--sub">
+              Next weekly reset:{' '}
+              <time dateTime={new Date(nextRotationAtMs).toISOString()}>{nextRotationLabel}</time>
+              {' '}
+              <span className="muted" style={{ fontSize: '0.88em' }}>(your time · same schedule as the server)</span>
+            </p>
+          )}
           <div className="plush-shop-countdown" role="timer" aria-live="polite" aria-atomic="true">
             <div className="plush-shop-countdown-cell">
               <span className="plush-shop-countdown-num">{String(cd.d).padStart(2, '0')}</span>

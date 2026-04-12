@@ -274,10 +274,6 @@ export function ProfilePage () {
 
       {/* Profile + tokens */}
       <section className="scrap-account-paper scrap-account-paper--hero">
-        <span className="scrap-account-corner-tape scrap-account-corner-tape--tl" aria-hidden />
-        <span className="scrap-account-corner-tape scrap-account-corner-tape--tr" aria-hidden />
-        <span className="scrap-account-corner-tape scrap-account-corner-tape--bl" aria-hidden />
-        <span className="scrap-account-corner-tape scrap-account-corner-tape--br" aria-hidden />
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
             {pandaLottieData ? (
