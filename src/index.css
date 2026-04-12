@@ -1131,7 +1131,7 @@ textarea { min-height: 88px; resize: vertical; }
   align-items: center;
   justify-content: center;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .scrap-appt-banner-main {
@@ -1164,6 +1164,8 @@ textarea { min-height: 88px; resize: vertical; }
   z-index: 1;
   width: 110px !important;
   height: 110px !important;
+  transform: scale(3);
+  transform-origin: center center;
   filter: none !important;
   box-shadow: none !important;
 }
