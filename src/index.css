@@ -181,7 +181,7 @@ button, input, select, textarea { font: inherit; }
   align-items: stretch;
   width: 100%;
   min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 56px);
-  padding: 20px 12px 48px;
+  padding: 16px 12px 32px;
   box-sizing: border-box;
   background-color: #9d7a5c;
   background-image:
@@ -212,9 +212,9 @@ button, input, select, textarea { font: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 48px;
+  gap: 28px;
   width: 100%;
-  max-width: 52rem;
+  max-width: 40rem;
   margin: 0 auto;
   padding: 0 8px;
   box-sizing: border-box;
@@ -225,22 +225,25 @@ button, input, select, textarea { font: inherit; }
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 48px;
+    gap: 32px;
     max-width: none;
   }
 }
 
 .cork-note {
+  /* Typography uses cqi so title/sub scale with the note, not the viewport */
+  container-type: inline-size;
+  container-name: cork-note;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: min(92vw, 336px);
-  height: min(92vw, 336px);
+  width: min(78vw, 232px);
+  height: min(78vw, 232px);
   aspect-ratio: 1;
   flex-shrink: 0;
-  padding: 28px 24px;
+  padding: 18px 16px;
   text-decoration: none;
   color: var(--scrap-ink);
   border-radius: 0;
@@ -256,13 +259,13 @@ button, input, select, textarea { font: inherit; }
 }
 
 .cork-note--account {
-  transform: rotate(-1deg) translateX(-20px);
+  transform: rotate(-1deg) translateX(-12px);
   background: radial-gradient(ellipse 90% 90% at 48% 42%, #f0f9ff 0%, #e0f2fe 38%, #bae6fd 72%, #93c5fd 100%);
   border: 1px solid rgba(125, 180, 220, 0.35);
 }
 
 .cork-note--plushies {
-  transform: rotate(1deg) translateX(20px);
+  transform: rotate(1deg) translateX(12px);
   background: linear-gradient(
     145deg,
     #fce7f3 0%,
@@ -276,7 +279,7 @@ button, input, select, textarea { font: inherit; }
 
 .cork-note__pin {
   position: absolute;
-  top: -36px;
+  top: -26px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -293,7 +296,7 @@ button, input, select, textarea { font: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   text-align: center;
   width: 100%;
   max-width: 100%;
@@ -301,7 +304,8 @@ button, input, select, textarea { font: inherit; }
 
 .cork-note__title {
   font-family: var(--font-crayon);
-  font-size: clamp(1.75rem, 5.5vw, 3.35rem);
+  /* ~9–11% of note width: tracks note size when resized */
+  font-size: clamp(1.05rem, 9.5cqi + 0.35rem, 1.65rem);
   font-weight: 700;
   line-height: 1.08;
   letter-spacing: 0.02em;
@@ -317,7 +321,7 @@ button, input, select, textarea { font: inherit; }
 
 .cork-note__sub {
   font-family: var(--font-scrap);
-  font-size: clamp(1rem, 3.2vw, 1.95rem);
+  font-size: clamp(0.72rem, 5.25cqi + 0.2rem, 1.02rem);
   line-height: 1.35;
 }
 
@@ -330,7 +334,7 @@ button, input, select, textarea { font: inherit; }
 }
 
 .cork-note--account:hover {
-  transform: rotate(-1deg) translateX(-20px) translateY(-3px) scale(1.02);
+  transform: rotate(-1deg) translateX(-12px) translateY(-3px) scale(1.02);
   box-shadow:
     1px 3px 0 rgba(0, 0, 0, 0.05),
     5px 12px 22px rgba(0, 0, 0, 0.16),
@@ -338,7 +342,7 @@ button, input, select, textarea { font: inherit; }
 }
 
 .cork-note--plushies:hover {
-  transform: rotate(1deg) translateX(20px) translateY(-3px) scale(1.02);
+  transform: rotate(1deg) translateX(12px) translateY(-3px) scale(1.02);
   box-shadow:
     1px 3px 0 rgba(0, 0, 0, 0.05),
     5px 12px 22px rgba(0, 0, 0, 0.16),
@@ -346,17 +350,17 @@ button, input, select, textarea { font: inherit; }
 }
 
 .cork-note--account:active {
-  transform: rotate(-1deg) translateX(-20px) translateY(-1px) scale(1.01);
+  transform: rotate(-1deg) translateX(-12px) translateY(-1px) scale(1.01);
 }
 
 .cork-note--plushies:active {
-  transform: rotate(1deg) translateX(20px) translateY(-1px) scale(1.01);
+  transform: rotate(1deg) translateX(12px) translateY(-1px) scale(1.01);
 }
 
 /* Plushies: soft sparkles (slow pulse) */
 .cork-sparkles {
   position: absolute;
-  inset: -24px;
+  inset: -16px;
   pointer-events: none;
   z-index: 0;
   overflow: visible;
@@ -364,8 +368,8 @@ button, input, select, textarea { font: inherit; }
 
 .cork-sparkles__shape {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(253, 224, 200, 0.5) 60%, transparent 70%);
   box-shadow: 0 0 14px rgba(255, 255, 255, 0.55);
@@ -373,14 +377,14 @@ button, input, select, textarea { font: inherit; }
 }
 
 .cork-sparkles__shape--1 { top: 4%; left: 8%; animation-delay: 0s; }
-.cork-sparkles__shape--2 { top: 12%; right: 4%; width: 10px; height: 10px; animation-delay: 0.6s; }
+.cork-sparkles__shape--2 { top: 12%; right: 4%; width: 7px; height: 7px; animation-delay: 0.6s; }
 .cork-sparkles__shape--3 { bottom: 18%; left: 2%; animation-delay: 1.2s; }
-.cork-sparkles__shape--4 { bottom: 8%; right: 10%; width: 8px; height: 8px; animation-delay: 1.8s; }
+.cork-sparkles__shape--4 { bottom: 8%; right: 10%; width: 6px; height: 6px; animation-delay: 1.8s; }
 .cork-sparkles__shape--5 {
   top: 42%;
   left: -4%;
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
   animation: cork-sparkle-pulse-star 3.8s ease-in-out infinite;
   animation-delay: 2.4s;
