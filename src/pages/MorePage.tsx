@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 
 /**
- * Four pressed specimens extracted from the botanical still-life source art:
- * (1) terracotta cosmos, (2) cream statice sprig, (3) mauve celosia spike, (4) dark dried rose.
+ * PNGs cropped from the PSD `Object` layer (real alpha). The flat JPG in the zip has no transparency;
+ * the opaque `Background` layer was omitted when exporting.
  */
 function PressedFlowerPhotos () {
   return (
