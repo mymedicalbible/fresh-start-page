@@ -119,7 +119,7 @@ export function RecordsPage () {
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <BackButton />
-          <h2 style={{ margin: 0 }}>Records</h2>
+          <h2 style={{ margin: 0 }}>Charts/Trends</h2>
         </div>
 
         <div className="tabs">

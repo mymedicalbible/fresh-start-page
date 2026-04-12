@@ -3,7 +3,7 @@ import { BackButton } from '../components/BackButton'
 
 function ScrapSticker ({
   to, title, sub, tone,
-}: { to: string; title: string; sub?: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' }) {
+}: { to: string; title: string; sub?: string; tone: 'pink' | 'mint' | 'sky' | 'cream' | 'lavender' | 'yellow' }) {
   return (
     <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
       <span className="scrap-sticker-title">{title}</span>
@@ -21,10 +21,10 @@ export function ArchivesPage () {
           <span /><span /><span />
         </div>
         <div className="scrap-sticker-grid">
-          <ScrapSticker to="/app/visits" title="Visits" tone="mint" />
+          <ScrapSticker to="/app/visits" title="Visits" tone="yellow" />
           <ScrapSticker to="/app/questions" title="Questions" tone="sky" />
           <ScrapSticker to="/app/transcripts" title="Transcripts" sub="visit recordings" tone="lavender" />
-          <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="pink" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" tone="mint" />
         </div>
       </div>
     </div>
