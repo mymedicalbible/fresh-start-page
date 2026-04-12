@@ -52,7 +52,7 @@ export default function App () {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="plushies" element={<PlushieShopPage />} />
       </Route>
-      <Route path="/" element={<Navigate to="/app" replace />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   )

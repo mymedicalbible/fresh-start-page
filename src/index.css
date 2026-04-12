@@ -3039,6 +3039,53 @@ button.scrap-appt-q:focus-visible {
   min-height: 100vh;
 }
 
+.plush-shop-token-help {
+  margin: 8px 16px 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(251, 182, 206, 0.45);
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 2px 12px rgba(190, 24, 93, 0.06);
+}
+
+.plush-shop-token-help-summary {
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #9f1239;
+  list-style: none;
+}
+
+.plush-shop-token-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.plush-shop-token-help .plush-shop-token-help-summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.plush-shop-token-help[open] .plush-shop-token-help-summary::before {
+  transform: rotate(90deg);
+}
+
+.plush-shop-token-help-list {
+  margin: 10px 0 0;
+  padding-left: 1.15rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.plush-shop-token-help-list li {
+  margin-bottom: 6px;
+}
+
+.plush-shop-token-help-list li:last-child {
+  margin-bottom: 0;
+}
+
 .plush-shop-banner {
   margin-bottom: 12px;
 }

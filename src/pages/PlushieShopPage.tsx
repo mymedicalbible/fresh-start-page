@@ -146,7 +146,7 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
 export function PlushieShopPage () {
   const [balance, setBalance] = useState<number | null>(null)
   const [activePlushie, setActivePlushie] = useState<ActivePlushie | null>(null)
-  const [nextPrice, setNextPrice] = useState(10)
+  const [nextPrice, setNextPrice] = useState(25)
   const [ownedActive, setOwnedActive] = useState(false)
   const [catalog, setCatalog] = useState<CatalogRow[]>([])
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
@@ -307,6 +307,32 @@ export function PlushieShopPage () {
   return (
     <div className="plush-shop-page">
       <BackButton fallbackTo="/app/more" />
+
+      <details className="plush-shop-token-help">
+        <summary className="plush-shop-token-help-summary">How you earn tokens</summary>
+        <ul className="plush-shop-token-help-list">
+          <li>
+            <strong>1 token</strong>
+            {' '}
+            for each completed quick log: questions, pain, episodes, or diagnosis.
+          </li>
+          <li>
+            <strong>2 tokens</strong>
+            {' '}
+            for filling in a visit log (it doesn&apos;t have to be totally complete).
+          </li>
+          <li>
+            <strong>2 tokens</strong>
+            {' '}
+            for an app-generated handoff summary.
+          </li>
+          <li>
+            <strong>3 tokens</strong>
+            {' '}
+            for transcribing an appointment to help fill in your visit log.
+          </li>
+        </ul>
+      </details>
 
       <div style={{ padding: '0 18px 0', marginBottom: 4 }}>
         {error && <div className="banner error plush-shop-banner">{error}</div>}
