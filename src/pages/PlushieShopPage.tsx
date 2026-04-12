@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
@@ -42,6 +42,84 @@ function formatCountdown (remainingMs: number): { d: number; h: number; m: numbe
     m: Math.floor((sec % 3600) / 60),
     s: sec % 60,
   }
+}
+
+function PlushMysteryGiftSvg () {
+  const gid = useId().replace(/:/g, '')
+  const lid = `plushGiftLid-${gid}`
+  const box = `plushGiftBox-${gid}`
+  const ribbon = `plushGiftRibbon-${gid}`
+  return (
+    <svg
+      className="plush-shop-mystery-svg"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id={lid} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fff1f2" />
+          <stop offset="100%" stopColor="#fecdd3" />
+        </linearGradient>
+        <linearGradient id={box} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fce7f3" />
+          <stop offset="100%" stopColor="#fbcfe8" />
+        </linearGradient>
+        <linearGradient id={ribbon} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#f472b6" />
+          <stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+      </defs>
+      {/* Lid */}
+      <rect
+        x="32"
+        y="52"
+        width="136"
+        height="44"
+        rx="8"
+        fill={`url(#${lid})`}
+        stroke="rgba(190, 24, 93, 0.15)"
+        strokeWidth="1"
+      />
+      {/* Ribbon band on lid */}
+      <rect x="32" y="74" width="136" height="16" fill={`url(#${ribbon})`} opacity="0.95" />
+      {/* Box body */}
+      <rect
+        x="40"
+        y="94"
+        width="120"
+        height="86"
+        rx="10"
+        fill={`url(#${box})`}
+        stroke="rgba(190, 24, 93, 0.12)"
+        strokeWidth="1"
+      />
+      {/* Vertical ribbon (front) */}
+      <rect x="92" y="94" width="16" height="86" fill={`url(#${ribbon})`} opacity="0.92" />
+      {/* Bow */}
+      <ellipse cx="88" cy="58" rx="14" ry="11" fill="#f9a8d4" stroke="#ec4899" strokeWidth="0.75" />
+      <ellipse cx="112" cy="58" rx="14" ry="11" fill="#f9a8d4" stroke="#ec4899" strokeWidth="0.75" />
+      <circle cx="100" cy="58" r="9" fill={`url(#${ribbon})`} />
+      {/* Gold sparkles */}
+      <circle cx="54" cy="128" r="4" fill="#fbbf24" opacity="0.95" />
+      <circle cx="152" cy="118" r="3.5" fill="#fbbf24" opacity="0.9" />
+      <circle cx="162" cy="152" r="3" fill="#fbbf24" opacity="0.85" />
+      <circle cx="42" cy="108" r="2.5" fill="#fcd34d" opacity="0.9" />
+      {/* Question mark */}
+      <text
+        x="100"
+        y="152"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="#db2777"
+        fontSize="46"
+        fontWeight="800"
+        fontFamily="system-ui, Segoe UI, sans-serif"
+      >
+        ?
+      </text>
+    </svg>
+  )
 }
 
 function PlushPolaroid ({ path, name }: { path: string; name: string }) {
@@ -271,7 +349,7 @@ export function PlushieShopPage () {
       {activePlushie && (
         <section className="plush-shop-hero-card" aria-labelledby="plush-shop-hero-heading">
           <div className="plush-shop-hero-inner">
-            <span className="plush-shop-hero-badge">This week&apos;s plushie</span>
+            <span className="plush-shop-hero-badge">This week&apos;s plushie!</span>
             <div className="plush-shop-hero-stage">
               {lottieData
                 ? (
@@ -314,12 +392,8 @@ export function PlushieShopPage () {
       {rotationAnchorStr && (
         <section className="plush-shop-next-card" aria-labelledby="plush-shop-next-heading">
           <h3 id="plush-shop-next-heading" className="plush-shop-next-title">Coming next week…</h3>
-          <div className="plush-shop-mystery-box" aria-hidden>
-            <div className="plush-shop-mystery-lid" />
-            <div className="plush-shop-mystery-body">
-              <span className="plush-shop-mystery-q">?</span>
-            </div>
-            <span className="plush-shop-mystery-spark" aria-hidden>✨</span>
+          <div className="plush-shop-mystery-box">
+            <PlushMysteryGiftSvg />
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
           <p className="plush-shop-next-line plush-shop-next-line--sub">Come back when the timer hits zero to find out who.</p>

@@ -3060,9 +3060,9 @@ button.scrap-appt-q:focus-visible {
 .plush-shop-hero-card {
   margin-top: 14px;
   border-radius: 20px;
-  border: 1.5px solid rgba(167, 139, 250, 0.35);
-  background: linear-gradient(180deg, #f3e8ff 0%, #fce7f3 45%, #fdf2f8 100%);
-  box-shadow: 0 8px 28px rgba(88, 28, 135, 0.08);
+  border: 1.5px solid rgba(251, 182, 206, 0.55);
+  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 45%, #fce7f3 100%);
+  box-shadow: 0 8px 28px rgba(190, 24, 93, 0.08);
   padding: 20px 18px 24px;
   text-align: center;
 }
@@ -3079,8 +3079,8 @@ button.scrap-appt-q:focus-visible {
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #4c1d95;
-  background: rgba(196, 181, 253, 0.45);
+  color: #9f1239;
+  background: rgba(251, 207, 232, 0.75);
   margin-bottom: 14px;
 }
 
@@ -3137,8 +3137,8 @@ button.scrap-appt-q:focus-visible {
 .plush-shop-next-card {
   margin-top: 18px;
   border-radius: 20px;
-  border: 1.5px solid rgba(251, 182, 206, 0.45);
-  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 1.5px solid rgba(251, 182, 206, 0.5);
+  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 55%, #fbcfe8 100%);
   padding: 22px 18px 24px;
   text-align: center;
 }
@@ -3152,52 +3152,21 @@ button.scrap-appt-q:focus-visible {
 }
 
 .plush-shop-mystery-box {
-  position: relative;
-  width: 140px;
-  height: 120px;
-  margin: 0 auto 16px;
-}
-
-.plush-shop-mystery-body {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 100px;
-  height: 72px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
-  box-shadow: 0 6px 16px rgba(91, 33, 182, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  max-width: 200px;
+  height: 160px;
+  margin: 0 auto 16px;
 }
 
-.plush-shop-mystery-lid {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 36px;
-  border-radius: 8px 8px 4px 4px;
-  background: linear-gradient(180deg, #ddd6fe 0%, #c4b5fd 100%);
-  box-shadow: 0 2px 8px rgba(91, 33, 182, 0.2);
-}
-
-.plush-shop-mystery-q {
-  font-size: 2.25rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 2px rgba(67, 56, 202, 0.4);
-}
-
-.plush-shop-mystery-spark {
-  position: absolute;
-  right: 4px;
-  top: 0;
-  font-size: 1.1rem;
-  opacity: 0.85;
+.plush-shop-mystery-svg {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 6px 14px rgba(157, 23, 77, 0.18));
 }
 
 .plush-shop-next-line {
@@ -3222,9 +3191,8 @@ button.scrap-appt-q:focus-visible {
 .plush-shop-countdown-cell {
   min-width: 52px;
   padding: 8px 6px 6px;
-  border-radius: 10px;
-  background: #1e3a5f;
-  color: #fce7f3;
+  border-radius: 12px;
+  background: #1c1917;
 }
 
 .plush-shop-countdown-num {
@@ -3233,13 +3201,14 @@ button.scrap-appt-q:focus-visible {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+  color: #fb7185;
 }
 
 .plush-shop-countdown-label {
   display: block;
   font-size: 0.65rem;
   text-transform: lowercase;
-  opacity: 0.9;
+  color: #a8a29e;
   margin-top: 2px;
 }
 
