@@ -52,7 +52,7 @@
   --blush-surface: #fdf0f5;
 
   /* --- Semantic --- */
-  --accent: oklch(0.97 0 0);          /* mint green as primary action */
+  --accent: var(--mint-dark);       /* visible mint — was near-white oklch(0.97), broke links/UI */
   --accent-light: #b8e8c8;
   --danger: #e0546b;
   --danger-surface: #fde8ec;
@@ -160,8 +160,11 @@ button, input, select, textarea { font: inherit; }
   background-attachment: fixed;
 }
 
-/* More hub: soft pink paper + subtle linen grain + faint ruled lines */
-.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) {
+/* More hub (only when AppLayout adds .app-shell--more-hub on /app/more) */
+.app-shell.app-shell--scrapbook.app-shell--more-hub {
+  --scrap-more-hub-app-h: calc(
+    100dvh - var(--nav-height) - var(--safe-bottom) - var(--scrap-more-hub-pad)
+  );
   background-color: var(--more-hub-paper);
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.15'/%3E%3C/filter%3E%3Crect width='280' height='280' filter='url(%23n)' opacity='0.1'/%3E%3C/svg%3E"),
@@ -177,11 +180,7 @@ button, input, select, textarea { font: inherit; }
   background-attachment: fixed;
 }
 
-body:has(.scrap-more-page--hub) {
-  background-color: var(--more-hub-paper);
-}
-
-.app-shell.app-shell--scrapbook:has(.scrap-more-page--hub) .scrap-layout-header {
+.app-shell.app-shell--scrapbook.app-shell--more-hub .scrap-layout-header {
   background: transparent;
 }
 
@@ -221,8 +220,8 @@ body:has(.scrap-more-page--hub) {
   .app-page--scrapbook { max-width: 28rem; }
 }
 
-/* More hub: full-bleed lined paper (no grid column frame) */
-.app-page--scrapbook:has(.scrap-more-page--hub) {
+/* More hub: full-bleed (route class from AppLayout, not :has) */
+.app-page--scrapbook.app-page--more-hub {
   max-width: none;
   width: 100%;
   padding-left: 0;
@@ -233,7 +232,7 @@ body:has(.scrap-more-page--hub) {
   background: transparent;
 }
 
-.scrapbook-sheet:has(.scrap-more-page--hub) {
+.scrapbook-sheet.scrapbook-sheet--more-hub {
   padding: 0;
   flex: 1 1 auto;
   display: flex;
@@ -3954,7 +3953,8 @@ button.scrap-appt-q:focus-visible {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background;
+    color: var(--text);
   }
   html {
     @apply font-sans;

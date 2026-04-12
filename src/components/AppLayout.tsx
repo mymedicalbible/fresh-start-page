@@ -67,6 +67,7 @@ export function AppLayout () {
   const { pathname } = useLocation()
   const { openNoteModal } = useDoctorNoteModal()
   const isHome = pathname === '/app' || pathname === '/app/'
+  const isMoreHub = pathname === '/app/more'
 
   function isActivePath (path: string): boolean {
     if (path === '/app') return isHome
@@ -100,15 +101,15 @@ export function AppLayout () {
   if (!user) return null
 
   return (
-    <div className="app-shell app-shell--scrapbook">
+    <div className={`app-shell app-shell--scrapbook${isMoreHub ? ' app-shell--more-hub' : ''}`}>
       {!isHome && pathname !== '/app/more' && (
         <header className="scrap-layout-header">
           <span className="scrap-layout-brand">medical bible</span>
         </header>
       )}
 
-      <div className="app-page app-page--scrapbook">
-        <div className="scrapbook-sheet">
+      <div className={`app-page app-page--scrapbook${isMoreHub ? ' app-page--more-hub' : ''}`}>
+        <div className={`scrapbook-sheet${isMoreHub ? ' scrapbook-sheet--more-hub' : ''}`}>
           <Outlet />
         </div>
       </div>
