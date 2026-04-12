@@ -13,6 +13,22 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // Main bundle is large (charts, PDF, etc.); default 500 kB warning is noisy, not an error
+    chunkSizeWarningLimit: 2600,
+    rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        // lottie-web uses eval; known third-party limitation
+        if (
+          warning.message?.includes('Use of eval') &&
+          warning.id?.includes('lottie')
+        ) {
+          return
+        }
+        defaultHandler(warning)
+      },
+    },
+  },
   server: {
     proxy: {
       '/api/ollama': {
