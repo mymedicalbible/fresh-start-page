@@ -11,12 +11,12 @@ The running name in code is `medical-tracker-web`; data lives in **Supabase** (y
 ### Dashboard (home)
 
 - **Appointments** — banner for upcoming, in-progress, or most recent visit; optional **browser notifications** when you enable them (behavior depends on the device and browser).
-- **Mascot slot** — when **game tokens** and an **active plushie** are enabled in your project, the home card can show your equipped plushie (Lottie) in a dedicated cream area beside the banner title, without covering doctor/visit text.
+- **Plushie (when game tokens are enabled)** — if your project has the token shop turned on, the banner area can show **this week’s plushie name** and, when you’ve unlocked it with tokens, its **animation** (Lottie) beside the appointment strip without covering doctor or visit text.
 - **Pending visits** — visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
 - **Log today** — shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
 - **Doctor handoff summary** — opens a panel that builds a **first-person narrative** from your saved data (recent pain/episodes, meds, changes, visits, questions). You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and each generation can be **archived on this device** for later.
-- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **Archives** (bottom nav) for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies**.
-- **Account** — link at the bottom of the dashboard to profile.
+- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **Archives** (bottom nav) for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies** (see below).
+- **Profile** — open **Account** from **More** or follow links from the dashboard when shown.
 
 ### Quick log (`/app/log`)
 
@@ -79,7 +79,7 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 ### Plushies (`/app/plushies`)
 
-- Optional **game token** economy and **shop** (when enabled in your Supabase setup): collect tokens, unlock plushie animations; your **active** plushie can appear on the home dashboard mascot area.
+- Optional **game token** economy and **shop** (when enabled in your Supabase setup and not turned off in the client): earn tokens, spend them to unlock **this week’s** plushie; the active plushie can appear on the **home** dashboard when you own it. A countdown in the shop reflects the server’s weekly rotation schedule.
 
 ### Archives (`/app/archives`)
 
@@ -87,7 +87,7 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 ### More (`/app/more`)
 
-- Shortcuts to **Account** (profile & export) and **Plushies** (tokens & shop).
+- A **cork board** hub (different from the lined “notebook” look on other screens): **sticky notes** link to **Account** (profile & settings) and **Plushies** (shop & collection). A **garden** illustration strip sits just above the bottom navigation.
 
 ### Doctor note (bottom nav)
 
@@ -95,7 +95,7 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 ### Profile (`/app/profile`)
 
-- Account-oriented screen (per your setup).
+- Account-oriented screen: profile details, optional **token** balance and plushie progress when the game is enabled, export options, and other settings depending on your build.
 
 ### Sign-in (`/login`)
 
@@ -138,7 +138,7 @@ npm run dev
 npm run build
 ```
 
-Full setup, migrations, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOPERS.md)**.
+Full setup, migrations, optional plushie/game migrations, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOPERS.md)**.
 
 ---
 
@@ -168,8 +168,9 @@ Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supa
 | `/app/diagnoses` | Diagnoses |
 | `/app/visits` | Visits |
 | `/app/appointments` | Appointments |
+| `/app/transcripts` | Transcripts (visit recordings archive) |
 | `/app/plushies` | Plushies (tokens & shop) |
-| `/app/more` | More |
+| `/app/more` | More (cork board hub) |
 | `/app/profile` | Profile |
 | `/login` | Sign in |
 
