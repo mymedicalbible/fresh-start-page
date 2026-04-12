@@ -421,6 +421,7 @@ package.json
 | `npm run export:txt` | One **`.txt`** under `exports/` with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, etc. (skips `node_modules`, `dist`, `ExportedProject`, older `exports` dumps) |
 | `npm run export` | **`git archive`** of tracked files as a **`.zip`** at repo root (requires Git) |
 | `npm run test:e2e` | Playwright tests |
+| `npm run assets:more-grass` | Rebuild **`public/more-grass-footer.png`** from **`public/more-grass-footer.source.png`** (edge flood-fill: near-white pixels connected to top/left/right edges → transparent). Run after replacing the source artwork. |
 
 **Playwright** is listed in `devDependencies`; use `test:e2e` for the configured E2E suite.
 
