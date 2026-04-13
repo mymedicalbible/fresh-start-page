@@ -32,7 +32,8 @@ A **private, personal health tracker** web application. It helps you log pain, s
 16. [Security and compliance](#security-and-compliance)
 17. [Project structure](#project-structure)
 18. [Scripts](#scripts)
-19. [License / contributing](#license--contributing)
+19. [Adding a new plushie (catalog + client)](#adding-a-new-plushie-catalog--client)
+20. [License / contributing](#license--contributing)
 
 ---
 
@@ -253,6 +254,38 @@ The app **always** shows **More → Plushies**, but **balance, purchases, and ea
 After applying, run `supabase/verify_plushie_tokens.sql` in the SQL Editor (or check **Database → Functions** for `game_get_state`, **Table editor** for `token_ledger`, `plushie_catalog`, `user_plushie_unlocks`, `game_config`). The client calls RPCs with the **anon key + user JWT** (`authenticated` role); no Edge Function is required for tokens.
 
 To **disable** token RPC calls from the client only, set `VITE_GAME_TOKENS_ENABLED=false` in the frontend env (optional).
+
+### Adding a new plushie (catalog + client)
+
+Use the same pipeline for **every** plushie—there are no turtle-specific branches in the UI. New work is **data + assets + migrations**; shared client logic lives in [`src/lib/dashPlushieDisplay.ts`](src/lib/dashPlushieDisplay.ts) and [`src/lib/gameTokens.ts`](src/lib/gameTokens.ts).
+
+#### How rotation works (brief)
+
+- `plushie_catalog` has up to **five** rows with distinct `slot_index` values **0–4**.
+- Each ISO week, `game_get_state(p_tz)` / `game_purchase_active_plushie(p_tz)` pick **one** row: `slot := mod((week_monday - anchor_monday) / 7, 5)` vs `rotation_anchor` in `game_config` (see `20260413103000_plushie_rotation_monday_local_tz.sql`). That row is **this week’s** shop plush.
+- Purchasing inserts into `user_plushie_unlocks`. **My Plushies** and dashboard **“A plush from my collection”** use unlocks + catalog IDs—same for all plushies.
+
+#### Checklist when implementing a new plushie
+
+1. **Asset** — Add a real Lottie JSON or `.lottie` under [`public/lottie/`](public/lottie/) (or another URL you control). **Do not** point production catalog rows at the trial placeholder files `/lottie/plushie-0.json` … `plushie-4.json`; the client treats those as non-display placeholders (`isPlaceholderLottiePath`).
+2. **Catalog** — Ship a **forward-only migration** that `INSERT`s or `UPDATE`s `plushie_catalog` with the correct `slug`, **`name` (approved copy)**, `lottie_path`, and **`slot_index`** (0–4). Respect existing unique constraints on `slug` and `slot_index`.
+3. **Optional copy-only migration** — If you only need to rename an existing slug, a small `UPDATE … WHERE slug = '…'` migration is enough.
+4. **RPCs** — Ensure **`game_get_state(text)`** and **`game_purchase_active_plushie(text)`** exist on the project so the client can pass `p_tz` (browser IANA zone). Older DBs without those signatures fall back in the client, but rotation then follows **UTC** until migrated.
+5. **Client behavior (already centralized—do not fork per plushie)**:
+   - **Shop hero** — Skips loading/rendering Lottie when `lottie_path` is a placeholder path; still shows name/price/buy when the row is active.
+   - **Dashboard appointment strip** — **`Weekly` mode:** Lottie only if this week’s `active_plushie.id` is **unlocked** and the path is not a placeholder. **`Plushie` mode:** chosen unlocked catalog id + non-placeholder path.
+   - **My Plushies** — Polaroids skip placeholder art; prefs use `localStorage` + `applyDashPref` pattern on [`MyPlushiesPage.tsx`](src/pages/MyPlushiesPage.tsx).
+
+#### Files to know
+
+| File | Role |
+|------|------|
+| [`src/lib/dashPlushieDisplay.ts`](src/lib/dashPlushieDisplay.ts) | `isPlaceholderLottiePath`, `resolveDashboardPlushieLottiePath`, dash prefs |
+| [`src/lib/gameTokens.ts`](src/lib/gameTokens.ts) | `fetchGameState`, `purchaseActivePlushie`, `plushieRotationTimezone`, `plushieNextMondayMidnightLocalMs` |
+| [`src/pages/PlushieShopPage.tsx`](src/pages/PlushieShopPage.tsx) | Shop hero, purchase |
+| [`src/pages/MyPlushiesPage.tsx`](src/pages/MyPlushiesPage.tsx) | Collection grid + dashboard preference radios |
+
+After schema changes, run `npm run build` and apply migrations to your Supabase project (`supabase db push` or SQL Editor).
 
 **Tests & orders → document uploads** use the private **`visit-docs`** bucket with paths `${user_id}/tests/${test_id}/...`. Apply `20250326000000_visit_docs_storage.sql` and `20250407100000_visit_docs_storage_update.sql` on your Supabase project, or uploads will fail at the storage API.
 

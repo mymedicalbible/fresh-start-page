@@ -72,17 +72,28 @@ export function MyPlushiesPage () {
   const [error, setError] = useState<string | null>(null)
   const [dashPref, setDashPref] = useState<DashPlushieDisplayPref>(loadDashPlushieDisplay)
 
+  /** Keeps React state in sync when prefs are saved (same tab + other tabs). */
+  const syncPrefFromStorage = useCallback(() => {
+    setDashPref(loadDashPlushieDisplay())
+  }, [])
+
   useEffect(() => {
-    const on = () => setDashPref(loadDashPlushieDisplay())
-    window.addEventListener('mb-dash-plushie-display-changed', on)
-    return () => window.removeEventListener('mb-dash-plushie-display-changed', on)
+    window.addEventListener('mb-dash-plushie-display-changed', syncPrefFromStorage)
+    return () => window.removeEventListener('mb-dash-plushie-display-changed', syncPrefFromStorage)
+  }, [syncPrefFromStorage])
+
+  const applyDashPref = useCallback((next: DashPlushieDisplayPref) => {
+    saveDashPlushieDisplay(next)
+    setDashPref(next)
   }, [])
 
   useEffect(() => {
     if (unlockedIds.size === 0) return
     const p = loadDashPlushieDisplay()
     if (p.mode === 'plushie' && !unlockedIds.has(p.plushieId)) {
-      saveDashPlushieDisplay({ mode: 'weekly' })
+      const fallback: DashPlushieDisplayPref = { mode: 'weekly' }
+      saveDashPlushieDisplay(fallback)
+      setDashPref(fallback)
     }
   }, [unlockedIds])
 
@@ -141,7 +152,7 @@ export function MyPlushiesPage () {
                 type="radio"
                 name="mb-dash-plush-pref"
                 checked={dashPref.mode === 'none'}
-                onChange={() => saveDashPlushieDisplay({ mode: 'none' })}
+                onChange={() => applyDashPref({ mode: 'none' })}
               />
               <span>Don&apos;t show a plush on the dashboard</span>
             </label>
@@ -150,7 +161,7 @@ export function MyPlushiesPage () {
                 type="radio"
                 name="mb-dash-plush-pref"
                 checked={dashPref.mode === 'weekly'}
-                onChange={() => saveDashPlushieDisplay({ mode: 'weekly' })}
+                onChange={() => applyDashPref({ mode: 'weekly' })}
               />
               <span>This week&apos;s rotation (same as the shop — changes each week)</span>
             </label>
@@ -161,7 +172,7 @@ export function MyPlushiesPage () {
                 checked={dashPref.mode === 'plushie'}
                 onChange={() => {
                   const first = unlockedPlushies[0]
-                  if (first) saveDashPlushieDisplay({ mode: 'plushie', plushieId: first.id })
+                  if (first) applyDashPref({ mode: 'plushie', plushieId: first.id })
                 }}
                 disabled={unlockedPlushies.length === 0}
               />
@@ -175,7 +186,7 @@ export function MyPlushiesPage () {
                       type="radio"
                       name="mb-dash-plush-which"
                       checked={dashPref.plushieId === p.id}
-                      onChange={() => saveDashPlushieDisplay({ mode: 'plushie', plushieId: p.id })}
+                      onChange={() => applyDashPref({ mode: 'plushie', plushieId: p.id })}
                     />
                     <span>{p.name}</span>
                   </label>
