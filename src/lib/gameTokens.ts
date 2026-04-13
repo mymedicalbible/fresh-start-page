@@ -63,13 +63,22 @@ function isRpcMissingFunctionError (err: { message?: string; code?: string }): b
 export async function fetchGameState (): Promise<GameStateResult> {
   const tz = plushieRotationTimezone()
   let res = await supabase.rpc('game_get_state', { p_tz: tz })
+  let usedLegacyGameStateRpc = false
   if (res.error && isRpcMissingFunctionError(res.error)) {
+    usedLegacyGameStateRpc = true
     res = await supabase.rpc('game_get_state')
   }
   const { data, error } = res
   if (error) return { ok: false, error: error.message }
   const row = data as { ok?: boolean; error?: string; balance?: number } | null
   if (!row || row.ok === false) return { ok: false, error: (row as { error?: string }).error ?? 'Unknown' }
+  if (usedLegacyGameStateRpc && import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- intentional dev-only migration hint
+    console.warn(
+      '[Medical Bible] Using legacy game_get_state() without local timezone. '
+      + 'Apply plushie rotation migrations so weekly plush matches the shop countdown.',
+    )
+  }
   return row as GameStateResult
 }
 
@@ -79,7 +88,9 @@ export async function purchaseActivePlushie (): Promise<
 > {
   const tz = plushieRotationTimezone()
   let res = await supabase.rpc('game_purchase_active_plushie', { p_tz: tz })
+  let usedLegacyPurchaseRpc = false
   if (res.error && isRpcMissingFunctionError(res.error)) {
+    usedLegacyPurchaseRpc = true
     res = await supabase.rpc('game_purchase_active_plushie')
   }
   const { data, error } = res
@@ -92,6 +103,13 @@ export async function purchaseActivePlushie (): Promise<
       balance: typeof row.balance === 'number' ? row.balance : undefined,
       needed: typeof row.needed === 'number' ? row.needed : undefined,
     }
+  }
+  if (usedLegacyPurchaseRpc && import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- intentional dev-only migration hint
+    console.warn(
+      '[Medical Bible] Using legacy game_purchase_active_plushie() without local timezone. '
+      + 'Apply plushie rotation migrations for consistent weekly unlocks.',
+    )
   }
   return {
     ok: true,

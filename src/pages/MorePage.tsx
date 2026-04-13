@@ -78,6 +78,12 @@ export function MorePage () {
           sparkles
         />
       </div>
+
+      <p className="mx-auto mt-2 max-w-md px-4 text-center text-sm text-black/55">
+        <Link to="/app/plushies/mine" className="text-rose-700/90 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-800">
+          My plushies &amp; dashboard display
+        </Link>
+      </p>
     </div>
   )
 }

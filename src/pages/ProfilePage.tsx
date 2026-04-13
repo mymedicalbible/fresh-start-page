@@ -316,7 +316,13 @@ export function ProfilePage () {
           </div>
         )}
         {tokensOff && (
-          <p className="scrap-account-token-disabled">Token plushies are off in this build (set VITE_GAME_TOKENS_ENABLED=true to enable).</p>
+          <p className="scrap-account-token-disabled">
+            Token plushies are off in this build. They are on by default; remove the env flag
+            {' '}
+            <code>VITE_GAME_TOKENS_ENABLED=false</code>
+            {' '}
+            (or leave it unset) to enable earns and the plushie shop.
+          </p>
         )}
       </section>
 
@@ -365,7 +371,9 @@ export function ProfilePage () {
             {plushieSlots.length === 0
               ? (
                 <p className="scrap-account-plushie-empty">
-                  <Link to="/app/plushies">Open plushie shop</Link> to see the collection.
+                  <Link to="/app/plushies">Plushie shop</Link>
+                  {' · '}
+                  <Link to="/app/plushies/mine">My plushies &amp; dashboard</Link>
                 </p>
                 )
               : (

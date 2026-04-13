@@ -20,6 +20,8 @@ import { TranscriptsPage } from './pages/TranscriptsPage'
 import { SoloRecordingPage } from './pages/SoloRecordingPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { PlushieShopPage } from './pages/PlushieShopPage'
+import { MyPlushiesPage } from './pages/MyPlushiesPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
 
 function Protected ({ children }: { children: ReactNode }) {
@@ -59,10 +61,12 @@ export default function App () {
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="plushies/mine" element={<MyPlushiesPage />} />
         <Route path="plushies" element={<PlushieShopPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/app" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
