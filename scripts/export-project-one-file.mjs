@@ -66,7 +66,7 @@ function buildFrontMatter (filesAbs) {
   lines.push(`${'─'.repeat(72)}\n`)
   lines.push('Plushie docs (full detail embedded later in this file): docs/plushie-system-export.md\n')
   lines.push('Full export how-to: docs/full-project-export.md\n')
-  lines.push('Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY; optional VITE_GAME_TOKENS_ENABLED=false\n')
+  lines.push('Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY; optional VITE_GAME_TOKENS_ENABLED=true (plush shop)\n')
   lines.push('Routes: /app/plushies (shop), /app/plushies/mine (My Plushies)\n')
   lines.push(`${'─'.repeat(72)}\n`)
   lines.push(`All Supabase migrations in this dump (${migrations.length} files, apply in filename order):\n`)

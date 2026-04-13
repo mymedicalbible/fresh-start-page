@@ -1,5 +1,5 @@
 /**
- * When the plush game is off (`VITE_GAME_TOKENS_ENABLED=false`), a single Lottie can still
+ * When the plush game is off (default; or unset `VITE_GAME_TOKENS_ENABLED`), a single Lottie can still
  * show on the dashboard appt card and account. Path is configurable; visibility defaults on
  * and can be toggled from Account.
  */

@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 import { plushieCatalogDisplayName } from './dashPlushieDisplay'
 
-/** Plushie tokens are on by default; set `VITE_GAME_TOKENS_ENABLED=false` to disable earns + RPC calls. */
+/** Plushie shop + token earns are off by default. Set `VITE_GAME_TOKENS_ENABLED=true` to enable. */
 export function gameTokensEnabled (): boolean {
-  return import.meta.env.VITE_GAME_TOKENS_ENABLED !== 'false'
+  return import.meta.env.VITE_GAME_TOKENS_ENABLED === 'true'
 }
 
 /** IANA zone for weekly plushie rotation (must match `game_get_state` / `game_purchase_active_plushie`). */
