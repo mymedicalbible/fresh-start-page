@@ -201,11 +201,17 @@ function formatDiagBullet (r: Record<string, unknown>): string {
   const dt = dtRaw ? fmtDate(String(dtRaw)) : ''
   const docPart = doc ? ` (${doc})` : ''
   const datePart = dt ? ` · ${dt}` : ''
+  const resOn = r.date_resolved ? fmtDate(String(r.date_resolved)) : ''
+  const ruledOn = r.date_ruled_out ? fmtDate(String(r.date_ruled_out)) : ''
   if (!st) return `${name}${docPart}${datePart}`
   if (st === 'confirmed') return `${name} (confirmed)${docPart}${datePart}`
   if (st === 'suspected' || st === 'suspect') return `Suspected: ${name}${docPart}${datePart}`
-  if (st === 'ruled out' || st === 'ruled-out') return `Ruled out: ${name}${docPart}${datePart}`
-  if (st === 'resolved') return `Resolved: ${name}${docPart}${datePart}`
+  if (st === 'ruled out' || st === 'ruled-out') {
+    return `Ruled out: ${name}${docPart}${datePart}${ruledOn ? ` · ${ruledOn}` : ''}`
+  }
+  if (st === 'resolved') {
+    return `Resolved: ${name}${docPart}${datePart}${resOn ? ` · ${resOn}` : ''}`
+  }
   return `${name} (${st})${docPart}${datePart}`
 }
 

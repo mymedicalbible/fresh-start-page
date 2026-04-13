@@ -206,9 +206,13 @@ export function buildCompactPatientData (input: SummaryInput): string {
         const how = d.how_or_why as string | undefined
         const tp = d.treatment_plan as string | undefined
         const cp = d.care_plan as string | undefined
+        const dr = d.date_resolved as string | undefined
+        const dro = d.date_ruled_out as string | undefined
         if (how) bits.push(`  ${how}`)
         if (tp) bits.push(`  Treatment: ${tp}`)
         if (cp) bits.push(`  Care: ${cp}`)
+        if (dr) bits.push(`  Resolved on: ${dr}`)
+        if (dro) bits.push(`  Ruled out on: ${dro}`)
         return bits.join('\n')
       }).join('\n')
     : '(No diagnosis directory entries.)'

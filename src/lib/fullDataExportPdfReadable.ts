@@ -400,10 +400,14 @@ function formatDiagnoses (rows: Record<string, unknown>[]): ReadableExportPdfSec
     const how = clip(r.how_or_why as string | null, 48)
     const tp = clip(r.treatment_plan as string | null, 36)
     const cp = clip(r.care_plan as string | null, 36)
+    const dr = r.date_resolved as string | null | undefined
+    const dro = r.date_ruled_out as string | null | undefined
     let line = `${fmtIsoDate(r.date_diagnosed)} · ${st || '—'} · ${dx}${doc ? ` · ${doc}` : ''}`
     if (how) line += ` — ${how}`
     if (tp) line += ` · Tx: ${tp}`
     if (cp) line += ` · Care: ${cp}`
+    if (dr) line += ` · Resolved ${fmtIsoDate(dr)}`
+    if (dro) line += ` · Ruled out ${fmtIsoDate(dro)}`
     return line
   })
   if (n > MAX_BULLETS) bullets.push(`… and ${n - MAX_BULLETS} more (see JSON export).`)

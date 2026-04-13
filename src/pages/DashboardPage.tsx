@@ -589,7 +589,7 @@ function PendingVisitStickers ({
 
   return (
     <div className="scrap-pending-section">
-      <div className="scrap-pending-sticker-row">
+      <div className={`scrap-pending-sticker-row${visibleEntries.length === 1 ? ' scrap-pending-sticker-row--single' : ''}`}>
         {visibleEntries.map(({ norm, count, label, resumeId }) => (
           <div key={norm} className="scrap-pending-sticker-wrapper">
             <button

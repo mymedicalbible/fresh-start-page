@@ -1734,6 +1734,17 @@ button.scrap-appt-q:focus-visible {
   padding: 14px 4px 18px;
 }
 
+/* One note: same width as a single column when two are shown, centered (not full-width). */
+.scrap-pending-sticker-row--single {
+  justify-content: center;
+}
+
+.scrap-pending-sticker-row--single .scrap-pending-sticker-wrapper {
+  flex: 0 0 auto;
+  width: min(calc((100% - 14px) / 2), 100%);
+  max-width: 320px;
+}
+
 /* ── WRAPPER ─────────────────────────────────────────────── */
 .scrap-pending-sticker-wrapper {
   flex: 1 1 0;

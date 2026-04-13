@@ -18,6 +18,10 @@ type DiagnosisRow = {
   how_or_why: string | null
   treatment_plan: string | null
   care_plan: string | null
+  /** Set when status is Resolved (date the condition was marked resolved). */
+  date_resolved: string | null
+  /** Set when status is Ruled Out (date it was ruled out). */
+  date_ruled_out: string | null
 }
 
 
@@ -75,6 +79,8 @@ export function DiagnosesDirectoryPage () {
     how_or_why: '',
     treatment_plan: '',
     care_plan: '',
+    date_resolved: '',
+    date_ruled_out: '',
   })
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -128,6 +134,8 @@ export function DiagnosesDirectoryPage () {
       how_or_why: '',
       treatment_plan: '',
       care_plan: '',
+      date_resolved: '',
+      date_ruled_out: '',
     })
     setSearchText(name)
     setShowForm(true)
@@ -142,6 +150,12 @@ export function DiagnosesDirectoryPage () {
       treatment_plan: form.treatment_plan,
       care_plan: form.care_plan,
     })
+    const dateResolved = form.status === 'Resolved'
+      ? (form.date_resolved.trim() || todayISO())
+      : null
+    const dateRuledOut = form.status === 'Ruled Out'
+      ? (form.date_ruled_out.trim() || todayISO())
+      : null
     if (editingId) {
       const { error: e } = await supabase.from('diagnoses_directory').update({
         diagnosis: form.diagnosis.trim(),
@@ -151,6 +165,8 @@ export function DiagnosesDirectoryPage () {
         how_or_why: detail.how_or_why,
         treatment_plan: detail.treatment_plan,
         care_plan: detail.care_plan,
+        date_resolved: dateResolved,
+        date_ruled_out: dateRuledOut,
       }).eq('id', editingId)
       if (e) { setError(e.message); setBusy(false); return }
     } else {
@@ -163,6 +179,8 @@ export function DiagnosesDirectoryPage () {
         how_or_why: detail.how_or_why,
         treatment_plan: detail.treatment_plan,
         care_plan: detail.care_plan,
+        date_resolved: dateResolved,
+        date_ruled_out: dateRuledOut,
       })
       if (e) { setError(e.message); setBusy(false); return }
     }
@@ -179,6 +197,8 @@ export function DiagnosesDirectoryPage () {
       how_or_why: '',
       treatment_plan: '',
       care_plan: '',
+      date_resolved: '',
+      date_ruled_out: '',
     })
     setSearchText(''); setSuggestions([])
     setTimeout(() => setBanner(null), 3000)
@@ -191,6 +211,16 @@ export function DiagnosesDirectoryPage () {
     if (status !== 'Confirmed') {
       patch.treatment_plan = null
       patch.care_plan = null
+    }
+    if (status === 'Resolved') {
+      patch.date_resolved = todayISO()
+      patch.date_ruled_out = null
+    } else if (status === 'Ruled Out') {
+      patch.date_ruled_out = todayISO()
+      patch.date_resolved = null
+    } else {
+      patch.date_resolved = null
+      patch.date_ruled_out = null
     }
     await supabase.from('diagnoses_directory').update(patch).eq('id', id)
     load()
@@ -208,6 +238,8 @@ export function DiagnosesDirectoryPage () {
       how_or_why: row.how_or_why ?? '',
       treatment_plan: row.treatment_plan ?? '',
       care_plan: row.care_plan ?? '',
+      date_resolved: row.date_resolved ?? '',
+      date_ruled_out: row.date_ruled_out ?? '',
     })
     setSearchText(row.diagnosis)
     setShowForm(true)
@@ -266,6 +298,8 @@ export function DiagnosesDirectoryPage () {
                 how_or_why: '',
                 treatment_plan: '',
                 care_plan: '',
+                date_resolved: '',
+                date_ruled_out: '',
               })
               setSearchText('')
             }}>
@@ -348,7 +382,22 @@ export function DiagnosesDirectoryPage () {
                     borderColor: form.status === s.value ? s.text : 'transparent',
                     background: s.color, color: s.text, cursor: 'pointer',
                   }}
-                  onClick={() => setForm((prev) => ({ ...prev, status: s.value as DiagnosisDirectoryStatus }))}>
+                  onClick={() => setForm((prev) => {
+                    const status = s.value as DiagnosisDirectoryStatus
+                    let date_resolved = prev.date_resolved
+                    let date_ruled_out = prev.date_ruled_out
+                    if (status === 'Resolved') {
+                      date_ruled_out = ''
+                      if (!date_resolved.trim()) date_resolved = todayISO()
+                    } else if (status === 'Ruled Out') {
+                      date_resolved = ''
+                      if (!date_ruled_out.trim()) date_ruled_out = todayISO()
+                    } else {
+                      date_resolved = ''
+                      date_ruled_out = ''
+                    }
+                    return { ...prev, status, date_resolved, date_ruled_out }
+                  })}>
                   {s.label}
                 </button>
               ))}
@@ -393,6 +442,26 @@ export function DiagnosesDirectoryPage () {
             onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
           />
 
+          {form.status === 'Resolved' && (
+            <div className="form-group">
+              <label>Date resolved</label>
+              <input
+                type="date"
+                value={form.date_resolved}
+                onChange={(e) => setForm({ ...form, date_resolved: e.target.value })}
+              />
+            </div>
+          )}
+          {form.status === 'Ruled Out' && (
+            <div className="form-group">
+              <label>Date ruled out</label>
+              <input
+                type="date"
+                value={form.date_ruled_out}
+                onChange={(e) => setForm({ ...form, date_ruled_out: e.target.value })}
+              />
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" className="btn btn-primary" onClick={saveDiagnosis} disabled={busy}>Save</button>
@@ -438,6 +507,12 @@ export function DiagnosesDirectoryPage () {
                       </span>
                     </div>
                     {r.date_diagnosed && <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Diagnosed: {r.date_diagnosed}</div>}
+                    {r.status === 'Resolved' && r.date_resolved && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Resolved on: {r.date_resolved}</div>
+                    )}
+                    {r.status === 'Ruled Out' && r.date_ruled_out && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Ruled out on: {r.date_ruled_out}</div>
+                    )}
                     {r.how_or_why && (
                       <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
                         <strong style={{ fontWeight: 600 }}>{howOrWhyFieldLabel(r.status as DiagnosisDirectoryStatus)}</strong>
