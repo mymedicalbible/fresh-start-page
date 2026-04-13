@@ -1,5 +1,6 @@
 /**
- * One .txt file: app source + Supabase SQL + configs (no node_modules / dist / duplicate exports).
+ * ONE text file in exports/: ALL app source + Supabase SQL + configs (no node_modules / dist).
+ * Output path is ALWAYS: exports/ALL_CODE_AND_SQL.txt (overwrite each run).
  * Run: npm run export:txt
  */
 import fs from 'node:fs/promises'
@@ -78,13 +79,13 @@ async function main () {
   files.sort((a, b) => a.localeCompare(b, 'en'))
 
   const stamp = new Date().toISOString()
-  const safeStamp = stamp.slice(0, 19).replace(/[:T]/g, '-')
   const outDir = path.join(root, 'exports')
   await fs.mkdir(outDir, { recursive: true })
-  const outPath = path.join(outDir, `project-code-and-sql-${safeStamp}.txt`)
+  const outPath = path.join(outDir, 'ALL_CODE_AND_SQL.txt')
 
   const chunks = []
-  chunks.push(`Medical Bible Project — full code + SQL dump\n`)
+  chunks.push(`Medical Bible Project — full code + SQL dump (ONE FILE)\n`)
+  chunks.push(`Location: exports/ALL_CODE_AND_SQL.txt (this folder only)\n`)
   chunks.push(`Generated: ${stamp}\n`)
   chunks.push(`Root: ${root}\n`)
   chunks.push(`Files: ${files.length}\n`)
@@ -107,7 +108,8 @@ async function main () {
   }
 
   await fs.writeFile(outPath, chunks.join(''), 'utf8')
-  console.log(`\n✓ Wrote ${files.length} files to:\n  ${outPath}\n`)
+  const abs = path.resolve(outPath)
+  console.log(`\nWrote ${files.length} source files into ONE file:\n  ${abs}\n`)
 }
 
 main().catch((err) => {

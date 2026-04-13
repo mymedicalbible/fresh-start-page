@@ -1,6 +1,22 @@
 # Full project export (everything important)
 
-The **plushie-only** zip from earlier was incomplete. Use this instead when you want **all** source, **all** SQL migrations, assets, and configs.
+## One file — all code + SQL (always same path)
+
+From the project folder:
+
+```bash
+npm run export:txt
+```
+
+This **overwrites** exactly:
+
+`exports/ALL_CODE_AND_SQL.txt`
+
+That single file contains ~all `.ts`, `.tsx`, `.css`, `.sql`, configs, etc. (see `scripts/export-project-one-file.mjs`).
+
+---
+
+The **plushie-only** zip from earlier was incomplete for whole-repo backups. Use the zip script when you want an archive without the one-file dump.
 
 ## Run this (Windows PowerShell)
 
