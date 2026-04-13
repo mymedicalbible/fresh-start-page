@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom'
 import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
+import {
+  loadDashPlushieDisplay,
+  saveDashPlushieDisplay,
+  type DashPlushieDisplayPref,
+} from '../lib/dashPlushieDisplay'
+import { gameTokensEnabled } from '../lib/gameTokens'
 
 type CatalogRow = {
   id: string
@@ -56,6 +62,21 @@ export function MyPlushiesPage () {
   const [catalog, setCatalog] = useState<CatalogRow[]>([])
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [dashPref, setDashPref] = useState<DashPlushieDisplayPref>(loadDashPlushieDisplay)
+
+  useEffect(() => {
+    const on = () => setDashPref(loadDashPlushieDisplay())
+    window.addEventListener('mb-dash-plushie-display-changed', on)
+    return () => window.removeEventListener('mb-dash-plushie-display-changed', on)
+  }, [])
+
+  useEffect(() => {
+    if (unlockedIds.size === 0) return
+    const p = loadDashPlushieDisplay()
+    if (p.mode === 'plushie' && !unlockedIds.has(p.plushieId)) {
+      saveDashPlushieDisplay({ mode: 'weekly' })
+    }
+  }, [unlockedIds])
 
   const load = useCallback(async () => {
     setError(null)
@@ -96,6 +117,66 @@ export function MyPlushiesPage () {
       </div>
 
       {error && <div className="banner error plush-mine-banner">{error}</div>}
+
+      {gameTokensEnabled() && (
+        <section className="plush-mine-dash-panel" aria-labelledby="plush-mine-dash-heading">
+          <h2 id="plush-mine-dash-heading" className="plush-mine-dash-title">
+            On your dashboard
+          </h2>
+          <p className="muted plush-mine-dash-hint">
+            Choose whether the home dashboard shows a plush (optional). This does not change your profile avatar.
+          </p>
+          <fieldset className="plush-mine-dash-fieldset">
+            <legend className="sr-only">Dashboard plush display</legend>
+            <label className="plush-mine-dash-row">
+              <input
+                type="radio"
+                name="mb-dash-plush-pref"
+                checked={dashPref.mode === 'none'}
+                onChange={() => saveDashPlushieDisplay({ mode: 'none' })}
+              />
+              <span>Don&apos;t show a plush on the dashboard</span>
+            </label>
+            <label className="plush-mine-dash-row">
+              <input
+                type="radio"
+                name="mb-dash-plush-pref"
+                checked={dashPref.mode === 'weekly'}
+                onChange={() => saveDashPlushieDisplay({ mode: 'weekly' })}
+              />
+              <span>This week&apos;s rotation (same as the shop — changes each week)</span>
+            </label>
+            <label className="plush-mine-dash-row">
+              <input
+                type="radio"
+                name="mb-dash-plush-pref"
+                checked={dashPref.mode === 'plushie'}
+                onChange={() => {
+                  const first = unlockedPlushies[0]
+                  if (first) saveDashPlushieDisplay({ mode: 'plushie', plushieId: first.id })
+                }}
+                disabled={unlockedPlushies.length === 0}
+              />
+              <span>A plush from my collection</span>
+            </label>
+            {dashPref.mode === 'plushie' && unlockedPlushies.length > 0 && (
+              <div className="plush-mine-dash-sub" role="group" aria-label="Choose plush for dashboard">
+                {unlockedPlushies.map((p) => (
+                  <label key={p.id} className="plush-mine-dash-row plush-mine-dash-row--sub">
+                    <input
+                      type="radio"
+                      name="mb-dash-plush-which"
+                      checked={dashPref.plushieId === p.id}
+                      onChange={() => saveDashPlushieDisplay({ mode: 'plushie', plushieId: p.id })}
+                    />
+                    <span>{p.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+        </section>
+      )}
 
       <div className="plush-mine-board">
         {unlockedPlushies.length === 0

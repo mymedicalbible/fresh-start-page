@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
@@ -36,6 +36,10 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
+import {
+  loadDashPlushieDisplay,
+  resolveDashboardPlushieLottiePath,
+} from '../lib/dashPlushieDisplay'
 import { DashboardWeather } from '../components/DashboardWeather'
 import {
   buildWeatherCorrelationInsights,
@@ -741,6 +745,9 @@ export function DashboardPage () {
     active_plushie: ActivePlushie | null
   } | null>(null)
   const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
+  const [dashPlushPref, setDashPlushPref] = useState(loadDashPlushieDisplay)
+  const [dashPlushCatalog, setDashPlushCatalog] = useState<Map<string, { lottie_path: string }>>(() => new Map())
+  const [dashPlushUnlocked, setDashPlushUnlocked] = useState<Set<string>>(() => new Set())
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
   const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
@@ -823,6 +830,45 @@ export function DashboardPage () {
     }
   }, [])
 
+  useEffect(() => {
+    const onPref = () => setDashPlushPref(loadDashPlushieDisplay())
+    window.addEventListener('mb-dash-plushie-display-changed', onPref)
+    return () => window.removeEventListener('mb-dash-plushie-display-changed', onPref)
+  }, [])
+
+  const refreshDashPlushMeta = useCallback(async () => {
+    if (!user?.id || !gameTokensEnabled()) return
+    const [cat, un] = await Promise.all([
+      supabase.from('plushie_catalog').select('id, lottie_path'),
+      supabase.from('user_plushie_unlocks').select('plushie_id'),
+    ])
+    const m = new Map<string, { lottie_path: string }>()
+    for (const r of (cat.data ?? []) as { id: string; lottie_path: string }[]) {
+      m.set(r.id, { lottie_path: r.lottie_path })
+    }
+    setDashPlushCatalog(m)
+    setDashPlushUnlocked(new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id)))
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user?.id || !gameTokensEnabled()) {
+      setDashPlushCatalog(new Map())
+      setDashPlushUnlocked(new Set())
+      return
+    }
+    void refreshDashPlushMeta()
+  }, [user?.id, refreshDashPlushMeta])
+
+  const resolvedDashPlushLottiePath = useMemo(() => {
+    if (!dashGame) return null
+    return resolveDashboardPlushieLottiePath({
+      pref: dashPlushPref,
+      weeklyActive: dashGame.active_plushie,
+      catalogById: dashPlushCatalog,
+      unlockedIds: dashPlushUnlocked,
+    })
+  }, [dashPlushPref, dashGame, dashPlushCatalog, dashPlushUnlocked])
+
   const refreshDashGameQuiet = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
     const s = await fetchGameState()
@@ -836,7 +882,8 @@ export function DashboardPage () {
       owned_active: s.owned_active,
       active_plushie: s.active_plushie,
     })
-  }, [user?.id])
+    await refreshDashPlushMeta()
+  }, [user?.id, refreshDashPlushMeta])
 
   useGameStateRefresh(!!user?.id && gameTokensEnabled(), refreshDashGameQuiet)
 
@@ -872,19 +919,20 @@ export function DashboardPage () {
           if (s.owned_active) setPlushieDashCelebrate(true)
         }
       } catch { /* ignore */ }
+      void refreshDashPlushMeta()
     })()
     return () => { cancelled = true }
-  }, [user?.id, dashPath])
+  }, [user?.id, dashPath, refreshDashPlushMeta])
 
   useEffect(() => {
-    if (!dashGame?.owned_active || !dashGame.active_plushie?.lottie_path) {
+    if (!resolvedDashPlushLottiePath) {
       setDashPlushieLottie(null)
       return
     }
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(dashGame.active_plushie!.lottie_path)
+        const res = await fetch(resolvedDashPlushLottiePath)
         if (!res.ok) {
           if (!cancelled) setDashPlushieLottie(null)
           return
@@ -896,7 +944,7 @@ export function DashboardPage () {
       }
     })()
     return () => { cancelled = true }
-  }, [dashGame?.owned_active, dashGame?.active_plushie?.lottie_path])
+  }, [resolvedDashPlushLottiePath])
 
   useEffect(() => {
     if (!plushieDashCelebrate) return
@@ -2145,8 +2193,8 @@ export function DashboardPage () {
               else bannerLabel = 'UPCOMING'
             }
           }
-          const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
-          const showPlushieMastColumn = !!(gameTokensEnabled() && dashGame?.active_plushie)
+          const hasDashPlushie = !!dashPlushieLottie
+          const showPlushieMastColumn = !!(gameTokensEnabled() && resolvedDashPlushLottiePath)
           return (
         <section
           className="scrap-sticky scrap-sticky--upcoming"
@@ -2169,20 +2217,8 @@ export function DashboardPage () {
                     >
                       <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
                     </div>
-                    {dashGame?.active_plushie?.name ? (
-                      <span className="scrap-dash-plushie-name">{dashGame.active_plushie.name}</span>
-                    ) : null}
                   </div>
                 )}
-                {!hasDashPlushie && dashGame?.active_plushie?.name ? (
-                  <div className="scrap-dash-plushie-column scrap-dash-plushie-column--caption-only">
-                    <span className="scrap-dash-plushie-name scrap-dash-plushie-name--unowned">
-                      This week:
-                      {' '}
-                      {dashGame.active_plushie.name}
-                    </span>
-                  </div>
-                ) : null}
               </div>
             )}
             <div className="scrap-appt-banner-main">
