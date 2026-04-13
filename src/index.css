@@ -410,6 +410,54 @@ button, input, select, textarea { font: inherit; }
     0 0 18px rgba(253, 224, 200, 0.55);
 }
 
+/* More hub — Plushies polaroid: extra sparkles (same motion, more coverage) */
+.cork-sparkles--polaroid-dense {
+  inset: -10px;
+}
+
+.cork-sparkles__shape--7 {
+  top: 22%;
+  left: 18%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 0.35s;
+}
+.cork-sparkles__shape--8 {
+  top: 8%;
+  left: 42%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 0.9s;
+}
+.cork-sparkles__shape--9 {
+  top: 28%;
+  right: 8%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 1.45s;
+}
+.cork-sparkles__shape--10 {
+  bottom: 32%;
+  left: 12%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 2.1s;
+}
+.cork-sparkles__shape--11 {
+  bottom: 42%;
+  right: 6%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 2.65s;
+}
+.cork-sparkles__shape--12 {
+  top: 38%;
+  right: 20%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 3.2s;
+}
+
 @keyframes cork-sparkle-pulse {
   0%, 100% {
     opacity: 0.35;
@@ -3713,11 +3761,131 @@ button.scrap-appt-q:focus-visible {
 .plush-shop-mystery-box {
   width: 100%;
   max-width: 240px;
-  height: 200px;
+  min-height: 200px;
   margin: 0 auto 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.plush-shop-mystery-box__wiggle {
+  position: relative;
+  z-index: 1;
+  animation: plush-gift-wiggle-hop 2.45s ease-in-out infinite;
+  transform-origin: 50% 92%;
+  will-change: transform;
+}
+
+.plush-shop-mystery-sparkles {
+  position: absolute;
+  inset: -8px -14px -4px -14px;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.plush-shop-mystery-sparkles__dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fffef9 0%, #fde68a 45%, #fbbf24 100%);
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(251, 191, 36, 0.75),
+    0 0 20px rgba(244, 114, 182, 0.35);
+  animation: plush-mystery-sparkle-twinkle 1.65s ease-in-out infinite;
+}
+
+.plush-shop-mystery-sparkles__dot:nth-child(1) {
+  top: 8%;
+  left: 4%;
+  animation-delay: 0s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(2) {
+  top: 18%;
+  right: 2%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 0.25s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(3) {
+  top: 42%;
+  left: -2%;
+  animation-delay: 0.5s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(4) {
+  top: 55%;
+  right: -4%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 0.75s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(5) {
+  bottom: 28%;
+  left: 8%;
+  animation-delay: 1s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(6) {
+  bottom: 12%;
+  right: 12%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 1.2s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(7) {
+  top: 0%;
+  left: 38%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 0.4s;
+}
+.plush-shop-mystery-sparkles__dot:nth-child(8) {
+  bottom: 4%;
+  left: 42%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 0.85s;
+}
+
+@keyframes plush-gift-wiggle-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  12% {
+    transform: translateY(-11px) rotate(3.5deg);
+  }
+  24% {
+    transform: translateY(0) rotate(-2.5deg);
+  }
+  36% {
+    transform: translateY(-7px) rotate(2.5deg);
+  }
+  48% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  60% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+  72% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  84% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+}
+
+@keyframes plush-mystery-sparkle-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 }
 
 .plush-shop-mystery-svg {

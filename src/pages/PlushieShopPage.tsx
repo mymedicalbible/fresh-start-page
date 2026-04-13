@@ -407,8 +407,20 @@ export function PlushieShopPage () {
 
       <section className="plush-shop-next-card" aria-labelledby="plush-shop-next-heading">
           <h3 id="plush-shop-next-heading" className="plush-shop-next-title">Coming next week…</h3>
-          <div className="plush-shop-mystery-box">
-            <PlushMysteryGiftSvg />
+          <div className="plush-shop-mystery-box relative">
+            <div className="plush-shop-mystery-box__wiggle">
+              <PlushMysteryGiftSvg />
+            </div>
+            <span className="plush-shop-mystery-sparkles" aria-hidden>
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+              <span className="plush-shop-mystery-sparkles__dot" />
+            </span>
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
           <p className="plush-shop-next-line plush-shop-next-line--sub">Come back when the timer hits zero to find out who.</p>
