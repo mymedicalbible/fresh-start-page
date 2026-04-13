@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
+import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
-import { supabase } from '../lib/supabase'
 import {
   fetchGameState,
   purchaseActivePlushie,
@@ -10,14 +9,6 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
-
-type CatalogRow = {
-  id: string
-  slug: string
-  name: string
-  lottie_path: string
-  slot_index: number
-}
 
 /**
  * Next Monday 00:00:00 in the browser’s local timezone — same weekly boundary as `game_get_state(p_tz)`.
@@ -105,78 +96,20 @@ function PlushMysteryGiftSvg () {
   )
 }
 
-function PlushPolaroid ({ path, name }: { path: string; name: string }) {
-  const [data, setData] = useState<object | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetch(path)
-        if (!res.ok || cancelled) return
-        setData(await res.json() as object)
-      } catch {
-        if (!cancelled) setData(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [path])
-
-  return (
-    <div className="plush-shop-polaroid">
-      <span className="plush-shop-polaroid-pin" aria-hidden />
-      <div className="plush-shop-polaroid-frame">
-        {data
-          ? (
-            <Lottie
-              animationData={data}
-              loop
-              rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-              className="plush-shop-polaroid-lottie"
-            />
-            )
-          : (
-            <span className="plush-shop-polaroid-loading" aria-hidden>…</span>
-            )}
-      </div>
-      <div className="plush-shop-polaroid-caption">{name}</div>
-    </div>
-  )
-}
-
 export function PlushieShopPage () {
   const [balance, setBalance] = useState<number | null>(null)
   const [activePlushie, setActivePlushie] = useState<ActivePlushie | null>(null)
   const [nextPrice, setNextPrice] = useState(25)
   const [ownedActive, setOwnedActive] = useState(false)
-  const [catalog, setCatalog] = useState<CatalogRow[]>([])
-  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   const [lottieData, setLottieData] = useState<object | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [countdownRemainMs, setCountdownRemainMs] = useState(0)
-  const [myPlushiesOpen, setMyPlushiesOpen] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
-    const [state, cat, un] = await Promise.all([
-      fetchGameState(),
-      supabase.from('plushie_catalog').select('id, slug, name, lottie_path, slot_index').order('slot_index'),
-      supabase.from('user_plushie_unlocks').select('plushie_id'),
-    ])
-    if (cat.error) {
-      setError(cat.error.message)
-      return
-    }
-    setCatalog((cat.data ?? []) as CatalogRow[])
-    if (un.error) {
-      setError(un.error.message)
-      return
-    }
-    const ids = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
-    setUnlockedIds(ids)
+    const state = await fetchGameState()
 
     if (!state.ok) {
       setError(state.error)
@@ -217,15 +150,6 @@ export function PlushieShopPage () {
   }, [countdownRemainMs, load])
 
   useEffect(() => {
-    if (!myPlushiesOpen) return
-    function onKey (e: KeyboardEvent) {
-      if (e.key === 'Escape') setMyPlushiesOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [myPlushiesOpen])
-
-  useEffect(() => {
     const tick = () => {
       const target = computeNextMondayMidnightLocalMs()
       setCountdownRemainMs(Math.max(0, target - Date.now()))
@@ -247,11 +171,6 @@ export function PlushieShopPage () {
   })
   const rotationTzLabel = plushieRotationTimezone()
 
-  const unlockedPlushies = useMemo(
-    () => catalog.filter((p) => unlockedIds.has(p.id)),
-    [catalog, unlockedIds],
-  )
-
   async function onPurchase () {
     if (busy) return
     setBusy(true)
@@ -270,51 +189,6 @@ export function PlushieShopPage () {
     } catch { /* ignore */ }
     await load()
   }
-
-  const overlay = myPlushiesOpen
-    ? createPortal(
-        <div
-          className="plush-shop-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="plush-shop-overlay-title"
-        >
-          <div
-            className="plush-shop-overlay-backdrop"
-            role="presentation"
-            onClick={() => setMyPlushiesOpen(false)}
-          />
-          <div className="plush-shop-overlay-panel">
-            <div className="plush-shop-overlay-header">
-              <h2 id="plush-shop-overlay-title" className="plush-shop-overlay-title">
-                My Plushies
-              </h2>
-              <button
-                type="button"
-                className="btn btn-secondary plush-shop-overlay-close"
-                onClick={() => setMyPlushiesOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            {unlockedPlushies.length === 0
-              ? (
-                <p className="plush-shop-overlay-empty muted">
-                  You haven&apos;t unlocked any plushies yet. Earn tokens and buy this week&apos;s friend from the shop.
-                </p>
-                )
-              : (
-                <div className="plush-shop-polaroid-grid">
-                  {unlockedPlushies.map((p) => (
-                    <PlushPolaroid key={p.id} path={p.lottie_path} name={p.name} />
-                  ))}
-                </div>
-                )}
-          </div>
-        </div>,
-        document.body,
-      )
-    : null
 
   return (
     <div className="plush-shop-page">
@@ -439,15 +313,12 @@ export function PlushieShopPage () {
           </div>
         </section>
 
-      <button
-        type="button"
+      <Link
+        to="/app/plushies/mine"
         className="btn btn-primary plush-shop-my-plushies-btn"
-        onClick={() => setMyPlushiesOpen(true)}
       >
         My Plushies
-      </button>
-
-      {overlay}
+      </Link>
     </div>
   )
 }
