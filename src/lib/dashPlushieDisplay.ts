@@ -7,17 +7,32 @@ export function isPlaceholderLottiePath (path: string | null | undefined): boole
   return /^\/lottie\/plushie-[0-4]\.json$/.test(t)
 }
 
+function slugToDisplayTitle (slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 /**
  * Human-facing name for shop, dashboard, and collection.
- * Neutralizes deprecated trial seed slug `rustle-plant` (and similar copy) if the DB was not yet migrated.
  */
 export function plushieCatalogDisplayName (slug: string | null | undefined, name: string | null | undefined): string {
   const s = (slug ?? '').toLowerCase().trim()
   const n = (name ?? '').trim()
-  if (s === 'rustle-plant') return 'Mystery friend'
-  if (/rustle/.test(n.toLowerCase()) && /plant/.test(n.toLowerCase())) return 'Mystery friend'
-  if (n.length > 0) return n
-  return 'Plushie'
+  if (s === 'meditating-turtle') return "O'Neal the Om Turtle"
+  if (n.length > 0) {
+    const lower = n.toLowerCase()
+    if (lower === 'mystery friend' || lower === 'coming soon' || /mystery\s*friend/.test(lower)) {
+      return s.length > 0 ? slugToDisplayTitle(s) : 'Plushie'
+    }
+    if (s === 'rustle-plant' || (/rustle/.test(lower) && /plant/.test(lower))) {
+      return s.length > 0 ? slugToDisplayTitle(s) : 'Plushie'
+    }
+    return n
+  }
+  return s.length > 0 ? slugToDisplayTitle(s) : 'Plushie'
 }
 
 /** User preference for which plush (if any) appears on the home dashboard — set only from My Plushies. */
