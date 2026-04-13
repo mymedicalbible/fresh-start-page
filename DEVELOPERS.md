@@ -255,6 +255,13 @@ After applying, run `supabase/verify_plushie_tokens.sql` in the SQL Editor (or c
 
 To **disable** token RPC calls from the client only, set `VITE_GAME_TOKENS_ENABLED=false` in the frontend env (optional).
 
+#### After `db push`: make sure the plushie shop hits the same database
+
+1. **`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`** in [`.env.example`](.env.example) terms: local `.env` / `.env.local` and **production host env** must be the Supabase project you linked (`supabase link`) and pushed migrations to—not an old or staging project.
+2. **Sign in** — [`game_get_state`](src/lib/gameTokens.ts) requires an authenticated user; otherwise the shop shows an error (e.g. `not_authenticated`).
+3. **Smoke test** — Build with `npm run build`, deploy if needed, then signed-in visit to **`/app/plushies`**: token balance, weekly plush name, and Lottie in the hero (paths under [`public/lottie/`](public/lottie/)). If RPC names fail briefly after deploy, wait and hard-refresh (PostgREST schema cache).
+4. **Optional SQL check** (Dashboard → SQL): `select slug, name, slot_index from public.plushie_catalog order by slot_index;` — expect catalog rows through the seven-slot migration chain.
+
 ### Adding a new plushie (catalog + client)
 
 Use the same pipeline for **every** plushie—there are no turtle-specific branches in the UI. New work is **data + assets + migrations**; shared client logic lives in [`src/lib/dashPlushieDisplay.ts`](src/lib/dashPlushieDisplay.ts) and [`src/lib/gameTokens.ts`](src/lib/gameTokens.ts).

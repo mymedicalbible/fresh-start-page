@@ -1,5 +1,9 @@
 node_modules
 dist
+
+# Supabase CLI local state (should not be committed)
+supabase/.temp/
+
 .env
 .env.local
 .env.playwright
