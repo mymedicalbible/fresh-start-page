@@ -133,7 +133,7 @@ export function ProfilePage () {
       const rows = (cat.data ?? []) as { id: string; slot_index: number; slug?: string; lottie_path?: string }[]
       const withoutPanda = rows.filter((r) => (r.slug ?? '') !== 'panda-popcorn')
       setPlushieSlots(
-        withoutPanda.slice(0, 5).map((r) => ({
+        withoutPanda.slice(0, 16).map((r) => ({
           id: r.id,
           unlocked: unlocked.has(r.id),
           lottie_path: (r.lottie_path ?? '').trim(),
