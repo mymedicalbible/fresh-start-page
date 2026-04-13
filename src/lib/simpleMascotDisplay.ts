@@ -1,7 +1,9 @@
 /**
- * When the plush game is off (default; or unset `VITE_GAME_TOKENS_ENABLED`), a single Lottie can still
- * show on the dashboard appt card and account. Path is configurable; visibility defaults on
- * and can be toggled from Account.
+ * When the plush game is off (default; or unset `VITE_GAME_TOKENS_ENABLED`), the app shows an
+ * inline SVG swimming turtle (`CuteSwimmingTurtle`) on the dashboard appt card and account.
+ * Visibility defaults on and can be toggled from Account (`mb-simple-mascot-visible`).
+ * Optional `VITE_SIMPLE_MASCOT_LOTTIE` is unused by the UI while the SVG mascot is used; kept for
+ * future swaps if needed.
  */
 const STORAGE_KEY = 'mb-simple-mascot-visible'
 

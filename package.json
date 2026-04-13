@@ -10,7 +10,8 @@
     "export": "node scripts/export-codebase.mjs",
     "export:txt": "node scripts/export-project-one-file.mjs",
     "assets:more-grass": "node scripts/more-grass-make-transparent.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/ensure-playwright-smoke-user.mjs && playwright test",
+    "test:e2e:only": "playwright test",
     "supabase:push": "supabase db push"
   },
   "dependencies": {

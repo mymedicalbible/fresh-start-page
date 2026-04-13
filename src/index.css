@@ -1684,6 +1684,25 @@ div.list-item.unread { background: var(--sky-surface); }
   height: 110px !important;
 }
 
+/* Inline SVG mascot (game off) — same slot footprint as Lottie plush */
+.scrap-dash-plushie--slot[data-dash-plush-slug="svg-swimming-turtle"] {
+  overflow: visible;
+}
+
+.scrap-dash-plushie--slot[data-dash-plush-slug="svg-swimming-turtle"] .cute-swimming-turtle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.scrap-dash-plushie--slot[data-dash-plush-slug="svg-swimming-turtle"] .cute-swimming-turtle svg {
+  width: 118px !important;
+  height: auto !important;
+  max-height: 100px;
+}
+
 .scrap-dash-plushie-lottie,
 .scrap-dash-plushie-lottie svg {
   width: 100% !important;
@@ -2688,6 +2707,20 @@ button.scrap-appt-q:focus-visible {
   width: 100% !important;
   height: 100% !important;
   display: block;
+}
+
+.scrap-account-avatar .scrap-account-avatar-turtle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.scrap-account-avatar .scrap-account-avatar-turtle svg {
+  width: 92px !important;
+  height: auto !important;
+  max-height: 78px;
 }
 
 .scrap-account-display-name {

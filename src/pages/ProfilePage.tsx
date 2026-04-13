@@ -9,12 +9,8 @@ import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
 import { isPlaceholderLottiePath, loadAccountPlushieDisplay, type AccountPlushieDisplayPref } from '../lib/dashPlushieDisplay'
-import {
-  getSimpleMascotImageAssetsBase,
-  getSimpleMascotLottiePath,
-  loadSimpleMascotVisible,
-  saveSimpleMascotVisible,
-} from '../lib/simpleMascotDisplay'
+import { loadSimpleMascotVisible, saveSimpleMascotVisible } from '../lib/simpleMascotDisplay'
+import { CuteSwimmingTurtle } from '../components/CuteSwimmingTurtle'
 import {
   clearManualWeatherLocation,
   getManualWeatherLocation,
@@ -125,7 +121,6 @@ export function ProfilePage () {
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
   const [activePlushieLottiePath, setActivePlushieLottiePath] = useState<string | null>(null)
   const [simpleMascotVisible, setSimpleMascotVisible] = useState(() => loadSimpleMascotVisible())
-  const [simpleMascotLottieData, setSimpleMascotLottieData] = useState<object | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -198,30 +193,6 @@ export function ProfilePage () {
     window.addEventListener('mb-simple-mascot-changed', onSimple)
     return () => window.removeEventListener('mb-simple-mascot-changed', onSimple)
   }, [])
-
-  useEffect(() => {
-    if (gameTokensEnabled() || !simpleMascotVisible) {
-      setSimpleMascotLottieData(null)
-      return
-    }
-    const path = getSimpleMascotLottiePath()
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetch(path)
-        if (!res.ok || cancelled) {
-          if (!cancelled) setSimpleMascotLottieData(null)
-          return
-        }
-        if (!cancelled) setSimpleMascotLottieData(await res.json() as object)
-      } catch {
-        if (!cancelled) setSimpleMascotLottieData(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [simpleMascotVisible])
 
   useEffect(() => {
     if (accountPlushPref.mode !== 'plushie') {
@@ -345,13 +316,6 @@ export function ProfilePage () {
       ? Math.min(100, Math.round((tokenBalance / nextPrice) * 100))
       : 0
 
-  const avatarLottie =
-    gameTokensEnabled() && ownedActive && pandaLottieData
-      ? pandaLottieData
-      : !gameTokensEnabled() && simpleMascotVisible && simpleMascotLottieData
-        ? simpleMascotLottieData
-        : null
-
   return (
     <div className="scrapbook-inner scrap-account-page">
       <div style={{ marginBottom: 10 }}>
@@ -368,12 +332,10 @@ export function ProfilePage () {
       <section className="scrap-account-paper scrap-account-paper--hero">
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
-            {avatarLottie ? (
-              <PandaLottieLoop
-                data={avatarLottie}
-                className="scrap-account-avatar-lottie"
-                assetsPath={!gameTokensEnabled() && simpleMascotVisible ? getSimpleMascotImageAssetsBase() : undefined}
-              />
+            {gameTokensEnabled() && ownedActive && pandaLottieData ? (
+              <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
+            ) : !gameTokensEnabled() && simpleMascotVisible ? (
+              <CuteSwimmingTurtle className="scrap-account-avatar-turtle" />
             ) : (
               <span aria-hidden>🐼</span>
             )}
