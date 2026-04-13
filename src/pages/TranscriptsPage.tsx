@@ -32,7 +32,7 @@ export function TranscriptsPage () {
                 <div>
                   <strong style={{ fontSize: '0.92rem' }}>{new Date(a.savedAtIso).toLocaleString()}</strong>
                   <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
-                    {a.visitDate} · {a.doctorName || 'Doctor not set'}
+                    {a.kind === 'solo' ? 'Solo voice update' : 'Visit'} · {a.visitDate} · {a.doctorName || 'Doctor not set'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

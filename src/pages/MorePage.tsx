@@ -78,6 +78,21 @@ export function MorePage () {
           sparkles
         />
       </div>
+
+      <nav className="mx-auto mt-4 flex w-full max-w-md flex-col gap-2 px-4 text-center sm:mt-6" aria-label="More tools">
+        <Link
+          to="/app/solo-record"
+          className="text-[0.92rem] font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+        >
+          Solo voice update
+        </Link>
+        <Link
+          to="/app/transcripts"
+          className="text-[0.88rem] text-[var(--muted-foreground)] underline-offset-4 hover:underline"
+        >
+          Transcript archive
+        </Link>
+      </nav>
     </div>
   )
 }

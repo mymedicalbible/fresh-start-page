@@ -1,7 +1,10 @@
 import type { ExtractedVisitFields } from './transcriptExtract'
+import type { ExtractedSoloFields } from './soloTranscriptExtract'
 
 const STORAGE_KEY = 'mb-transcript-archive-v1'
 const MAX_ITEMS = 50
+
+export type ArchivedTranscriptKind = 'visit' | 'solo'
 
 export type ArchivedTranscript = {
   id: string
@@ -9,7 +12,11 @@ export type ArchivedTranscript = {
   doctorName: string
   visitDate: string
   transcript: string
+  /** Visit wizard / dashboard visit transcriber (default). */
+  kind?: ArchivedTranscriptKind
   extracted?: ExtractedVisitFields | null
+  /** Solo voice update extract (when `kind` is `solo`). */
+  extractedSolo?: ExtractedSoloFields | null
   /** Formatted clinical summary from extract (same idea as visit fields). */
   extractedSummary?: string
 }

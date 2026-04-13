@@ -17,6 +17,7 @@ import { VisitsPage } from './pages/VisitsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { MorePage } from './pages/MorePage'
 import { TranscriptsPage } from './pages/TranscriptsPage'
+import { SoloRecordingPage } from './pages/SoloRecordingPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { PlushieShopPage } from './pages/PlushieShopPage'
 
@@ -54,6 +55,7 @@ export default function App () {
         <Route path="diagnoses" element={<DiagnosesDirectoryPage />} />
         <Route path="more" element={<MorePage />} />
         <Route path="transcripts" element={<TranscriptsPage />} />
+        <Route path="solo-record" element={<SoloRecordingPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />
