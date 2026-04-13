@@ -87,11 +87,10 @@ export function ProfilePage () {
 
   const [tokenBalance, setTokenBalance] = useState<number | null>(null)
   const [nextPrice, setNextPrice] = useState(10)
-  const [activePlushieName, setActivePlushieName] = useState<string | null>(null)
   const [ownedActive, setOwnedActive] = useState(false)
   const [tokensOff, setTokensOff] = useState(false)
 
-  const [plushieSlots, setPlushieSlots] = useState<{ id: string; name: string; unlocked: boolean }[]>([])
+  const [plushieSlots, setPlushieSlots] = useState<{ id: string; unlocked: boolean }[]>([])
 
   const [notifyAppt, setNotifyAppt] = useState(() => readNotify(NOTIFY_KEYS.appt, true))
   const [notifyLog, setNotifyLog] = useState(() => readNotify(NOTIFY_KEYS.log, true))
@@ -123,17 +122,16 @@ export function ProfilePage () {
   const loadGameAndPlushies = useCallback(async () => {
     if (!user) return
     const [cat, un] = await Promise.all([
-      supabase.from('plushie_catalog').select('id, name, slot_index, slug').order('slot_index').limit(12),
+      supabase.from('plushie_catalog').select('id, slot_index, slug').order('slot_index').limit(12),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
     ])
     if (!cat.error) {
       const unlocked = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
-      const rows = (cat.data ?? []) as { id: string; name: string; slot_index: number; slug?: string }[]
+      const rows = (cat.data ?? []) as { id: string; slot_index: number; slug?: string }[]
       const withoutPanda = rows.filter((r) => (r.slug ?? '') !== 'panda-popcorn')
       setPlushieSlots(
         withoutPanda.slice(0, 5).map((r) => ({
           id: r.id,
-          name: r.name,
           unlocked: unlocked.has(r.id),
         })),
       )
@@ -154,7 +152,6 @@ export function ProfilePage () {
     setTokensOff(false)
     setTokenBalance(state.balance)
     setNextPrice(state.next_price)
-    setActivePlushieName(state.active_plushie.name)
     setOwnedActive(state.owned_active)
     setActivePlushieLottiePath(state.active_plushie?.lottie_path ?? null)
   }, [user])
@@ -311,7 +308,7 @@ export function ProfilePage () {
               <div className="scrap-account-progress-fill" style={{ width: `${progressPct}%` }} />
             </div>
             <div className="scrap-account-progress-meta">
-              <span>{activePlushieName ? `${activePlushieName.toLowerCase()} ${ownedActive ? 'unlocked' : 'this week'}` : 'plushies'}</span>
+              <span>{ownedActive ? 'unlocked' : 'this week'}</span>
               <span>
                 {tokenBalance} / {nextPrice}
               </span>
@@ -355,13 +352,13 @@ export function ProfilePage () {
           <span className="scrap-account-tape scrap-account-tape--sage" aria-hidden />
           <div className="scrap-account-plushie-row">
             {pandaLottieData ? (
-              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
+              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
                 <div className="scrap-account-plushie-panda-static">
                   <PandaLottieLoop data={pandaLottieData} className="scrap-account-plushie-panda-lottie" />
                 </div>
               </div>
             ) : (
-              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still" title="panda">
+              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
                 <span className="scrap-account-plushie-emoji" aria-hidden>🐼</span>
               </div>
             )}
@@ -377,7 +374,6 @@ export function ProfilePage () {
                       key={p.id}
                       to="/app/plushies"
                       className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}`}
-                      title={p.name}
                     >
                       {p.unlocked ? (
                         <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>

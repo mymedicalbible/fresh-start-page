@@ -390,19 +390,21 @@ export function PlushieShopPage () {
         <section className="plush-shop-hero-card" aria-labelledby="plush-shop-hero-heading">
           <div className="plush-shop-hero-inner">
             <span className="plush-shop-hero-badge">✨ This Week&apos;s Plushie!</span>
-            <div className="plush-shop-hero-stage">
-              {lottieData
-                ? (
-                  <Lottie
-                    animationData={lottieData}
-                    loop
-                    rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-                    className="plush-shop-hero-lottie"
-                  />
-                  )
-                : (
-                  <div className="plush-shop-hero-fallback" aria-hidden>🧸</div>
-                  )}
+            <div className="plush-shop-hero-stage-shell">
+              <div className="plush-shop-hero-stage">
+                {lottieData
+                  ? (
+                    <Lottie
+                      animationData={lottieData}
+                      loop
+                      rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                      className="plush-shop-hero-lottie"
+                    />
+                    )
+                  : (
+                    <div className="plush-shop-hero-fallback" aria-hidden>🧸</div>
+                    )}
+              </div>
             </div>
             <h3 id="plush-shop-hero-heading" className="plush-shop-hero-name">{activePlushie.name}</h3>
             <p className="muted plush-shop-hero-tagline">
