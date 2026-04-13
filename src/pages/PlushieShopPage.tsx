@@ -10,6 +10,7 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
+import { SparkleStar } from '../components/more/SparkleStar'
 
 type CatalogRow = {
   id: string
@@ -412,14 +413,25 @@ export function PlushieShopPage () {
               <PlushMysteryGiftSvg />
             </div>
             <span className="plush-shop-mystery-sparkles" aria-hidden>
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
-              <span className="plush-shop-mystery-sparkles__dot" />
+              {(
+                [
+                  [1, 15],
+                  [2, 12],
+                  [3, 14],
+                  [4, 13],
+                  [5, 17],
+                  [6, 11],
+                  [7, 12],
+                  [8, 14],
+                ] as const
+              ).map(([slot, size]) => (
+                <span
+                  key={slot}
+                  className={`plush-shop-mystery-sparkles__sprite plush-shop-mystery-sparkles__sprite--${slot}`}
+                >
+                  <SparkleStar size={size} variant="mystery" />
+                </span>
+              ))}
             </span>
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
