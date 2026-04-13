@@ -437,6 +437,84 @@ button, input, select, textarea { font: inherit; }
   }
 }
 
+/* Dashboard: enough tokens — dancing bear + “you did it!” */
+@keyframes plushie-victory-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(0.55em) scale(0.35);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(-0.12em) scale(1.12);
+  }
+  78% {
+    transform: translateY(0.04em) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.plushie-victory-card {
+  max-width: 400px;
+  width: 100%;
+  border-radius: 16px;
+  padding: 20px 20px 18px;
+  text-align: center;
+}
+
+.plushie-victory-lottie-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.plushie-victory-lottie {
+  display: block;
+}
+
+.plushie-victory-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em;
+  margin: 0 0 10px;
+  font-size: clamp(1.45rem, 4.5vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-fg, #0f172a);
+}
+
+.plushie-victory-heading__word {
+  display: inline-block;
+  transform-origin: center bottom;
+  opacity: 0;
+  animation: plushie-victory-pop 0.72s cubic-bezier(0.22, 1.32, 0.36, 1) both;
+}
+
+.plushie-victory-sub {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.plushie-victory-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plushie-victory-heading__word {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Plushies (More hub): polaroid ring — layout only */
 .cork-sparkles {
   position: absolute;

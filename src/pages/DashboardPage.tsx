@@ -41,6 +41,7 @@ import {
   resolveDashboardPlushieLottiePath,
 } from '../lib/dashPlushieDisplay'
 import { DashboardWeather } from '../components/DashboardWeather'
+import { PlushieTokenVictoryModal } from '../components/PlushieTokenVictoryModal'
 import {
   buildWeatherCorrelationInsights,
   type WeatherCorrelationResult,
@@ -2089,68 +2090,7 @@ export function DashboardPage () {
       )}
 
       {plushieAffordOpen && gameTokensEnabled() && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="plushie-afford-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 8201,
-            background: 'rgba(15, 23, 42, 0.35)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => {
-            try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
-            setPlushieAffordOpen(false)
-          }}
-        >
-          <div
-            className="card shadow"
-            style={{
-              maxWidth: 380,
-              width: '100%',
-              borderRadius: 16,
-              padding: 20,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="plushie-afford-title" style={{ margin: '0 0 10px', fontSize: '1.1rem' }}>
-              Enough tokens for plushie
-            </h2>
-            <p className="muted" style={{ fontSize: '0.92rem', lineHeight: 1.5, marginBottom: 16 }}>
-              You have enough tokens to unlock this week&apos;s plushie in the shop.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Link
-                className="btn btn-primary"
-                style={{ flex: 1, minWidth: 140, justifyContent: 'center', display: 'inline-flex' }}
-                to="/app/plushies"
-                onClick={() => {
-                  try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
-                  setPlushieAffordOpen(false)
-                }}
-              >
-                Open plushie shop
-              </Link>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ flex: 1, minWidth: 100 }}
-                onClick={() => {
-                  try { sessionStorage.setItem('mb-plushie-afford-dismissed', '1') } catch { /* ignore */ }
-                  setPlushieAffordOpen(false)
-                }}
-              >
-                Not now
-              </button>
-            </div>
-          </div>
-        </div>
+        <PlushieTokenVictoryModal onDismiss={() => setPlushieAffordOpen(false)} />
       )}
 
       <div className="scrapbook-dashboard">
