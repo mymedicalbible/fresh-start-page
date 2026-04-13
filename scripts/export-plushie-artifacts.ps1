@@ -18,7 +18,7 @@ $migrationGlobs = @(
   "20260411140000_panda_popcorn_lottie_path.sql",
   "20260412160000_turtle_plushie_fixed_price.sql",
   "20260413103000_plushie_rotation_monday_local_tz.sql",
-  "20260414120000_plushie_display_names.sql",
+  "20260414120100_plushie_display_names.sql",
   "20260415120000_remove_rustle_plant_catalog_name.sql",
   "20260416160000_plushie_turtle_slot_and_neutralize_rustle.sql",
   "20260416170000_plushie_turtle_name_oneal.sql",

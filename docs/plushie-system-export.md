@@ -18,7 +18,7 @@ Run migrations in **timestamp order** (folder `supabase/migrations/`). Plush-rel
 | `20260411140000_panda_popcorn_lottie_path.sql` | Panda Lottie path. |
 | `20260412160000_turtle_plushie_fixed_price.sql` | Early turtle at slot 0 + RPC tweaks (superseded later by rotation migration). |
 | `20260413103000_plushie_rotation_monday_local_tz.sql` | **Core:** `game_get_state(p_tz)` / `game_purchase_active_plushie(p_tz)` with **local timezone** and ISO Monday week. |
-| `20260414120000_plushie_display_names.sql` | Display names in catalog. |
+| `20260414120100_plushie_display_names.sql` | Display names in catalog. |
 | `20260415120000_remove_rustle_plant_catalog_name.sql` | Neutralize rustle-plant naming. |
 | `20260416160000_plushie_turtle_slot_and_neutralize_rustle.sql` | Turtle on slot 0; rustle slug → `coming-soon-slot-1`. |
 | `20260416170000_plushie_turtle_name_oneal.sql` | O’Neal turtle display name. |
