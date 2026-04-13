@@ -39,6 +39,7 @@ import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import {
   loadDashPlushieDisplay,
   resolveDashboardPlushieLottiePath,
+  slugFromDashboardLottiePath,
 } from '../lib/dashPlushieDisplay'
 import { DashboardWeather } from '../components/DashboardWeather'
 import { PlushieTokenVictoryModal } from '../components/PlushieTokenVictoryModal'
@@ -747,7 +748,7 @@ export function DashboardPage () {
   } | null>(null)
   const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
   const [dashPlushPref, setDashPlushPref] = useState(loadDashPlushieDisplay)
-  const [dashPlushCatalog, setDashPlushCatalog] = useState<Map<string, { lottie_path: string }>>(() => new Map())
+  const [dashPlushCatalog, setDashPlushCatalog] = useState<Map<string, { lottie_path: string; slug?: string }>>(() => new Map())
   const [dashPlushUnlocked, setDashPlushUnlocked] = useState<Set<string>>(() => new Set())
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
   const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
@@ -840,12 +841,12 @@ export function DashboardPage () {
   const refreshDashPlushMeta = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
     const [cat, un] = await Promise.all([
-      supabase.from('plushie_catalog').select('id, lottie_path'),
+      supabase.from('plushie_catalog').select('id, lottie_path, slug'),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
     ])
-    const m = new Map<string, { lottie_path: string }>()
-    for (const r of (cat.data ?? []) as { id: string; lottie_path: string }[]) {
-      m.set(r.id, { lottie_path: r.lottie_path })
+    const m = new Map<string, { lottie_path: string; slug?: string }>()
+    for (const r of (cat.data ?? []) as { id: string; lottie_path: string; slug?: string }[]) {
+      m.set(r.id, { lottie_path: r.lottie_path, slug: r.slug })
     }
     setDashPlushCatalog(m)
     setDashPlushUnlocked(new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id)))
@@ -869,6 +870,19 @@ export function DashboardPage () {
       unlockedIds: dashPlushUnlocked,
     })
   }, [dashPlushPref, dashGame, dashPlushCatalog, dashPlushUnlocked])
+
+  /** Stable slug for the plush in the appt-card mascot slot (CSS `data-dash-plush-slug`). */
+  const dashSlotSlug = useMemo((): string | null => {
+    if (!resolvedDashPlushLottiePath || !dashGame) return null
+    if (dashPlushPref.mode === 'weekly') {
+      return dashGame.active_plushie?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    }
+    if (dashPlushPref.mode === 'plushie') {
+      const row = dashPlushCatalog.get(dashPlushPref.plushieId)
+      return row?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    }
+    return slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+  }, [resolvedDashPlushLottiePath, dashGame, dashPlushPref, dashPlushCatalog])
 
   const refreshDashGameQuiet = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
@@ -2154,6 +2168,7 @@ export function DashboardPage () {
                   <div className="scrap-dash-plushie-column">
                     <div
                       className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
+                      data-dash-plush-slug={dashSlotSlug ?? undefined}
                     >
                       <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
                     </div>

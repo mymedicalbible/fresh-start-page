@@ -103,11 +103,17 @@ export function saveAccountPlushieDisplay (pref: AccountPlushieDisplayPref): voi
   }
 }
 
+/** Derive catalog slug from a resolved dashboard Lottie URL (e.g. `/lottie/meditating-turtle.json`). */
+export function slugFromDashboardLottiePath (path: string): string | null {
+  const m = path.trim().match(/\/lottie\/([^/]+)\.json$/i)
+  return m?.[1] ?? null
+}
+
 /** Lottie URL to load for the appointment-banner plush (profile / account avatar is separate). */
 export function resolveDashboardPlushieLottiePath (args: {
   pref: DashPlushieDisplayPref
   weeklyActive: ActivePlushie | null
-  catalogById: Map<string, { lottie_path: string }>
+  catalogById: Map<string, { lottie_path: string; slug?: string }>
   unlockedIds: Set<string>
 }): string | null {
   const { pref, weeklyActive, catalogById, unlockedIds } = args

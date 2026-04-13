@@ -1663,6 +1663,27 @@ div.list-item.unread { background: var(--sky-surface); }
   height: 110px !important;
 }
 
+/* Explicit baseline for weekly panda so future global slot tweaks do not drift vs slug-scoped rules */
+.scrap-dash-plushie--slot[data-dash-plush-slug="panda-popcorn"] .scrap-dash-plushie-lottie {
+  transform: scale(3);
+  transform-origin: center center;
+}
+
+/* Turtle art reads larger than panda at the same transform — scale/translate to match perceived footprint */
+.scrap-dash-plushie--slot[data-dash-plush-slug="meditating-turtle"] {
+  overflow: hidden;
+}
+
+.scrap-dash-plushie--slot[data-dash-plush-slug="meditating-turtle"] .scrap-dash-plushie-lottie {
+  transform: scale(2.5) translateY(3px);
+  transform-origin: center center;
+}
+
+.scrap-dash-plushie--slot[data-dash-plush-slug="meditating-turtle"] .scrap-dash-plushie-lottie svg {
+  width: 110px !important;
+  height: 110px !important;
+}
+
 .scrap-dash-plushie-lottie,
 .scrap-dash-plushie-lottie svg {
   width: 100% !important;
