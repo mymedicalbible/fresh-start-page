@@ -3750,6 +3750,7 @@ button.scrap-appt-q:focus-visible {
 }
 
 /* ─── Plushie shop (kawaii cards + My Plushies overlay) ─── */
+/* Fixed nav: use z-index stacking, not isolation:isolate — isolate broke position:fixed bottom bar on some engines */
 .plush-shop-page {
   position: relative;
   z-index: 0;
@@ -3902,6 +3903,7 @@ button.scrap-appt-q:focus-visible {
   z-index: 1;
 }
 
+/* Hero Lottie: 220×220 (was 260/300) so tall art (e.g. turtle) fits min-height 240px stage without clipping */
 .plush-shop-hero-lottie {
   width: 100% !important;
   max-width: 220px;
