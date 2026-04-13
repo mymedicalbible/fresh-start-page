@@ -745,9 +745,9 @@ export function DoctorProfilePage () {
                   {testsForVisit.length > 0 && (
                     <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
                       <div style={{ fontWeight: 600 }}>Tests & orders (detail)</div>
-                      <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                      <ul style={{ margin: '4px 0 0', paddingLeft: 18, listStyle: 'none', listStyleType: 'none' }}>
                         {testsForVisit.map((t) => (
-                          <li key={t.id}>
+                          <li key={t.id} style={{ listStyle: 'none', listStyleType: 'none' }}>
                             {t.test_name}
                             {t.reason ? ` — ${t.reason}` : ''}
                             <span className="muted"> ({t.status})</span>

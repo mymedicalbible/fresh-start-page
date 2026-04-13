@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BackButton } from '../components/BackButton'
 import { deleteTranscriptArchiveItem, loadTranscriptArchive, type ArchivedTranscript } from '../lib/transcriptArchive'
+import { stripLineBulletsFromText } from '../lib/stripLineBullets'
 
 export function TranscriptsPage () {
   const [transcripts, setTranscripts] = useState<ArchivedTranscript[]>([])
@@ -64,7 +65,7 @@ export function TranscriptsPage () {
                           lineHeight: 1.45,
                         }}
                       >
-                        {a.extractedSummary}
+                        {stripLineBulletsFromText(a.extractedSummary)}
                       </div>
                     </div>
                   )}
@@ -83,7 +84,7 @@ export function TranscriptsPage () {
                         lineHeight: 1.45,
                       }}
                     >
-                      {a.transcript}
+                      {stripLineBulletsFromText(a.transcript)}
                     </div>
                   </div>
                 </div>

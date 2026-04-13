@@ -2408,6 +2408,7 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-weather-results {
   list-style: none;
+  list-style-type: none;
   margin: 10px 0 0;
   padding: 0;
   display: flex;
@@ -2415,6 +2416,15 @@ button.scrap-appt-q:focus-visible {
   gap: 6px;
   max-height: 220px;
   overflow-y: auto;
+}
+
+.scrap-account-weather-results li {
+  list-style: none;
+  list-style-type: none;
+}
+
+.scrap-account-weather-results li::marker {
+  content: none;
 }
 
 .scrap-account-weather-pick {
@@ -3564,10 +3574,18 @@ button.scrap-appt-q:focus-visible {
   font-size: 0.86rem;
   line-height: 1.5;
   color: #475569;
+  list-style: none;
+  list-style-type: none;
 }
 
 .plush-shop-token-help-list li {
   margin-bottom: 6px;
+  list-style: none;
+  list-style-type: none;
+}
+
+.plush-shop-token-help-list li::marker {
+  content: none;
 }
 
 .plush-shop-token-help-list li:last-child {
@@ -3991,12 +4009,23 @@ html {
   color: var(--text);
 }
 
+/* Suppress default disc markers; Tailwind base can still style `li` — clear both. */
 .app-shell.app-shell--scrapbook ul,
 .app-shell.app-shell--scrapbook ol {
   padding-left: 0;
   margin-left: 0;
   overflow: visible;
   list-style: none;
+  list-style-type: none;
+}
+
+.app-shell.app-shell--scrapbook li {
+  list-style: none;
+  list-style-type: none;
+}
+
+.app-shell.app-shell--scrapbook li::marker {
+  content: none;
 }
 
 .app-shell.app-shell--scrapbook .app-page--scrapbook,

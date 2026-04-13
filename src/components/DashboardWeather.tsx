@@ -303,9 +303,19 @@ function WeatherMoreModal ({
               }}
             >
               <div style={{ ...labelStyle, marginBottom: 8, display: 'block' }}>You vs The Forecast</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  fontSize: '0.8rem',
+                  lineHeight: 1.5,
+                  color: 'var(--scrap-ink)',
+                  listStyle: 'none',
+                  listStyleType: 'none',
+                }}
+              >
                 {correlation.lines.map((line, i) => (
-                  <li key={i} style={{ marginBottom: 6 }}>{line}</li>
+                  <li key={i} style={{ marginBottom: 6, listStyle: 'none', listStyleType: 'none' }}>{line}</li>
                 ))}
               </ul>
             </div>
@@ -464,9 +474,19 @@ export function DashboardWeather ({ weather, correlation }: Props) {
                 }}
               >
                 <div style={{ ...labelStyle, marginBottom: 6, display: 'block' }}>You vs The Forecast</div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--scrap-ink)' }}>
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: 18,
+                    fontSize: '0.8rem',
+                    lineHeight: 1.5,
+                    color: 'var(--scrap-ink)',
+                    listStyle: 'none',
+                    listStyleType: 'none',
+                  }}
+                >
                   {correlation.lines.map((line, i) => (
-                    <li key={i} style={{ marginBottom: 4 }}>{line}</li>
+                    <li key={i} style={{ marginBottom: 4, listStyle: 'none', listStyleType: 'none' }}>{line}</li>
                   ))}
                 </ul>
               </div>
