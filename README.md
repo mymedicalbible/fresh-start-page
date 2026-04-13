@@ -8,98 +8,87 @@ The running name in code is `medical-tracker-web`; data lives in **Supabase** (y
 
 ## What you can do (features)
 
-### Dashboard (home)
+### Dashboard (home) — `/app`
 
-- **Appointments** — banner for upcoming, in-progress, or most recent visit; optional **browser notifications** when you enable them (behavior depends on the device and browser).
-- **Plushie (when game tokens are enabled)** — if your project has the token shop turned on, the banner area can show **this week’s plushie name** and, when you’ve unlocked it with tokens, its **animation** (Lottie) beside the appointment strip without covering doctor or visit text.
-- **Pending visits** — visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
-- **Log today** — shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
-- **Doctor handoff summary** — opens a panel that builds a **first-person narrative** from your saved data (recent pain/episodes, meds, changes, visits, questions). You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and each generation can be **archived on this device** for later.
-- **Your records** — three sticker shortcuts: **Doctors**, **Medications**, and **Tests & orders**. Use **Archives** (bottom nav) for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies** (see below).
-- **Profile** — open **Account** from **More** or follow links from the dashboard when shown.
+- **Appointments** — Banner for upcoming, in-progress, or most recent visit; optional **browser notifications** when you enable them (behavior depends on the device and browser).
+- **Plushie strip (when game tokens are enabled)** — If your project has the token economy enabled (`VITE_GAME_TOKENS_ENABLED` is not `false`), the appointment banner can show **this week’s rotation plush** as a **Lottie** beside the strip (no caption under it). The weekly art matches the shop hero for the current rotation whether or not you’ve purchased that plush yet; **profile** plushies and token line are separate. Optional **browser-stored** settings (when exposed in your build) can hide the strip or show a specific unlocked plush instead of the weekly default.
+- **Pending visits** — Visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
+- **Log today** — Shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
+- **Doctor handoff summary** — Opens a panel that builds a **first-person narrative** from your saved data. You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and archive generations **on this device**.
+- **Your records** — Sticker shortcuts: **Doctors**, **Medications**, **Tests & orders**. Use **Archives** in the bottom nav for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies**.
+- **Profile** — Open **Account** from **More** or follow links from the dashboard when shown.
 
-### Quick log (`/app/log`)
+### Quick log — `/app/log`
 
-Fast paths to log **pain** (intensity, location, time, notes, triggers, relief) and **symptom episodes** (features/severity, activity, etc.) without drilling through every screen. Add **questions for your doctor** from here. Drafts can be **saved for later** if you leave mid-entry.
+Fast paths to log **pain** and **symptom episodes**; add **questions for your doctor**. Drafts can be **saved for later** if you leave mid-entry.
 
-### Records (`/app/charts-trends`, `/app/records`, or **charts/trends** in the nav; `/app/flares` redirects to the same hub)
+### Records — `/app/charts-trends`, `/app/records` (`/app/flares` redirects here)
 
-Searchable history with tabs:
+Searchable history with tabs: **Pain**, **Episodes**, **Summaries** (device-local handoff archive), **Analytics** (embedded charts).
 
-- **Pain** — past pain entries.
-- **Episodes** — past symptom episodes; you can remove individual **features** from an entry without deleting the whole episode.
-- **Summaries** — **device-local archive** of generated handoff summaries (same idea as in the handoff panel; not a second cloud list).
-- **Analytics** — same charts as the standalone Analytics page (`/app/analytics`), embedded here.
+### Analytics — `/app/analytics`
 
-Visit transcripts you save from the transcription flow live under **Archives → Transcripts** (`/app/transcripts`); that archive is **device-local**.
+**Pain over time**, **top pain areas**, **episode features**, **time-of-day** views. For awareness and conversations with your care team—not self-diagnosis.
 
-### Analytics (`/app/analytics`)
+### Visits — `/app/visits`
 
-- **Pain over time** — average intensity by day.
-- **Top pain areas** — from location text you entered.
-- **Common episode features** — frequency of features across episodes.
-- **Pain / episodes by time of day** — heatmaps when entries include times.
+List and filters; **visit wizard**; optional **transcription** and structured extract when Edge Functions and keys are configured.
 
-Charts are for **your awareness** and for **conversation with your care team**, not for self-diagnosis.
+### Doctors — `/app/doctors`, `/app/doctors/:id`
 
-### Visits (`/app/visits`)
+Directory and **doctor profile** with linked visits, questions, diagnoses, medications, and tests. **Archive** / restore providers.
 
-- **List** all visits or filter to **pending**; expand rows for details.
-- **Visit wizard** — step-by-step visit log (reason, notes, diagnoses, meds, tests, documents when configured, etc.). Visits can be **complete** or **pending** to finish later.
-- **Transcription** — optional recording + live transcription, then **extract structured fields** into the visit log when you confirm (when Edge Functions and keys are configured).
+### Medications — `/app/meds`
 
-### Doctors (`/app/doctors` and `/app/doctors/:id`)
+Current vs discontinued; **PRN** vs scheduled; **dose change** events.
 
-- **Directory** of providers; open a **profile** with **visits**, **questions**, **diagnoses**, **medications**, and **tests** linked to that doctor.
-- **Archive** a doctor (with optional reason) instead of losing history; restore later.
+### Tests & orders — `/app/tests`
 
-### Medications (`/app/meds`)
+Track labs/imaging with status workflows.
 
-- **Current** vs **discontinued** lists; filter by prescriber when that data is present.
-- **PRN** (as needed) vs scheduled-style frequency on add/edit.
-- **Dose change** logging with **change events** and optional updates to the med record.
-- Removing a current med moves it to **discontinued** with a reason.
+### Questions — `/app/questions`
 
-### Tests & orders (`/app/tests`)
+All / Open / Answered; priority; optional appointment ties.
 
-Track labs/imaging and similar with status; **pending** vs **archived** style workflows.
+### Diagnoses — `/app/diagnoses`
 
-### Questions (`/app/questions`)
+Directory of conditions with linkage to doctors where applicable.
 
-- List questions with **All / Open / Answered** views; priority; optional ties to appointment dates.
-- Answer inline when supported.
+### Appointments — `/app/appointments`
 
-### Diagnoses (`/app/diagnoses`)
+Manage upcoming and related appointment records.
 
-- Central directory of conditions (confirmed/suspected, dates, linked doctor where applicable).
+### Plushies — `/app/plushies`
 
-### Appointments (`/app/appointments`)
+Optional **game token** economy when enabled in Supabase and on the client:
 
-- Manage upcoming (and related) appointment records tied to your workflow.
+- **This week’s plush** hero, **mystery “next week”** gift art, **countdown** to the weekly rotation boundary (Monday midnight in your local timezone, aligned with server RPCs when migrations are applied).
+- **My Plushies** opens from the shop as a **modal** with polaroids for unlocked plushies.
+- Earn tokens through logging and other actions defined in your backend; spend to unlock the active weekly plush when your balance allows.
 
-### Plushies (`/app/plushies`)
+### Archives — `/app/archives`
 
-- Optional **game token** economy and **shop** (when enabled in your Supabase setup and not turned off in the client): earn tokens, spend them to unlock **this week’s** plushie; the active plushie can appear on the **home** dashboard when you own it. A countdown in the shop reflects the server’s weekly rotation schedule.
+Redirects to the dashboard; use bottom-nav **Archives** destinations or go directly to `/app/visits`, `/app/questions`, `/app/transcripts`, `/app/diagnoses`.
 
-### Archives (`/app/archives`)
+### More — `/app/more`
 
-- Shortcuts to **Visits**, **Questions**, **Transcripts** (visit recordings), and **Diagnoses** — same destinations as their standalone routes (`/app/visits`, etc.).
+Hub with polaroid-style links to **Account** and **Plushies** (shop).
 
-### More (`/app/more`)
+### Solo recording — `/app/solo-record`
 
-- A **cork board** hub (different from the lined “notebook” look on other screens): **sticky notes** link to **Account** (profile & settings) and **Plushies** (shop & collection). A **garden** illustration strip sits just above the bottom navigation.
+Standalone solo recording flow (when used in your build).
 
-### Doctor note (bottom nav)
+### Transcripts — `/app/transcripts`
 
-- **Note for a doctor** — quick capture tied to the doctor-note flow (modal), separate from full visit logging.
+Device-local archive of visit transcripts where applicable.
 
-### Profile (`/app/profile`)
+### Profile — `/app/profile`
 
-- Account-oriented screen: profile details, optional **token** balance and plushie progress when the game is enabled, export options, and other settings depending on your build.
+Account, settings, token/plushie progress when the game is enabled, exports depending on build.
 
-### Sign-in (`/login`)
+### Sign-in — `/login`
 
-- Email/password auth via **Supabase**; the `/app/*` area is protected.
+Email/password via **Supabase**; `/app/*` routes are protected.
 
 ---
 
@@ -107,25 +96,26 @@ Track labs/imaging and similar with status; **pending** vs **archived** style wo
 
 These need **Supabase Edge Functions** and **secrets** on the project (never put API keys in `VITE_*` client env vars):
 
-| Function | What it does | Typical secret |
-|----------|----------------|------------------|
-| **`generate-summary`** | Builds or polishes the handoff narrative; **extract** mode structures visit transcripts into JSON for the visit log. | `ANTHROPIC_API_KEY` (Claude); optional OpenAI fallback |
-| **`transcribe-visit`** | Returns a short-lived token for **AssemblyAI** live transcription. | `ASSEMBLYAI_API_KEY` |
+| Function | Purpose | Typical secret |
+|----------|---------|------------------|
+| **`generate-summary`** | Handoff narrative polish / extract mode for visit transcripts | `ANTHROPIC_API_KEY` (Claude); optional OpenAI fallback |
+| **`transcribe-visit`** | Short-lived token for **AssemblyAI** live transcription | `ASSEMBLYAI_API_KEY` |
 
-If these are not deployed or keys are missing, handoff still works from **rule-based narrative**; AI polish and live transcription simply will not run until configured.
+If not deployed or keys are missing, handoff still uses **rule-based** narrative; AI polish and live transcription stay off until configured.
 
 ---
 
-## Tech stack (short)
+## Tech stack
 
 | Layer | Choice |
 |-------|--------|
 | UI | React 18, React Router 6, TypeScript |
+| Styling | Tailwind CSS v4, global CSS design tokens |
+| Icons / motion | Lucide React, `tw-animate-css`, Lottie (plushies) |
 | Build | Vite 6 |
-| Backend | Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions) |
+| Backend | Supabase (Postgres, Auth, RLS, Storage, Edge Functions) |
 | Charts | Recharts |
-| PDF | jsPDF |
-| Animation | Lottie (plushie display) |
+| PDF | jsPDF, html2canvas |
 
 ---
 
@@ -133,22 +123,47 @@ If these are not deployed or keys are missing, handoff still works from **rule-b
 
 ```bash
 npm install
-# Add .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY — see DEVELOPERS.md
+# Create .env with at least VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY — see DEVELOPERS.md
 npm run dev
 npm run build
 ```
 
-Full setup, migrations, optional plushie/game migrations, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOPERS.md)**.
+Database migrations, env reference, deploy, and troubleshooting: **[DEVELOPERS.md](./DEVELOPERS.md)**.
 
 ---
 
-## Exporting all code and SQL to one file
+## Database and SQL
+
+- **Migrations (source of truth):** `supabase/migrations/*.sql` — apply with Supabase CLI (`supabase db push` or your hosted workflow). Ordering is by timestamp prefix on each file.
+- **Ad-hoc / helper scripts (not auto-run):** e.g. `supabase/reset_game_tokens_for_testing.sql`, `supabase/verify_plushie_tokens.sql` — use only when you intend to, on a matching database.
+
+The **single-file export** below includes all tracked `.sql` files the script walks (migrations + loose scripts under `supabase/`).
+
+---
+
+## Exporting the project (code + SQL)
+
+Two complementary outputs:
+
+### 1. One text file — all source + SQL + configs
 
 ```bash
 npm run export:txt
 ```
 
-Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supabase/` SQL and functions, configs, scripts; skips `node_modules`, `dist`, `exports`, and a few large legacy root text dumps). For a **zip of everything Git tracks**, use `npm run export` (requires Git).
+Writes a timestamped file under **`exports/`**, for example:
+
+`exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt`
+
+Includes TypeScript/TSX/CSS, **`supabase/**/*.sql`**, JSON configs, scripts, markdown, etc. Skips `node_modules`, `dist`, `ExportedProject`, `coverage`, `.vite`, and the `exports/` folder itself (so old dumps are not nested into new ones). See `scripts/export-project-one-file.mjs` for the exact extension list.
+
+### 2. Zip of everything Git tracks
+
+```bash
+npm run export
+```
+
+Creates **`medical-bible-code-export-YYYY-MM-DD-HH-MM-SS.zip`** in the project root via `git archive` (only **committed** files). Untracked files are not included—commit first if you need them in the zip.
 
 ---
 
@@ -156,23 +171,39 @@ Writes `exports/project-code-and-sql-YYYY-MM-DD-HH-MM-SS.txt` (app source, `supa
 
 | Path | Area |
 |------|------|
-| `/app` | Dashboard |
+| `/login` | Sign in |
+| `/app` | Dashboard (home) |
 | `/app/log` | Quick log |
-| `/app/archives` | Archives hub (visits, questions, transcripts, diagnoses) |
-| `/app/charts-trends`, `/app/records`, `/app/flares` (redirect) | Records (charts/trends in nav) |
+| `/app/charts-trends`, `/app/records` | Records hub |
+| `/app/flares` | Redirect → charts-trends |
 | `/app/analytics` | Analytics |
 | `/app/meds` | Medications |
-| `/app/doctors`, `/app/doctors/:id` | Doctors / profile |
+| `/app/doctors`, `/app/doctors/:id` | Doctors / doctor profile |
 | `/app/tests` | Tests & orders |
 | `/app/questions` | Questions |
 | `/app/diagnoses` | Diagnoses |
-| `/app/visits` | Visits |
+| `/app/more` | More hub |
+| `/app/transcripts` | Transcripts |
+| `/app/solo-record` | Solo recording |
 | `/app/appointments` | Appointments |
-| `/app/transcripts` | Transcripts (visit recordings archive) |
-| `/app/plushies` | Plushies (tokens & shop) |
-| `/app/more` | More (cork board hub) |
-| `/app/profile` | Profile |
-| `/login` | Sign in |
+| `/app/visits` | Visits |
+| `/app/profile` | Profile / account |
+| `/app/plushies` | Plushie shop |
+| `/`, `*` | Redirects (see `App.tsx`) |
+
+---
+
+## Scripts (npm)
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Typecheck + production build |
+| `npm run preview` | Preview production build |
+| `npm run export:txt` | Single `.txt` with code + SQL + configs → `exports/` |
+| `npm run export` | Zip of git-tracked files |
+| `npm run supabase:push` | Push migrations (Supabase CLI) |
+| `npm run test:e2e` | Playwright tests |
 
 ---
 
