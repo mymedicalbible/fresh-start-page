@@ -253,7 +253,10 @@ export function PlushieShopPage () {
         <section className="plush-shop-hero-card" aria-labelledby="plush-shop-hero-heading">
           <div className="plush-shop-hero-inner">
             <span className="plush-shop-hero-badge">✨ This Week&apos;s Plushie!</span>
-            <div className="plush-shop-hero-stage-shell">
+            <div
+              className="plush-shop-hero-stage-shell"
+              data-plush-slug={activePlushie?.slug ?? ''}
+            >
               <div className="plush-shop-hero-stage">
                 {activePlushie && !isPlaceholderLottiePath(activePlushie.lottie_path) && lottieData
                   ? (

@@ -3910,6 +3910,16 @@ button.scrap-appt-q:focus-visible {
   height: 220px !important;
 }
 
+/* Turtle artboard reads zoomed vs panda — slug-scoped crop/scale (same idea as dashboard mascot slot) */
+.plush-shop-hero-stage-shell[data-plush-slug="meditating-turtle"] {
+  overflow: hidden;
+}
+
+.plush-shop-hero-stage-shell[data-plush-slug="meditating-turtle"] .plush-shop-hero-lottie {
+  transform: scale(0.55);
+  transform-origin: center center;
+}
+
 .plush-shop-hero-fallback {
   font-size: 4rem;
   line-height: 1.2;
