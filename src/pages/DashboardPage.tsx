@@ -20,6 +20,7 @@ import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
 import { LeaveLaterDialog } from '../components/LeaveLaterDialog'
 import { VisitTranscriber, type VisitTranscriberHandle } from '../components/VisitTranscriber'
+import { SoloTranscriber, type SoloTranscriberHandle } from '../components/SoloTranscriber'
 import type { TranscriptExtractPayload } from '../lib/transcriptExtract'
 import {
   clearApptQsDraft,
@@ -689,17 +690,21 @@ export function DashboardPage () {
   const episodeChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
   const dashTranscriberRef = useRef<VisitTranscriberHandle>(null)
+  const soloTranscriberRef = useRef<SoloTranscriberHandle>(null)
   const [transcribeModalOpen, setTranscribeModalOpen] = useState(false)
-  /** Meds / diagnoses for extract context (VisitTranscriber prompt). */
+  /** `pick` = choose visit vs solo; then one transcriber is shown. */
+  const [transcribeMode, setTranscribeMode] = useState<'pick' | 'visit' | 'solo'>('pick')
+  /** Meds / diagnoses / doctors for extract context (transcribers). */
   const [transcriptExtractMeds, setTranscriptExtractMeds] = useState<string[]>([])
   const [transcriptExtractDiags, setTranscriptExtractDiags] = useState<string[]>([])
+  const [transcriptExtractDoctors, setTranscriptExtractDoctors] = useState<string[]>([])
   const [logArchiveSheet, setLogArchiveSheet] = useState<LogArchiveSheetKind | null>(null)
 
   useEffect(() => {
     if (!user?.id || !transcribeModalOpen) return
     let cancelled = false
     void (async () => {
-      const [medRes, diagRes] = await Promise.all([
+      const [medRes, diagRes, docRes] = await Promise.all([
         supabase.from('current_medications').select('medication').eq('user_id', user.id).order('medication'),
         supabase
           .from('diagnoses_directory')
@@ -707,6 +712,7 @@ export function DashboardPage () {
           .eq('user_id', user.id)
           .order('date_diagnosed', { ascending: false })
           .limit(50),
+        supabase.from('doctors').select('name').eq('user_id', user.id).order('name'),
       ])
       if (cancelled) return
       setTranscriptExtractMeds(
@@ -720,6 +726,9 @@ export function DashboardPage () {
           if (!d) return ''
           return s ? `${d} (${s})` : d
         }).filter(Boolean),
+      )
+      setTranscriptExtractDoctors(
+        (docRes.data ?? []).map((r) => String((r as { name?: string }).name ?? '').trim()).filter(Boolean),
       )
     })()
     return () => { cancelled = true }
@@ -1451,11 +1460,32 @@ export function DashboardPage () {
       }))
     } catch { /* ignore */ }
     setTranscribeModalOpen(false)
+    setTranscribeMode('pick')
     navigate(`/app/visits?new=1&returnTo=${dashReturnTo}`)
   }
 
   function closeTranscribeModal () {
-    dashTranscriberRef.current?.tryCloseParent(() => setTranscribeModalOpen(false))
+    if (transcribeMode === 'pick') {
+      setTranscribeModalOpen(false)
+      setTranscribeMode('pick')
+      return
+    }
+    if (transcribeMode === 'visit') {
+      dashTranscriberRef.current?.tryCloseParent(() => {
+        setTranscribeModalOpen(false)
+        setTranscribeMode('pick')
+      })
+      return
+    }
+    soloTranscriberRef.current?.tryCloseParent(() => {
+      setTranscribeModalOpen(false)
+      setTranscribeMode('pick')
+    })
+  }
+
+  function handleSoloTranscribeApplied () {
+    setTranscribeModalOpen(false)
+    setTranscribeMode('pick')
   }
 
   function clearApptBannerLongPressTimer () {
@@ -1713,8 +1743,11 @@ export function DashboardPage () {
 
       <button
         type="button"
-        aria-label="Open visit transcription"
-        onClick={() => setTranscribeModalOpen(true)}
+        aria-label="Open voice recording"
+        onClick={() => {
+          setTranscribeMode('pick')
+          setTranscribeModalOpen(true)
+        }}
         style={{
           position: 'fixed',
           top: 14,
@@ -1763,7 +1796,13 @@ export function DashboardPage () {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Visit transcription"
+          aria-label={
+            transcribeMode === 'pick'
+              ? 'Choose recording type'
+              : transcribeMode === 'visit'
+                ? 'Visit transcription'
+                : 'Solo voice update'
+          }
           style={{
             position: 'fixed',
             inset: 0,
@@ -1792,14 +1831,58 @@ export function DashboardPage () {
                 Close
               </button>
             </div>
-            <VisitTranscriber
-              ref={dashTranscriberRef}
-              doctorName=""
-              visitDate={localISODate()}
-              existingMeds={transcriptExtractMeds}
-              knownDiagnoses={transcriptExtractDiags}
-              onExtracted={handleDashTranscriptExtracted}
-            />
+            {transcribeMode === 'pick' && (
+              <div className="card shadow" style={{ padding: '20px 22px', borderRadius: 16 }}>
+                <h2 style={{ margin: '0 0 8px', fontSize: '1.1rem' }}>Recording type</h2>
+                <p className="muted" style={{ fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Pick how you want to use the microphone.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ minHeight: 48, justifyContent: 'center' }}
+                    onClick={() => setTranscribeMode('visit')}
+                  >
+                    Visit transcription
+                  </button>
+                  <p className="muted" style={{ fontSize: '0.82rem', margin: '-4px 0 0', lineHeight: 1.45 }}>
+                    After a clinic visit — fills a new visit log from what was said.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ minHeight: 48, justifyContent: 'center' }}
+                    onClick={() => setTranscribeMode('solo')}
+                  >
+                    Solo voice update
+                  </button>
+                  <p className="muted" style={{ fontSize: '0.82rem', margin: '-4px 0 0', lineHeight: 1.45 }}>
+                    Just you — updates questions, meds, diagnoses, tests, and doctors. No visit log.
+                  </p>
+                </div>
+              </div>
+            )}
+            {transcribeMode === 'visit' && (
+              <VisitTranscriber
+                ref={dashTranscriberRef}
+                doctorName=""
+                visitDate={localISODate()}
+                existingMeds={transcriptExtractMeds}
+                knownDiagnoses={transcriptExtractDiags}
+                onExtracted={handleDashTranscriptExtracted}
+              />
+            )}
+            {transcribeMode === 'solo' && (
+              <SoloTranscriber
+                ref={soloTranscriberRef}
+                anchorDateIso={localISODate()}
+                existingMeds={transcriptExtractMeds}
+                knownDiagnoses={transcriptExtractDiags}
+                knownDoctors={transcriptExtractDoctors}
+                onApplied={handleSoloTranscribeApplied}
+              />
+            )}
           </div>
         </div>
       )}
