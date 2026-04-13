@@ -1975,7 +1975,15 @@ button.scrap-appt-q:focus-visible {
   border: 1px solid rgba(74, 55, 40, 0.14);
   box-shadow: 0 5px 16px rgba(74, 55, 40, 0.1);
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  cursor: pointer;
   overflow: hidden;
+}
+
+.scrap-log-tile:focus-visible {
+  outline: 2px solid rgba(45, 90, 72, 0.45);
+  outline-offset: 2px;
 }
 
 .scrap-log-tile:active {

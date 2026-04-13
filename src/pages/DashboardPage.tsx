@@ -221,7 +221,9 @@ function LogTodayTile ({
   onLongPress: (k: LogArchiveSheetKind) => void
   children: ReactNode
 }) {
+  const navigate = useNavigate()
   const timerRef = useRef<number | null>(null)
+  /** True after a long-press opened the archive sheet — suppress the following click navigation. */
   const longPressConsumedRef = useRef(false)
 
   function clearTimer () {
@@ -231,10 +233,14 @@ function LogTodayTile ({
     }
   }
 
+  function goQuickLog () {
+    navigate(to, { state: { backTo: '/app' } })
+  }
+
   return (
-    <Link
-      to={to}
-      state={{ backTo: '/app' }}
+    <div
+      role="link"
+      tabIndex={0}
       className={className}
       onPointerDown={() => {
         longPressConsumedRef.current = false
@@ -247,17 +253,30 @@ function LogTodayTile ({
       onPointerUp={clearTimer}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
-      onClick={(e) => {
+      onContextMenu={(e) => {
+        e.preventDefault()
+      }}
+      onClick={() => {
         if (longPressConsumedRef.current) {
-          e.preventDefault()
           longPressConsumedRef.current = false
+          return
         }
+        goQuickLog()
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        if (longPressConsumedRef.current) {
+          longPressConsumedRef.current = false
+          return
+        }
+        goQuickLog()
       }}
     >
       {children}
       <span className="scrap-log-title">{title}</span>
       <span className="scrap-log-sub">{sub}</span>
-    </Link>
+    </div>
   )
 }
 
@@ -2248,8 +2267,8 @@ export function DashboardPage () {
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
           <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
-          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="Visit recordings" tone="lavender" />
           <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your list" tone="pink" />
+          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="Visit recordings" tone="lavender" />
         </div>
 
         <p className="scrap-dash-account-line">
