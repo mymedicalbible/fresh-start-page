@@ -52,10 +52,21 @@ export type GameStateResult =
     }
   | { ok: false; error: string }
 
+/** PostgREST when no RPC matches the requested name/signature (e.g. DB missing `20260413103000_plushie_rotation_monday_local_tz.sql`). */
+function isRpcMissingFunctionError (err: { message?: string; code?: string }): boolean {
+  const code = err.code ?? ''
+  if (code === 'PGRST202' || code === '42883') return true
+  const m = (err.message ?? '').toLowerCase()
+  return m.includes('could not find the function') || m.includes('schema cache')
+}
+
 export async function fetchGameState (): Promise<GameStateResult> {
-  const { data, error } = await supabase.rpc('game_get_state', {
-    p_tz: plushieRotationTimezone(),
-  })
+  const tz = plushieRotationTimezone()
+  let res = await supabase.rpc('game_get_state', { p_tz: tz })
+  if (res.error && isRpcMissingFunctionError(res.error)) {
+    res = await supabase.rpc('game_get_state')
+  }
+  const { data, error } = res
   if (error) return { ok: false, error: error.message }
   const row = data as { ok?: boolean; error?: string; balance?: number } | null
   if (!row || row.ok === false) return { ok: false, error: (row as { error?: string }).error ?? 'Unknown' }
@@ -66,7 +77,12 @@ export async function purchaseActivePlushie (): Promise<
   | { ok: true; spent: number; balance_after: number }
   | { ok: false; error: string; balance?: number; needed?: number }
 > {
-  const { data, error } = await supabase.rpc('game_purchase_active_plushie', { p_tz: plushieRotationTimezone() })
+  const tz = plushieRotationTimezone()
+  let res = await supabase.rpc('game_purchase_active_plushie', { p_tz: tz })
+  if (res.error && isRpcMissingFunctionError(res.error)) {
+    res = await supabase.rpc('game_purchase_active_plushie')
+  }
+  const { data, error } = res
   if (error) return { ok: false, error: error.message }
   const row = data as Record<string, unknown>
   if (row.ok === false) {
