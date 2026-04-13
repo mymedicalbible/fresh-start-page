@@ -4,7 +4,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
 import { DoctorPickOrNew } from '../components/DoctorPickOrNew'
 import { ensureDoctorProfile } from '../lib/ensureDoctorProfile'
-import { DIAGNOSIS_STATUS_OPTIONS } from '../lib/diagnosisStatusOptions'
+import { DIAGNOSIS_STATUS_OPTIONS, type DiagnosisDirectoryStatus } from '../lib/diagnosisStatusOptions'
+import { diagnosisDetailFieldsForStatus, howOrWhyFieldLabel } from '../lib/diagnosisDirectoryRow'
+import { DiagnosisDetailFields } from '../components/DiagnosisDetailFields'
 
 
 type DiagnosisRow = {
@@ -13,7 +15,9 @@ type DiagnosisRow = {
   doctor: string | null
   date_diagnosed: string | null
   status: string
-  notes: string | null
+  how_or_why: string | null
+  treatment_plan: string | null
+  care_plan: string | null
 }
 
 
@@ -63,7 +67,14 @@ export function DiagnosesDirectoryPage () {
   const [searchText, setSearchText] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [form, setForm] = useState({
-    diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '',
+    diagnosis: '',
+    doctor: '',
+    doctor_specialty: '',
+    date_diagnosed: '',
+    status: 'Suspected' as DiagnosisDirectoryStatus,
+    how_or_why: '',
+    treatment_plan: '',
+    care_plan: '',
   })
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -108,7 +119,16 @@ export function DiagnosesDirectoryPage () {
 
 
   function quickAdd (name: string) {
-    setForm({ diagnosis: name, doctor: '', doctor_specialty: '', date_diagnosed: todayISO(), status: 'Suspected', notes: '' })
+    setForm({
+      diagnosis: name,
+      doctor: '',
+      doctor_specialty: '',
+      date_diagnosed: todayISO(),
+      status: 'Suspected',
+      how_or_why: '',
+      treatment_plan: '',
+      care_plan: '',
+    })
     setSearchText(name)
     setShowForm(true)
   }
@@ -117,18 +137,32 @@ export function DiagnosesDirectoryPage () {
   async function saveDiagnosis () {
     if (!form.diagnosis.trim()) { setError('Diagnosis name is required.'); return }
     setBusy(true)
+    const detail = diagnosisDetailFieldsForStatus(form.status, {
+      how_or_why: form.how_or_why,
+      treatment_plan: form.treatment_plan,
+      care_plan: form.care_plan,
+    })
     if (editingId) {
       const { error: e } = await supabase.from('diagnoses_directory').update({
-        diagnosis: form.diagnosis.trim(), doctor: form.doctor || null,
-        date_diagnosed: form.date_diagnosed || null, status: form.status,
-        notes: form.notes || null,
+        diagnosis: form.diagnosis.trim(),
+        doctor: form.doctor || null,
+        date_diagnosed: form.date_diagnosed || null,
+        status: form.status,
+        how_or_why: detail.how_or_why,
+        treatment_plan: detail.treatment_plan,
+        care_plan: detail.care_plan,
       }).eq('id', editingId)
       if (e) { setError(e.message); setBusy(false); return }
     } else {
       const { error: e } = await supabase.from('diagnoses_directory').insert({
-        user_id: user!.id, diagnosis: form.diagnosis.trim(),
-        doctor: form.doctor || null, date_diagnosed: form.date_diagnosed || null,
-        status: form.status, notes: form.notes || null,
+        user_id: user!.id,
+        diagnosis: form.diagnosis.trim(),
+        doctor: form.doctor || null,
+        date_diagnosed: form.date_diagnosed || null,
+        status: form.status,
+        how_or_why: detail.how_or_why,
+        treatment_plan: detail.treatment_plan,
+        care_plan: detail.care_plan,
       })
       if (e) { setError(e.message); setBusy(false); return }
     }
@@ -136,7 +170,16 @@ export function DiagnosesDirectoryPage () {
     if (form.doctor.trim()) void ensureDoctorProfile(user!.id, form.doctor, form.doctor_specialty || null)
     setBanner(editingId ? 'Diagnosis updated!' : 'Diagnosis added!')
     setShowForm(false); setEditingId(null)
-    setForm({ diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '' })
+    setForm({
+      diagnosis: '',
+      doctor: '',
+      doctor_specialty: '',
+      date_diagnosed: '',
+      status: 'Suspected',
+      how_or_why: '',
+      treatment_plan: '',
+      care_plan: '',
+    })
     setSearchText(''); setSuggestions([])
     setTimeout(() => setBanner(null), 3000)
     load()
@@ -144,7 +187,12 @@ export function DiagnosesDirectoryPage () {
 
 
   async function updateStatus (id: string, status: string) {
-    await supabase.from('diagnoses_directory').update({ status }).eq('id', id)
+    const patch: Record<string, unknown> = { status }
+    if (status !== 'Confirmed') {
+      patch.treatment_plan = null
+      patch.care_plan = null
+    }
+    await supabase.from('diagnoses_directory').update(patch).eq('id', id)
     load()
   }
 
@@ -152,10 +200,14 @@ export function DiagnosesDirectoryPage () {
   function startEdit (row: DiagnosisRow) {
     setEditingId(row.id)
     setForm({
-      diagnosis: row.diagnosis, doctor: row.doctor ?? '',
+      diagnosis: row.diagnosis,
+      doctor: row.doctor ?? '',
       doctor_specialty: '',
-      date_diagnosed: row.date_diagnosed ?? '', status: row.status,
-      notes: row.notes ?? '',
+      date_diagnosed: row.date_diagnosed ?? '',
+      status: row.status as DiagnosisDirectoryStatus,
+      how_or_why: row.how_or_why ?? '',
+      treatment_plan: row.treatment_plan ?? '',
+      care_plan: row.care_plan ?? '',
     })
     setSearchText(row.diagnosis)
     setShowForm(true)
@@ -202,7 +254,21 @@ export function DiagnosesDirectoryPage () {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>📋 Diagnoses directory</h2>
           <button type="button" className="btn btn-primary"
-            onClick={() => { setShowForm((v) => !v); setEditingId(null); setForm({ diagnosis: '', doctor: '', doctor_specialty: '', date_diagnosed: '', status: 'Suspected', notes: '' }); setSearchText('') }}>
+            onClick={() => {
+              setShowForm((v) => !v)
+              setEditingId(null)
+              setForm({
+                diagnosis: '',
+                doctor: '',
+                doctor_specialty: '',
+                date_diagnosed: '',
+                status: 'Suspected',
+                how_or_why: '',
+                treatment_plan: '',
+                care_plan: '',
+              })
+              setSearchText('')
+            }}>
             {showForm && !editingId ? 'Cancel' : '+ Add diagnosis'}
           </button>
         </div>
@@ -282,7 +348,7 @@ export function DiagnosesDirectoryPage () {
                     borderColor: form.status === s.value ? s.text : 'transparent',
                     background: s.color, color: s.text, cursor: 'pointer',
                   }}
-                  onClick={() => setForm((prev) => ({ ...prev, status: s.value }))}>
+                  onClick={() => setForm((prev) => ({ ...prev, status: s.value as DiagnosisDirectoryStatus }))}>
                   {s.label}
                 </button>
               ))}
@@ -319,12 +385,13 @@ export function DiagnosesDirectoryPage () {
           </div>
 
 
-          <div className="form-group">
-            <label>Notes (optional)</label>
-            <textarea value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Any context, symptoms, or details…" />
-          </div>
+          <DiagnosisDetailFields
+            status={form.status}
+            how_or_why={form.how_or_why}
+            treatment_plan={form.treatment_plan}
+            care_plan={form.care_plan}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+          />
 
 
           <div style={{ display: 'flex', gap: 10 }}>
@@ -371,7 +438,27 @@ export function DiagnosesDirectoryPage () {
                       </span>
                     </div>
                     {r.date_diagnosed && <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>Diagnosed: {r.date_diagnosed}</div>}
-                    {r.notes && <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>{r.notes}</div>}
+                    {r.how_or_why && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                        <strong style={{ fontWeight: 600 }}>{howOrWhyFieldLabel(r.status as DiagnosisDirectoryStatus)}</strong>
+                        {' '}
+                        {r.how_or_why}
+                      </div>
+                    )}
+                    {r.status === 'Confirmed' && r.treatment_plan && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                        <strong style={{ fontWeight: 600 }}>Treatment plan</strong>
+                        {' '}
+                        {r.treatment_plan}
+                      </div>
+                    )}
+                    {r.status === 'Confirmed' && r.care_plan && (
+                      <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                        <strong style={{ fontWeight: 600 }}>Care plan</strong>
+                        {' '}
+                        {r.care_plan}
+                      </div>
+                    )}
 
 
                     <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>

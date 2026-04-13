@@ -1,10 +1,14 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import {
-  dedupeDiagnosisRows,
   type DiagnosisDirectoryStatus,
   normalizeDiagnosisDirectoryStatus,
 } from './diagnosisStatusOptions'
+import {
+  dedupeDiagnosisRows,
+  normalizeDiagnosisDraftRow,
+  type DiagnosisDirectoryDetailFields,
+} from './diagnosisDirectoryRow'
 
 export type ExtractedVisitFields = {
   /** Chief complaint / why the patient came in (not exam findings). */
@@ -15,7 +19,7 @@ export type ExtractedVisitFields = {
   tests: { test_name: string; reason: string }[]
   medications: { medication: string; dose: string; frequency: string }[]
   /** Structured rows for the diagnosis directory (confirmed, suspected, ruled out, resolved). */
-  diagnoses: { diagnosis: string; status: DiagnosisDirectoryStatus }[]
+  diagnoses: DiagnosisDirectoryDetailFields[]
   follow_up_date: string
   follow_up_time: string
   summary: { field: string; value: string; destination: string }[]
@@ -206,7 +210,9 @@ export function normalizeExtractedFields (raw: Record<string, unknown>): Extract
         }
       })
     : []
-  const diagnoses = dedupeDiagnosisRows(diagnosesParsed)
+  const diagnoses = dedupeDiagnosisRows(
+    diagnosesParsed.map((r) => normalizeDiagnosisDraftRow(r)),
+  )
   const sumRaw = raw.summary
   const summary: { field: string; value: string; destination: string }[] = Array.isArray(sumRaw)
     ? sumRaw.map((x) => {

@@ -200,8 +200,17 @@ export function buildCompactPatientData (input: SummaryInput): string {
   ].join('')
 
   const diagText = diagRows.length
-    ? diagRows.map((d) =>
-      `• ${d.diagnosis ?? ''} — ${d.status ?? ''}${d.date_diagnosed ? ` (${d.date_diagnosed})` : ''}${d.doctor ? ` · ${d.doctor}` : ''}`).join('\n')
+    ? diagRows.map((d) => {
+        const base = `• ${d.diagnosis ?? ''} — ${d.status ?? ''}${d.date_diagnosed ? ` (${d.date_diagnosed})` : ''}${d.doctor ? ` · ${d.doctor}` : ''}`
+        const bits: string[] = [base]
+        const how = d.how_or_why as string | undefined
+        const tp = d.treatment_plan as string | undefined
+        const cp = d.care_plan as string | undefined
+        if (how) bits.push(`  ${how}`)
+        if (tp) bits.push(`  Treatment: ${tp}`)
+        if (cp) bits.push(`  Care: ${cp}`)
+        return bits.join('\n')
+      }).join('\n')
     : '(No diagnosis directory entries.)'
 
   const visitCompact = visitRows.slice(0, 6).map(formatVisitOneLine).join('\n') || '(No visits in window.)'

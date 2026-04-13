@@ -29,17 +29,3 @@ export function diagnosisStatusLabel (value: string): string {
   const o = DIAGNOSIS_STATUS_OPTIONS.find((x) => x.value === value)
   return o?.label ?? value
 }
-
-/** Last row wins per case-insensitive diagnosis name. */
-export function dedupeDiagnosisRows (
-  rows: { diagnosis: string; status: DiagnosisDirectoryStatus }[],
-): { diagnosis: string; status: DiagnosisDirectoryStatus }[] {
-  const map = new Map<string, { diagnosis: string; status: DiagnosisDirectoryStatus }>()
-  for (const r of rows) {
-    const name = r.diagnosis.trim()
-    if (!name) continue
-    const key = name.toLowerCase()
-    map.set(key, { diagnosis: name, status: r.status })
-  }
-  return [...map.values()]
-}

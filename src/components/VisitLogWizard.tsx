@@ -24,10 +24,16 @@ import { AppConfirmDialog } from './AppConfirmDialog'
 import { normalizeExtractedFields, type ExtractedVisitFields } from '../lib/transcriptExtract'
 import {
   DIAGNOSIS_STATUS_OPTIONS,
-  dedupeDiagnosisRows,
   type DiagnosisDirectoryStatus,
 } from '../lib/diagnosisStatusOptions'
+import {
+  dedupeDiagnosisRows,
+  emptyDiagnosisDraftRow,
+  normalizeDiagnosisDraftRow,
+  type DiagnosisDirectoryDetailFields,
+} from '../lib/diagnosisDirectoryRow'
 import { upsertDiagnosesFromVisit } from '../lib/diagnosisDirectoryFromVisit'
+import { DiagnosisDetailFields } from './DiagnosisDetailFields'
 import { splitDoseFrequencyFromCombined } from '../lib/medDoseParse'
 import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
 import { buildClinicalNotesSupplement } from '../lib/transcriptVisitFormat'
@@ -127,7 +133,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
   const visitFileInputRef = useRef<HTMLInputElement>(null)
 
   const [dvTests, setDvTests] = useState([{ test_name: '', reason: '' }])
-  const [dvDiagnoses, setDvDiagnoses] = useState<{ diagnosis: string; status: DiagnosisDirectoryStatus }[]>([])
+  const [dvDiagnoses, setDvDiagnoses] = useState<DiagnosisDirectoryDetailFields[]>([])
   const [newMedEntry, setNewMedEntry] = useState({ medication: '', dose: '', frequency: '', prn: false })
   const [dvMeds, setDvMeds] = useState<{ medication: string; dose: string; action: 'keep' | 'remove' }[]>([])
   const [findings, setFindings] = useState('')
@@ -282,7 +288,9 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
     setReason(d.reason)
     setQuestionLines(d.questionLines.length ? d.questionLines : [{ text: '', priority: 'Medium' }])
     setDvTests(d.dvTests.length ? d.dvTests : [{ test_name: '', reason: '' }])
-    setDvDiagnoses(d.dvDiagnoses?.length ? dedupeDiagnosisRows(d.dvDiagnoses) : [])
+    setDvDiagnoses(d.dvDiagnoses?.length
+      ? dedupeDiagnosisRows(d.dvDiagnoses.map((x) => normalizeDiagnosisDraftRow(x)))
+      : [])
     setDvMeds(d.dvMeds)
     setNewMedEntry({
       medication: d.newMedEntry.medication,
@@ -1161,37 +1169,47 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                   Rows here update your Diagnosis directory when you save the visit as complete. They are not written on “save for later.”
                 </p>
                 {dvDiagnoses.map((d, i) => (
-                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <input
-                      style={{ ...WIZARD_TX_INLINE, flex: '2 1 140px' }}
-                      placeholder="Diagnosis name"
-                      value={d.diagnosis}
-                      onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, diagnosis: e.target.value } : x))}
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                      <input
+                        style={{ ...WIZARD_TX_INLINE, flex: '2 1 140px' }}
+                        placeholder="Diagnosis name"
+                        value={d.diagnosis}
+                        onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, diagnosis: e.target.value } : x))}
+                      />
+                      <select
+                        style={{ ...WIZARD_TX_INLINE, flex: '1 1 120px', minHeight: 38 }}
+                        value={d.status}
+                        onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, status: e.target.value as DiagnosisDirectoryStatus } : x))}
+                      >
+                        {DIAGNOSIS_STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ fontSize: '0.75rem' }}
+                        onClick={() => setDvDiagnoses((p) => p.filter((_, j) => j !== i))}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <DiagnosisDetailFields
+                      status={d.status}
+                      how_or_why={d.how_or_why}
+                      treatment_plan={d.treatment_plan}
+                      care_plan={d.care_plan}
+                      onChange={(patch) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, ...patch } : x))}
+                      textAreaStyle={WIZARD_TX}
                     />
-                    <select
-                      style={{ ...WIZARD_TX_INLINE, flex: '1 1 120px', minHeight: 38 }}
-                      value={d.status}
-                      onChange={(e) => setDvDiagnoses((p) => p.map((x, j) => j === i ? { ...x, status: e.target.value as DiagnosisDirectoryStatus } : x))}
-                    >
-                      {DIAGNOSIS_STATUS_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ fontSize: '0.75rem' }}
-                      onClick={() => setDvDiagnoses((p) => p.filter((_, j) => j !== i))}
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
                 <button
                   type="button"
                   className="btn btn-ghost"
                   style={{ fontSize: '0.8rem' }}
-                  onClick={() => setDvDiagnoses((p) => [...p, { diagnosis: '', status: 'Suspected' }])}
+                  onClick={() => setDvDiagnoses((p) => [...p, emptyDiagnosisDraftRow()])}
                 >
                   + Add diagnosis row
                 </button>
