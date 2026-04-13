@@ -46,6 +46,7 @@ import {
   correlationLookbackMinEntryDate,
   correlationLookbackMinLoggedAtIso,
 } from '../lib/historicalWeather'
+import { stripLineBullet } from '../lib/stripLineBullets'
 
 type UpcomingAppt = {
   id: string
@@ -336,7 +337,7 @@ function NarrativeRenderer ({ text }: { text: string }) {
         if (b.type === 'snapshot')
           return <div key={idx} className="summary-readable-snapshot">{b.content}</div>
         if (b.type === 'bullet')
-          return <div key={idx} className="summary-readable-line">{b.content}</div>
+          return <div key={idx} className="summary-readable-line">{stripLineBullet(b.content)}</div>
         return <div key={idx} className="summary-readable-line">{b.content}</div>
       })}
     </div>

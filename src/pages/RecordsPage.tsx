@@ -4,6 +4,7 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSummary } from '../lib/summaryArchive'
+import { stripLineBulletsFromText } from '../lib/stripLineBullets'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { AnalyticsPage } from './AnalyticsPage'
 import { EpisodeFeatureChip } from '../components/EpisodeFeatureChip'
@@ -257,7 +258,7 @@ export function RecordsPage () {
                       lineHeight: 1.45,
                     }}
                   >
-                    {a.text}
+                    {stripLineBulletsFromText(a.text)}
                   </div>
                 )}
               </div>
