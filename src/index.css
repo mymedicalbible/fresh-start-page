@@ -2929,6 +2929,37 @@ button.scrap-appt-q:focus-visible {
   background: rgba(209, 250, 229, 0.5);
 }
 
+.scrap-account-plushie-cell--featured {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(219, 234, 254, 0.55);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+
+.scrap-account-plushie-feature-wrap {
+  width: 100%;
+  min-height: 48px;
+  max-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.scrap-account-plushie-feature-lottie,
+.scrap-account-plushie-feature-wrap > div {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 48px;
+  max-height: 56px;
+}
+
+.scrap-account-plushie-feature-wrap svg {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 56px;
+  display: block;
+}
+
 .scrap-account-plushie-cell--panda-still {
   cursor: default;
   pointer-events: none;
@@ -4205,6 +4236,260 @@ button.scrap-appt-q:focus-visible {
   color: var(--scrap-muted, #57534e);
   font-family: var(--font-scrap, inherit);
   line-height: 1.25;
+}
+
+/* My Plushies — polaroid grid (scrapbook layout; not the shop page) */
+.plush-mine-page {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.plush-mine-header {
+  margin-bottom: 10px;
+}
+
+.plush-mine-title {
+  font-family: var(--font-scrap, inherit);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--scrap-ink, inherit);
+  margin: 6px 0 4px;
+}
+
+.plush-mine-sub {
+  font-family: var(--font-scrap, inherit);
+  line-height: 1.45;
+}
+
+.plush-mine-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 18px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10px 2px 20px;
+}
+
+.plush-mine-polaroid-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.plush-mine-polaroid {
+  position: relative;
+  width: 158px;
+  padding: 12px 11px 40px;
+  background: #fffefb;
+  border-radius: 3px;
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.07),
+    0 10px 22px rgba(74, 55, 40, 0.11);
+  transform: rotate(-1.5deg);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.plush-mine-grid .plush-mine-polaroid-wrap:nth-child(even) .plush-mine-polaroid {
+  transform: rotate(2deg);
+}
+
+.plush-mine-polaroid-pin {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f87171, #b91c1c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.plush-mine-polaroid-frame {
+  width: 132px;
+  height: 132px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plush-mine-polaroid-lottie {
+  width: 124px !important;
+  height: 124px !important;
+}
+
+.plush-mine-polaroid-loading {
+  font-size: 1.4rem;
+  color: var(--scrap-muted, #78716c);
+}
+
+.plush-mine-polaroid-caption {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--scrap-muted, #57534e);
+  font-family: var(--font-scrap, inherit);
+  line-height: 1.2;
+}
+
+.plush-mine-polaroid-badges {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.plush-mine-polaroid-badge {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.plush-mine-polaroid-badge--dash {
+  color: #831843;
+  background: rgba(251, 207, 232, 0.95);
+  border: 1px solid rgba(190, 24, 93, 0.25);
+}
+
+.plush-mine-polaroid-badge--acct {
+  color: #1e3a5f;
+  background: rgba(191, 219, 254, 0.95);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.plush-mine-polaroid-actions-btn {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 113, 108, 0.35);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--scrap-ink);
+  cursor: pointer;
+  margin-right: 2px;
+}
+
+.plush-mine-polaroid-actions-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.plush-mine-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+@media (min-width: 520px) {
+  .plush-mine-sheet-backdrop {
+    align-items: center;
+  }
+}
+
+.plush-mine-sheet {
+  width: 100%;
+  max-width: 420px;
+  max-height: min(86dvh, 620px);
+  overflow: auto;
+  border-radius: 16px;
+  padding: 18px 18px 20px;
+  background: #fffef8;
+  border: 1.5px solid rgba(120, 90, 60, 0.18);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.plush-mine-sheet-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-family: var(--font-scrap, inherit);
+  color: var(--scrap-ink);
+}
+
+.plush-mine-sheet-lead {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.plush-mine-sheet-field {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.plush-mine-sheet-legend {
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: var(--font-scrap, inherit);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.plush-mine-sheet-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  cursor: pointer;
+  font-family: var(--font-scrap, inherit);
+}
+
+.plush-mine-sheet-row input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.plush-mine-sheet-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  cursor: pointer;
+  font-family: var(--font-scrap, inherit);
+}
+
+.plush-mine-sheet-check input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.plush-mine-sheet-done {
+  width: 100%;
+  margin-top: 8px;
 }
 
 /* My Plushies — dashboard display preference */

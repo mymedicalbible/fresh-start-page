@@ -14,8 +14,8 @@ export function isPlaceholderLottiePath (path: string | null | undefined): boole
 export function plushieCatalogDisplayName (slug: string | null | undefined, name: string | null | undefined): string {
   const s = (slug ?? '').toLowerCase().trim()
   const n = (name ?? '').trim()
-  if (s === 'rustle-plant') return 'Coming soon'
-  if (/rustle/.test(n.toLowerCase()) && /plant/.test(n.toLowerCase())) return 'Coming soon'
+  if (s === 'rustle-plant') return 'Mystery friend'
+  if (/rustle/.test(n.toLowerCase()) && /plant/.test(n.toLowerCase())) return 'Mystery friend'
   if (n.length > 0) return n
   return 'Plushie'
 }
@@ -50,6 +50,39 @@ export function saveDashPlushieDisplay (pref: DashPlushieDisplayPref): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pref))
     window.dispatchEvent(new CustomEvent('mb-dash-plushie-display-changed'))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Which unlocked plush is featured on the profile account collection strip (separate from dashboard). */
+export type AccountPlushieDisplayPref =
+  | { mode: 'none' }
+  | { mode: 'plushie'; plushieId: string }
+
+const ACCOUNT_STORAGE_KEY = 'mb-account-plushie-display'
+
+export function loadAccountPlushieDisplay (): AccountPlushieDisplayPref {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY)
+    if (!raw) return { mode: 'none' }
+    const v = JSON.parse(raw) as unknown
+    if (!v || typeof v !== 'object') return { mode: 'none' }
+    const o = v as { mode?: string; plushieId?: string }
+    if (o.mode === 'none') return { mode: 'none' }
+    if (o.mode === 'plushie' && typeof o.plushieId === 'string' && o.plushieId.length > 0) {
+      return { mode: 'plushie', plushieId: o.plushieId }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { mode: 'none' }
+}
+
+export function saveAccountPlushieDisplay (pref: AccountPlushieDisplayPref): void {
+  try {
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(pref))
+    window.dispatchEvent(new CustomEvent('mb-account-plushie-display-changed'))
   } catch {
     /* ignore */
   }

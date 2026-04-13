@@ -47,6 +47,8 @@ export type GameStateResult =
       balance: number
       rotation_slot: number
       active_plushie: ActivePlushie
+      /** Catalog row for the upcoming week (gift box); reveals in spotlight after Monday 00:00 local. */
+      next_week_plushie: ActivePlushie | null
       next_price: number
       unlock_count: number
       owned_active: boolean
@@ -87,10 +89,17 @@ export async function fetchGameState (): Promise<GameStateResult> {
       + 'Apply plushie rotation migrations so weekly plush matches the shop countdown.',
     )
   }
-  const ok = row as Extract<GameStateResult, { ok: true }>
+  const ok = row as Extract<GameStateResult, { ok: true }> & {
+    next_week_plushie?: ActivePlushie | null
+  }
+  const nextRaw = ok.next_week_plushie
   return {
     ...ok,
     active_plushie: sanitizeActivePlushieForUi(ok.active_plushie),
+    next_week_plushie:
+      nextRaw && typeof nextRaw === 'object' && 'id' in nextRaw
+        ? sanitizeActivePlushieForUi(nextRaw as ActivePlushie)
+        : null,
   }
 }
 

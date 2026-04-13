@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import {
   isPlaceholderLottiePath,
+  loadAccountPlushieDisplay,
   loadDashPlushieDisplay,
   plushieCatalogDisplayName,
+  saveAccountPlushieDisplay,
   saveDashPlushieDisplay,
+  type AccountPlushieDisplayPref,
   type DashPlushieDisplayPref,
 } from '../lib/dashPlushieDisplay'
 import { gameTokensEnabled } from '../lib/gameTokens'
@@ -20,9 +23,25 @@ type CatalogRow = {
   slot_index: number
 }
 
-function PlushPolaroid ({ path, name }: { path: string; name: string }) {
+const LONG_PRESS_MS = 520
+
+function PlushMinePolaroid ({
+  plush,
+  displayName,
+  dashPref,
+  accountPref,
+  onOpenActions,
+}: {
+  plush: CatalogRow
+  displayName: string
+  dashPref: DashPlushieDisplayPref
+  accountPref: AccountPlushieDisplayPref
+  onOpenActions: () => void
+}) {
   const [data, setData] = useState<object | null>(null)
-  const skipArt = isPlaceholderLottiePath(path)
+  const skipArt = isPlaceholderLottiePath(plush.lottie_path)
+  const timerRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (skipArt) {
       setData(null)
@@ -31,7 +50,7 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(path)
+        const res = await fetch(plush.lottie_path)
         if (!res.ok || cancelled) return
         setData(await res.json() as object)
       } catch {
@@ -41,28 +60,197 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
     return () => {
       cancelled = true
     }
-  }, [path, skipArt])
+  }, [plush.lottie_path, skipArt])
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const startLongPress = useCallback(() => {
+    clearTimer()
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
+      onOpenActions()
+    }, LONG_PRESS_MS)
+  }, [clearTimer, onOpenActions])
+
+  const showOnDash = dashPref.mode === 'plushie' && dashPref.plushieId === plush.id
+  const showOnAccount = accountPref.mode === 'plushie' && accountPref.plushieId === plush.id
 
   return (
-    <div className="plush-mine-polaroid">
-      <span className="plush-mine-polaroid-pin" aria-hidden />
-      <div className="plush-mine-polaroid-frame">
-        {skipArt
-          ? null
-          : data
-            ? (
-              <Lottie
-                animationData={data}
-                loop
-                rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-                className="plush-mine-polaroid-lottie"
-              />
-              )
-            : (
-              <span className="plush-mine-polaroid-loading" aria-hidden>…</span>
-              )}
+    <div className="plush-mine-polaroid-wrap">
+      <div
+        className="plush-mine-polaroid"
+        role="button"
+        tabIndex={0}
+        aria-label={`${displayName}. Long press or use actions to choose dashboard or account display.`}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return
+          e.currentTarget.setPointerCapture(e.pointerId)
+          startLongPress()
+        }}
+        onPointerUp={clearTimer}
+        onPointerCancel={clearTimer}
+        onPointerLeave={(e) => {
+          if (e.pressure === 0) clearTimer()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onOpenActions()
+          }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          onOpenActions()
+        }}
+      >
+        <span className="plush-mine-polaroid-pin" aria-hidden />
+        <div className="plush-mine-polaroid-frame">
+          {skipArt
+            ? null
+            : data
+              ? (
+                <Lottie
+                  animationData={data}
+                  loop
+                  rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                  className="plush-mine-polaroid-lottie"
+                />
+                )
+              : (
+                <span className="plush-mine-polaroid-loading" aria-hidden>…</span>
+                )}
+        </div>
+        <div className="plush-mine-polaroid-caption">{displayName}</div>
+        <div className="plush-mine-polaroid-badges" aria-hidden>
+          {showOnDash && (
+            <span className="plush-mine-polaroid-badge plush-mine-polaroid-badge--dash">
+              Dashboard
+            </span>
+          )}
+          {showOnAccount && (
+            <span className="plush-mine-polaroid-badge plush-mine-polaroid-badge--acct">Account</span>
+          )}
+        </div>
       </div>
-      <div className="plush-mine-polaroid-caption">{name}</div>
+      <button
+        type="button"
+        className="plush-mine-polaroid-actions-btn"
+        aria-label={`Actions for ${displayName}`}
+        onClick={() => onOpenActions()}
+      >
+        ···
+      </button>
+    </div>
+  )
+}
+
+function DisplayPrefSheet ({
+  plush,
+  displayName,
+  dashPref,
+  accountPref,
+  onApplyDash,
+  onApplyAccount,
+  onClose,
+}: {
+  plush: CatalogRow
+  displayName: string
+  dashPref: DashPlushieDisplayPref
+  accountPref: AccountPlushieDisplayPref
+  onApplyDash: (p: DashPlushieDisplayPref) => void
+  onApplyAccount: (p: AccountPlushieDisplayPref) => void
+  onClose: () => void
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      ref={backdropRef}
+      className="plush-mine-sheet-backdrop"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === backdropRef.current) onClose()
+      }}
+    >
+      <div
+        className="plush-mine-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plush-mine-sheet-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 id="plush-mine-sheet-title" className="plush-mine-sheet-title">
+          {displayName}
+        </h2>
+        <p className="muted plush-mine-sheet-lead">
+          Where this plush appears (separate from your profile photo).
+        </p>
+
+        <fieldset className="plush-mine-sheet-field">
+          <legend className="plush-mine-sheet-legend">Home dashboard</legend>
+          <label className="plush-mine-sheet-row">
+            <input
+              type="radio"
+              name="mb-dash-from-polaroid"
+              checked={dashPref.mode === 'none'}
+              onChange={() => onApplyDash({ mode: 'none' })}
+            />
+            <span>Don&apos;t show a plush on the dashboard</span>
+          </label>
+          <label className="plush-mine-sheet-row">
+            <input
+              type="radio"
+              name="mb-dash-from-polaroid"
+              checked={dashPref.mode === 'weekly'}
+              onChange={() => onApplyDash({ mode: 'weekly' })}
+            />
+            <span>This week&apos;s shop plush (updates Mondays)</span>
+          </label>
+          <label className="plush-mine-sheet-row">
+            <input
+              type="radio"
+              name="mb-dash-from-polaroid"
+              checked={dashPref.mode === 'plushie' && dashPref.plushieId === plush.id}
+              onChange={() => onApplyDash({ mode: 'plushie', plushieId: plush.id })}
+            />
+            <span>This plush ({displayName})</span>
+          </label>
+        </fieldset>
+
+        <div className="plush-mine-sheet-field">
+          <label className="plush-mine-sheet-check">
+            <input
+              type="checkbox"
+              checked={accountPref.mode === 'plushie' && accountPref.plushieId === plush.id}
+              onChange={(e) => {
+                onApplyAccount(
+                  e.target.checked
+                    ? { mode: 'plushie', plushieId: plush.id }
+                    : { mode: 'none' },
+                )
+              }}
+            />
+            <span>Feature this plush on your account page collection</span>
+          </label>
+        </div>
+
+        <button type="button" className="btn btn-primary plush-mine-sheet-done" onClick={onClose}>
+          Done
+        </button>
+      </div>
     </div>
   )
 }
@@ -72,20 +260,31 @@ export function MyPlushiesPage () {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [dashPref, setDashPref] = useState<DashPlushieDisplayPref>(loadDashPlushieDisplay)
+  const [accountPref, setAccountPref] = useState<AccountPlushieDisplayPref>(loadAccountPlushieDisplay)
+  const [menuPlush, setMenuPlush] = useState<CatalogRow | null>(null)
 
-  /** Keeps React state in sync when prefs are saved (same tab + other tabs). */
-  const syncPrefFromStorage = useCallback(() => {
+  const syncPrefsFromStorage = useCallback(() => {
     setDashPref(loadDashPlushieDisplay())
+    setAccountPref(loadAccountPlushieDisplay())
   }, [])
 
   useEffect(() => {
-    window.addEventListener('mb-dash-plushie-display-changed', syncPrefFromStorage)
-    return () => window.removeEventListener('mb-dash-plushie-display-changed', syncPrefFromStorage)
-  }, [syncPrefFromStorage])
+    window.addEventListener('mb-dash-plushie-display-changed', syncPrefsFromStorage)
+    window.addEventListener('mb-account-plushie-display-changed', syncPrefsFromStorage)
+    return () => {
+      window.removeEventListener('mb-dash-plushie-display-changed', syncPrefsFromStorage)
+      window.removeEventListener('mb-account-plushie-display-changed', syncPrefsFromStorage)
+    }
+  }, [syncPrefsFromStorage])
 
   const applyDashPref = useCallback((next: DashPlushieDisplayPref) => {
     saveDashPlushieDisplay(next)
     setDashPref(next)
+  }, [])
+
+  const applyAccountPref = useCallback((next: AccountPlushieDisplayPref) => {
+    saveAccountPlushieDisplay(next)
+    setAccountPref(next)
   }, [])
 
   useEffect(() => {
@@ -95,6 +294,12 @@ export function MyPlushiesPage () {
       const fallback: DashPlushieDisplayPref = { mode: 'weekly' }
       saveDashPlushieDisplay(fallback)
       setDashPref(fallback)
+    }
+    const a = loadAccountPlushieDisplay()
+    if (a.mode === 'plushie' && !unlockedIds.has(a.plushieId)) {
+      const cleared: AccountPlushieDisplayPref = { mode: 'none' }
+      saveAccountPlushieDisplay(cleared)
+      setAccountPref(cleared)
     }
   }, [unlockedIds])
 
@@ -126,77 +331,23 @@ export function MyPlushiesPage () {
     [catalog, unlockedIds],
   )
 
+  const menuDisplayName = menuPlush
+    ? plushieCatalogDisplayName(menuPlush.slug, menuPlush.name)
+    : ''
+
   return (
     <div className="scrapbook-inner plush-mine-page">
+      <BackButton fallbackTo="/app/plushies" label="back to shop" className="scrap-back" />
       <div className="plush-mine-header">
-        <BackButton fallbackTo="/app/plushies" label="back to shop" className="scrap-back" />
         <h1 className="plush-mine-title">My Plushies</h1>
         <p className="muted plush-mine-sub">
-          Plushies you&apos;ve unlocked with tokens. Tap the shop anytime to add more.
+          {gameTokensEnabled()
+            ? 'Polaroids of plushies you unlocked. Press and hold a photo (or tap ···) to choose whether it appears on your home dashboard and on your account page.'
+            : 'Polaroids of plushies you unlocked.'}
         </p>
       </div>
 
       {error && <div className="banner error plush-mine-banner">{error}</div>}
-
-      {gameTokensEnabled() && (
-        <section className="plush-mine-dash-panel" aria-labelledby="plush-mine-dash-heading">
-          <h2 id="plush-mine-dash-heading" className="plush-mine-dash-title">
-            On your dashboard
-          </h2>
-          <p className="muted plush-mine-dash-hint">
-            Choose whether the home dashboard shows a plush (optional). This does not change your profile avatar.
-          </p>
-          <fieldset className="plush-mine-dash-fieldset">
-            <legend className="sr-only">Dashboard plush display</legend>
-            <label className="plush-mine-dash-row">
-              <input
-                type="radio"
-                name="mb-dash-plush-pref"
-                checked={dashPref.mode === 'none'}
-                onChange={() => applyDashPref({ mode: 'none' })}
-              />
-              <span>Don&apos;t show a plush on the dashboard</span>
-            </label>
-            <label className="plush-mine-dash-row">
-              <input
-                type="radio"
-                name="mb-dash-plush-pref"
-                checked={dashPref.mode === 'weekly'}
-                onChange={() => applyDashPref({ mode: 'weekly' })}
-              />
-              <span>This week&apos;s rotation (same as the shop — changes each week)</span>
-            </label>
-            <label className="plush-mine-dash-row">
-              <input
-                type="radio"
-                name="mb-dash-plush-pref"
-                checked={dashPref.mode === 'plushie'}
-                onChange={() => {
-                  const first = unlockedPlushies[0]
-                  if (first) applyDashPref({ mode: 'plushie', plushieId: first.id })
-                }}
-                disabled={unlockedPlushies.length === 0}
-              />
-              <span>A plush from my collection</span>
-            </label>
-            {dashPref.mode === 'plushie' && unlockedPlushies.length > 0 && (
-              <div className="plush-mine-dash-sub" role="group" aria-label="Choose plush for dashboard">
-                {unlockedPlushies.map((p) => (
-                  <label key={p.id} className="plush-mine-dash-row plush-mine-dash-row--sub">
-                    <input
-                      type="radio"
-                      name="mb-dash-plush-which"
-                      checked={dashPref.plushieId === p.id}
-                      onChange={() => applyDashPref({ mode: 'plushie', plushieId: p.id })}
-                    />
-                    <span>{plushieCatalogDisplayName(p.slug, p.name)}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </fieldset>
-        </section>
-      )}
 
       <div className="plush-mine-board">
         {unlockedPlushies.length === 0
@@ -212,15 +363,30 @@ export function MyPlushiesPage () {
           : (
             <div className="plush-mine-grid">
               {unlockedPlushies.map((p) => (
-                <PlushPolaroid
+                <PlushMinePolaroid
                   key={p.id}
-                  path={p.lottie_path}
-                  name={plushieCatalogDisplayName(p.slug, p.name)}
+                  plush={p}
+                  displayName={plushieCatalogDisplayName(p.slug, p.name)}
+                  dashPref={dashPref}
+                  accountPref={accountPref}
+                  onOpenActions={() => setMenuPlush(p)}
                 />
               ))}
             </div>
             )}
       </div>
+
+      {menuPlush && (
+        <DisplayPrefSheet
+          plush={menuPlush}
+          displayName={menuDisplayName}
+          dashPref={dashPref}
+          accountPref={accountPref}
+          onApplyDash={applyDashPref}
+          onApplyAccount={applyAccountPref}
+          onClose={() => setMenuPlush(null)}
+        />
+      )}
     </div>
   )
 }

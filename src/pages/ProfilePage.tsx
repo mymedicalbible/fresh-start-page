@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
+import { isPlaceholderLottiePath, loadAccountPlushieDisplay, type AccountPlushieDisplayPref } from '../lib/dashPlushieDisplay'
 import {
   clearManualWeatherLocation,
   getManualWeatherLocation,
@@ -90,7 +91,9 @@ export function ProfilePage () {
   const [ownedActive, setOwnedActive] = useState(false)
   const [tokensOff, setTokensOff] = useState(false)
 
-  const [plushieSlots, setPlushieSlots] = useState<{ id: string; unlocked: boolean }[]>([])
+  const [plushieSlots, setPlushieSlots] = useState<{ id: string; unlocked: boolean; lottie_path: string }[]>([])
+  const [accountPlushPref, setAccountPlushPref] = useState<AccountPlushieDisplayPref>(loadAccountPlushieDisplay)
+  const [accountFeaturedLottie, setAccountFeaturedLottie] = useState<object | null>(null)
 
   const [notifyAppt, setNotifyAppt] = useState(() => readNotify(NOTIFY_KEYS.appt, true))
   const [notifyLog, setNotifyLog] = useState(() => readNotify(NOTIFY_KEYS.log, true))
@@ -122,17 +125,18 @@ export function ProfilePage () {
   const loadGameAndPlushies = useCallback(async () => {
     if (!user) return
     const [cat, un] = await Promise.all([
-      supabase.from('plushie_catalog').select('id, slot_index, slug').order('slot_index').limit(12),
+      supabase.from('plushie_catalog').select('id, slot_index, slug, lottie_path').order('slot_index').limit(12),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
     ])
     if (!cat.error) {
       const unlocked = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
-      const rows = (cat.data ?? []) as { id: string; slot_index: number; slug?: string }[]
+      const rows = (cat.data ?? []) as { id: string; slot_index: number; slug?: string; lottie_path?: string }[]
       const withoutPanda = rows.filter((r) => (r.slug ?? '') !== 'panda-popcorn')
       setPlushieSlots(
         withoutPanda.slice(0, 5).map((r) => ({
           id: r.id,
           unlocked: unlocked.has(r.id),
+          lottie_path: (r.lottie_path ?? '').trim(),
         })),
       )
     }
@@ -164,6 +168,37 @@ export function ProfilePage () {
     void loadStats()
     void loadGameAndPlushies()
   }, [loadStats, loadGameAndPlushies, profilePath])
+
+  useEffect(() => {
+    const onAcc = () => setAccountPlushPref(loadAccountPlushieDisplay())
+    window.addEventListener('mb-account-plushie-display-changed', onAcc)
+    return () => window.removeEventListener('mb-account-plushie-display-changed', onAcc)
+  }, [])
+
+  useEffect(() => {
+    if (accountPlushPref.mode !== 'plushie') {
+      setAccountFeaturedLottie(null)
+      return
+    }
+    const row = plushieSlots.find((s) => s.id === accountPlushPref.plushieId && s.unlocked)
+    if (!row?.lottie_path || isPlaceholderLottiePath(row.lottie_path)) {
+      setAccountFeaturedLottie(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(row.lottie_path)
+        if (!res.ok || cancelled) return
+        setAccountFeaturedLottie(await res.json() as object)
+      } catch {
+        if (!cancelled) setAccountFeaturedLottie(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [accountPlushPref, plushieSlots])
 
   useEffect(() => {
     setWeatherLocMode(getWeatherLocationMode())
@@ -377,22 +412,39 @@ export function ProfilePage () {
                 </p>
                 )
               : (
-                  plushieSlots.map((p) => (
-                    <Link
-                      key={p.id}
-                      to="/app/plushies"
-                      className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}`}
-                    >
-                      {p.unlocked ? (
-                        <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>
-                      ) : (
-                        <span className="scrap-account-plushie-mystery" aria-hidden>
-                          <span className="scrap-account-plushie-mystery-blur">🧸</span>
-                          <span className="scrap-account-plushie-mystery-mark">?</span>
-                        </span>
-                      )}
-                    </Link>
-                  ))
+                  plushieSlots.map((p) => {
+                    const wantsFeatured = accountPlushPref.mode === 'plushie'
+                      && accountPlushPref.plushieId === p.id
+                      && p.unlocked
+                    return (
+                      <Link
+                        key={p.id}
+                        to="/app/plushies/mine"
+                        className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}${wantsFeatured ? ' scrap-account-plushie-cell--featured' : ''}`}
+                      >
+                        {wantsFeatured && accountFeaturedLottie
+                          ? (
+                            <div className="scrap-account-plushie-feature-wrap">
+                              <PandaLottieLoop data={accountFeaturedLottie} className="scrap-account-plushie-feature-lottie" />
+                            </div>
+                            )
+                          : wantsFeatured
+                            ? (
+                              <span className="scrap-account-plushie-emoji" aria-hidden>…</span>
+                              )
+                            : p.unlocked
+                              ? (
+                                <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>
+                                )
+                              : (
+                                <span className="scrap-account-plushie-mystery" aria-hidden>
+                                  <span className="scrap-account-plushie-mystery-blur">🧸</span>
+                                  <span className="scrap-account-plushie-mystery-mark">?</span>
+                                </span>
+                                )}
+                      </Link>
+                    )
+                  })
                 )}
           </div>
         </div>
