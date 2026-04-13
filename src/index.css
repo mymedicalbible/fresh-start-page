@@ -3993,10 +3993,10 @@ html {
 
 .app-shell.app-shell--scrapbook ul,
 .app-shell.app-shell--scrapbook ol {
-  padding-left: 1.5rem;
+  padding-left: 0;
   margin-left: 0;
   overflow: visible;
-  list-style-position: outside;
+  list-style: none;
 }
 
 .app-shell.app-shell--scrapbook .app-page--scrapbook,
