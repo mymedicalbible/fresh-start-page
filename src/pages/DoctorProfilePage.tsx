@@ -576,9 +576,17 @@ export function DoctorProfilePage () {
       {profileNotes.length > 0 && (
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 10 }}>Notes you saved</div>
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', listStyleType: 'none', display: 'grid', gap: 12 }}>
             {profileNotes.map((n) => (
-              <li key={n.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+              <li
+                key={n.id}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  paddingBottom: 10,
+                  listStyle: 'none',
+                  listStyleType: 'none',
+                }}
+              >
                 <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
                   {new Date(n.created_at).toLocaleString()}
                 </div>
@@ -745,9 +753,12 @@ export function DoctorProfilePage () {
                   {testsForVisit.length > 0 && (
                     <div className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
                       <div style={{ fontWeight: 600 }}>Tests & orders (detail)</div>
-                      <ul style={{ margin: '4px 0 0', paddingLeft: 18, listStyle: 'none', listStyleType: 'none' }}>
+                      <ul style={{ margin: '4px 0 0', padding: 0, listStyle: 'none', listStyleType: 'none' }}>
                         {testsForVisit.map((t) => (
-                          <li key={t.id} style={{ listStyle: 'none', listStyleType: 'none' }}>
+                          <li
+                            key={t.id}
+                            style={{ paddingLeft: 18, listStyle: 'none', listStyleType: 'none' }}
+                          >
                             {t.test_name}
                             {t.reason ? ` — ${t.reason}` : ''}
                             <span className="muted"> ({t.status})</span>

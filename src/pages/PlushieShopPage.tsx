@@ -345,7 +345,7 @@ export function PlushieShopPage () {
 
       <details className="plush-shop-token-help">
         <summary className="plush-shop-token-help-summary">How you earn tokens</summary>
-        <ul className="plush-shop-token-help-list">
+        <ul className="plush-shop-token-help-list list-none m-0 mt-2.5 p-0">
           <li>
             <strong>1 token</strong>
             {' '}

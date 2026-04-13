@@ -443,7 +443,7 @@ export function ProfilePage () {
               />
               {placeBusy && <p className="scrap-account-weather-hint">Searching…</p>}
               {!placeBusy && placeResults.length > 0 && (
-                <ul className="scrap-account-weather-results" role="listbox">
+                <ul className="scrap-account-weather-results list-none m-0 mt-2.5 p-0" role="listbox">
                   {placeResults.map((p) => (
                     <li key={`${p.lat},${p.lng},${p.label}`}>
                       <button

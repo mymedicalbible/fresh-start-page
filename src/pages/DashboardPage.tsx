@@ -1986,7 +1986,7 @@ export function DashboardPage () {
                     : 'None.'}
               </p>
             ) : (
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', listStyleType: 'none', display: 'grid', gap: 12 }}>
                 {upcomingAllFull.map((ap) => (
                   <li
                     key={ap.id}
@@ -1995,6 +1995,8 @@ export function DashboardPage () {
                       borderRadius: 10,
                       border: '1px solid var(--border)',
                       background: 'var(--surface-alt, #fffef9)',
+                      listStyle: 'none',
+                      listStyleType: 'none',
                     }}
                   >
                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>

@@ -1155,7 +1155,7 @@ export function MedicationsPage () {
                     <div style={{ fontWeight: 700, fontSize: '0.82rem', marginBottom: 8, color: 'var(--sky-ink)' }}>
                       Change history
                     </div>
-                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', listStyleType: 'none', display: 'grid', gap: 10 }}>
                       {historyRows.map((ev) => {
                         const typeLabel =
                           ev.event_type === 'start' ? 'Started' :
@@ -1181,6 +1181,8 @@ export function MedicationsPage () {
                               borderRadius: 10,
                               border: '1px solid var(--border)',
                               color: 'var(--muted-foreground)',
+                              listStyle: 'none',
+                              listStyleType: 'none',
                             }}
                           >
                             <div style={{ fontWeight: 600, color: 'var(--sky-ink)' }}>

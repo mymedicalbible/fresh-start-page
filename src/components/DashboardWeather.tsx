@@ -306,7 +306,7 @@ function WeatherMoreModal ({
               <ul
                 style={{
                   margin: 0,
-                  paddingLeft: 18,
+                  padding: 0,
                   fontSize: '0.8rem',
                   lineHeight: 1.5,
                   color: 'var(--scrap-ink)',
@@ -315,7 +315,17 @@ function WeatherMoreModal ({
                 }}
               >
                 {correlation.lines.map((line, i) => (
-                  <li key={i} style={{ marginBottom: 6, listStyle: 'none', listStyleType: 'none' }}>{line}</li>
+                  <li
+                    key={i}
+                    style={{
+                      marginBottom: 6,
+                      paddingLeft: 18,
+                      listStyle: 'none',
+                      listStyleType: 'none',
+                    }}
+                  >
+                    {line}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -477,7 +487,7 @@ export function DashboardWeather ({ weather, correlation }: Props) {
                 <ul
                   style={{
                     margin: 0,
-                    paddingLeft: 18,
+                    padding: 0,
                     fontSize: '0.8rem',
                     lineHeight: 1.5,
                     color: 'var(--scrap-ink)',
@@ -486,7 +496,17 @@ export function DashboardWeather ({ weather, correlation }: Props) {
                   }}
                 >
                   {correlation.lines.map((line, i) => (
-                    <li key={i} style={{ marginBottom: 4, listStyle: 'none', listStyleType: 'none' }}>{line}</li>
+                    <li
+                      key={i}
+                      style={{
+                        marginBottom: 4,
+                        paddingLeft: 18,
+                        listStyle: 'none',
+                        listStyleType: 'none',
+                      }}
+                    >
+                      {line}
+                    </li>
                   ))}
                 </ul>
               </div>
