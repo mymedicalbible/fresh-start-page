@@ -10,6 +10,12 @@ import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
 import { isPlaceholderLottiePath, loadAccountPlushieDisplay, type AccountPlushieDisplayPref } from '../lib/dashPlushieDisplay'
 import {
+  getSimpleMascotImageAssetsBase,
+  getSimpleMascotLottiePath,
+  loadSimpleMascotVisible,
+  saveSimpleMascotVisible,
+} from '../lib/simpleMascotDisplay'
+import {
   clearManualWeatherLocation,
   getManualWeatherLocation,
   getWeatherLocationMode,
@@ -20,13 +26,22 @@ import {
   type WeatherLocationMode,
 } from '../lib/weatherLocationSettings'
 
-function PandaLottieLoop ({ data, className }: { data: object; className?: string }) {
+function PandaLottieLoop ({
+  data,
+  className,
+  assetsPath,
+}: {
+  data: object
+  className?: string
+  assetsPath?: string
+}) {
   return (
     <Lottie
       className={className}
       animationData={data}
       loop
       rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+      {...(assetsPath ? { assetsPath } : {})}
     />
   )
 }
@@ -109,6 +124,8 @@ export function ProfilePage () {
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
   const [activePlushieLottiePath, setActivePlushieLottiePath] = useState<string | null>(null)
+  const [simpleMascotVisible, setSimpleMascotVisible] = useState(() => loadSimpleMascotVisible())
+  const [simpleMascotLottieData, setSimpleMascotLottieData] = useState<object | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -124,6 +141,13 @@ export function ProfilePage () {
 
   const loadGameAndPlushies = useCallback(async () => {
     if (!user) return
+    if (!gameTokensEnabled()) {
+      setTokensOff(true)
+      setActivePlushieLottiePath(null)
+      setPandaLottieData(null)
+      setPlushieSlots([])
+      return
+    }
     const [cat, un] = await Promise.all([
       supabase.from('plushie_catalog').select('id, slot_index, slug, lottie_path').order('slot_index').limit(12),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
@@ -139,12 +163,6 @@ export function ProfilePage () {
           lottie_path: (r.lottie_path ?? '').trim(),
         })),
       )
-    }
-    if (!gameTokensEnabled()) {
-      setTokensOff(true)
-      setActivePlushieLottiePath(null)
-      setPandaLottieData(null)
-      return
     }
     const state = await fetchGameState()
     if (!state.ok) {
@@ -174,6 +192,36 @@ export function ProfilePage () {
     window.addEventListener('mb-account-plushie-display-changed', onAcc)
     return () => window.removeEventListener('mb-account-plushie-display-changed', onAcc)
   }, [])
+
+  useEffect(() => {
+    const onSimple = () => setSimpleMascotVisible(loadSimpleMascotVisible())
+    window.addEventListener('mb-simple-mascot-changed', onSimple)
+    return () => window.removeEventListener('mb-simple-mascot-changed', onSimple)
+  }, [])
+
+  useEffect(() => {
+    if (gameTokensEnabled() || !simpleMascotVisible) {
+      setSimpleMascotLottieData(null)
+      return
+    }
+    const path = getSimpleMascotLottiePath()
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch(path)
+        if (!res.ok || cancelled) {
+          if (!cancelled) setSimpleMascotLottieData(null)
+          return
+        }
+        if (!cancelled) setSimpleMascotLottieData(await res.json() as object)
+      } catch {
+        if (!cancelled) setSimpleMascotLottieData(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [simpleMascotVisible])
 
   useEffect(() => {
     if (accountPlushPref.mode !== 'plushie') {
@@ -297,6 +345,13 @@ export function ProfilePage () {
       ? Math.min(100, Math.round((tokenBalance / nextPrice) * 100))
       : 0
 
+  const avatarLottie =
+    gameTokensEnabled() && ownedActive && pandaLottieData
+      ? pandaLottieData
+      : !gameTokensEnabled() && simpleMascotVisible && simpleMascotLottieData
+        ? simpleMascotLottieData
+        : null
+
   return (
     <div className="scrapbook-inner scrap-account-page">
       <div style={{ marginBottom: 10 }}>
@@ -313,8 +368,12 @@ export function ProfilePage () {
       <section className="scrap-account-paper scrap-account-paper--hero">
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
-            {pandaLottieData ? (
-              <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
+            {avatarLottie ? (
+              <PandaLottieLoop
+                data={avatarLottie}
+                className="scrap-account-avatar-lottie"
+                assetsPath={!gameTokensEnabled() && simpleMascotVisible ? getSimpleMascotImageAssetsBase() : undefined}
+              />
             ) : (
               <span aria-hidden>🐼</span>
             )}
@@ -352,12 +411,29 @@ export function ProfilePage () {
         )}
         {tokensOff && (
           <p className="scrap-account-token-disabled">
-            Token plushies are off in this build. They are on by default; remove the env flag
-            {' '}
-            <code>VITE_GAME_TOKENS_ENABLED=false</code>
-            {' '}
-            (or leave it unset) to enable earns and the plushie shop.
+            Collectible plushies are turned off in this build (code kept for later).
           </p>
+        )}
+        {!gameTokensEnabled() && (
+          <div className="scrap-account-notify-row" style={{ marginTop: 14 }}>
+            <div>
+              <div className="scrap-account-notify-title">home &amp; appointment mascot</div>
+              <div className="scrap-account-notify-sub">same animation on dashboard and here</div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={simpleMascotVisible}
+              className={`scrap-account-switch${simpleMascotVisible ? ' is-on' : ''}`}
+              onClick={() => {
+                const n = !simpleMascotVisible
+                setSimpleMascotVisible(n)
+                saveSimpleMascotVisible(n)
+              }}
+            >
+              {simpleMascotVisible ? 'on' : 'off'}
+            </button>
+          </div>
         )}
       </section>
 
@@ -383,72 +459,73 @@ export function ProfilePage () {
         </div>
       </section>
 
-      {/* Plushies */}
-      <section className="scrap-account-block">
-        <h2 className="scrap-account-heading">
-          <span className="scrap-account-heading-bar scrap-account-heading-bar--pink" />
-          plushie collection
-        </h2>
-        <div className="scrap-account-paper scrap-account-paper--plushies">
-          <span className="scrap-account-tape scrap-account-tape--sage" aria-hidden />
-          <div className="scrap-account-plushie-row">
-            {pandaLottieData ? (
-              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
-                <div className="scrap-account-plushie-panda-static">
-                  <PandaLottieLoop data={pandaLottieData} className="scrap-account-plushie-panda-lottie" />
+      {gameTokensEnabled() && (
+        <section className="scrap-account-block">
+          <h2 className="scrap-account-heading">
+            <span className="scrap-account-heading-bar scrap-account-heading-bar--pink" />
+            plushie collection
+          </h2>
+          <div className="scrap-account-paper scrap-account-paper--plushies">
+            <span className="scrap-account-tape scrap-account-tape--sage" aria-hidden />
+            <div className="scrap-account-plushie-row">
+              {pandaLottieData ? (
+                <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
+                  <div className="scrap-account-plushie-panda-static">
+                    <PandaLottieLoop data={pandaLottieData} className="scrap-account-plushie-panda-lottie" />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
-                <span className="scrap-account-plushie-emoji" aria-hidden>🐼</span>
-              </div>
-            )}
-            {plushieSlots.length === 0
-              ? (
-                <p className="scrap-account-plushie-empty">
-                  <Link to="/app/plushies">Plushie shop</Link>
-                  {' · '}
-                  <Link to="/app/plushies/mine">My plushies &amp; dashboard</Link>
-                </p>
-                )
-              : (
-                  plushieSlots.map((p) => {
-                    const wantsFeatured = accountPlushPref.mode === 'plushie'
-                      && accountPlushPref.plushieId === p.id
-                      && p.unlocked
-                    return (
-                      <Link
-                        key={p.id}
-                        to="/app/plushies/mine"
-                        className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}${wantsFeatured ? ' scrap-account-plushie-cell--featured' : ''}`}
-                      >
-                        {wantsFeatured && accountFeaturedLottie
-                          ? (
-                            <div className="scrap-account-plushie-feature-wrap">
-                              <PandaLottieLoop data={accountFeaturedLottie} className="scrap-account-plushie-feature-lottie" />
-                            </div>
-                            )
-                          : wantsFeatured
+              ) : (
+                <div className="scrap-account-plushie-cell scrap-account-plushie-cell--panda-still">
+                  <span className="scrap-account-plushie-emoji" aria-hidden>🐼</span>
+                </div>
+              )}
+              {plushieSlots.length === 0
+                ? (
+                  <p className="scrap-account-plushie-empty">
+                    <Link to="/app/plushies">Plushie shop</Link>
+                    {' · '}
+                    <Link to="/app/plushies/mine">My plushies &amp; dashboard</Link>
+                  </p>
+                  )
+                : (
+                    plushieSlots.map((p) => {
+                      const wantsFeatured = accountPlushPref.mode === 'plushie'
+                        && accountPlushPref.plushieId === p.id
+                        && p.unlocked
+                      return (
+                        <Link
+                          key={p.id}
+                          to="/app/plushies/mine"
+                          className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}${wantsFeatured ? ' scrap-account-plushie-cell--featured' : ''}`}
+                        >
+                          {wantsFeatured && accountFeaturedLottie
                             ? (
-                              <span className="scrap-account-plushie-emoji" aria-hidden>…</span>
+                              <div className="scrap-account-plushie-feature-wrap">
+                                <PandaLottieLoop data={accountFeaturedLottie} className="scrap-account-plushie-feature-lottie" />
+                              </div>
                               )
-                            : p.unlocked
+                            : wantsFeatured
                               ? (
-                                <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>
+                                <span className="scrap-account-plushie-emoji" aria-hidden>…</span>
                                 )
-                              : (
-                                <span className="scrap-account-plushie-mystery" aria-hidden>
-                                  <span className="scrap-account-plushie-mystery-blur">🧸</span>
-                                  <span className="scrap-account-plushie-mystery-mark">?</span>
-                                </span>
-                                )}
-                      </Link>
-                    )
-                  })
-                )}
+                              : p.unlocked
+                                ? (
+                                  <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>
+                                  )
+                                : (
+                                  <span className="scrap-account-plushie-mystery" aria-hidden>
+                                    <span className="scrap-account-plushie-mystery-blur">🧸</span>
+                                    <span className="scrap-account-plushie-mystery-mark">?</span>
+                                  </span>
+                                  )}
+                        </Link>
+                      )
+                    })
+                  )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Weather location (device) */}
       <section className="scrap-account-block">

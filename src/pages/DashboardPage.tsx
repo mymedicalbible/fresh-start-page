@@ -41,6 +41,11 @@ import {
   resolveDashboardPlushieLottiePath,
   slugFromDashboardLottiePath,
 } from '../lib/dashPlushieDisplay'
+import {
+  getSimpleMascotImageAssetsBase,
+  getSimpleMascotLottiePath,
+  loadSimpleMascotVisible,
+} from '../lib/simpleMascotDisplay'
 import { DashboardWeather } from '../components/DashboardWeather'
 import { PlushieTokenVictoryModal } from '../components/PlushieTokenVictoryModal'
 import {
@@ -288,13 +293,23 @@ function LogTodayTile ({
   )
 }
 
-function DashPlushieLottie ({ data, className }: { data: object; className?: string }) {
+function DashPlushieLottie ({
+  data,
+  className,
+  assetsPath,
+}: {
+  data: object
+  className?: string
+  /** Required when animation JSON references external images (e.g. WebP sequence). */
+  assetsPath?: string
+}) {
   return (
     <Lottie
       animationData={data}
       loop
       className={className}
       style={{ width: '100%', height: '100%' }}
+      {...(assetsPath ? { assetsPath } : {})}
     />
   )
 }
@@ -748,6 +763,7 @@ export function DashboardPage () {
   } | null>(null)
   const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
   const [dashPlushPref, setDashPlushPref] = useState(loadDashPlushieDisplay)
+  const [simpleMascotVisible, setSimpleMascotVisible] = useState(() => loadSimpleMascotVisible())
   const [dashPlushCatalog, setDashPlushCatalog] = useState<Map<string, { lottie_path: string; slug?: string }>>(() => new Map())
   const [dashPlushUnlocked, setDashPlushUnlocked] = useState<Set<string>>(() => new Set())
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
@@ -838,6 +854,12 @@ export function DashboardPage () {
     return () => window.removeEventListener('mb-dash-plushie-display-changed', onPref)
   }, [])
 
+  useEffect(() => {
+    const onSimple = () => setSimpleMascotVisible(loadSimpleMascotVisible())
+    window.addEventListener('mb-simple-mascot-changed', onSimple)
+    return () => window.removeEventListener('mb-simple-mascot-changed', onSimple)
+  }, [])
+
   const refreshDashPlushMeta = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
     const [cat, un] = await Promise.all([
@@ -871,18 +893,37 @@ export function DashboardPage () {
     })
   }, [dashPlushPref, dashGame, dashPlushCatalog, dashPlushUnlocked])
 
+  /** Game on: weekly/collection plush path. Game off: single optional mascot Lottie. */
+  const dashboardMascotLottiePath = useMemo(() => {
+    if (gameTokensEnabled()) return resolvedDashPlushLottiePath
+    if (!simpleMascotVisible) return null
+    return getSimpleMascotLottiePath()
+  }, [resolvedDashPlushLottiePath, simpleMascotVisible])
+
   /** Stable slug for the plush in the appt-card mascot slot (CSS `data-dash-plush-slug`). */
   const dashSlotSlug = useMemo((): string | null => {
-    if (!resolvedDashPlushLottiePath || !dashGame) return null
-    if (dashPlushPref.mode === 'weekly') {
-      return dashGame.active_plushie?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    if (gameTokensEnabled()) {
+      if (!resolvedDashPlushLottiePath || !dashGame) return null
+      if (dashPlushPref.mode === 'weekly') {
+        return dashGame.active_plushie?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+      }
+      if (dashPlushPref.mode === 'plushie') {
+        const row = dashPlushCatalog.get(dashPlushPref.plushieId)
+        return row?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+      }
+      return slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
     }
-    if (dashPlushPref.mode === 'plushie') {
-      const row = dashPlushCatalog.get(dashPlushPref.plushieId)
-      return row?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    if (dashboardMascotLottiePath) {
+      return slugFromDashboardLottiePath(dashboardMascotLottiePath)
     }
-    return slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
-  }, [resolvedDashPlushLottiePath, dashGame, dashPlushPref, dashPlushCatalog])
+    return null
+  }, [
+    resolvedDashPlushLottiePath,
+    dashGame,
+    dashPlushPref,
+    dashPlushCatalog,
+    dashboardMascotLottiePath,
+  ])
 
   const refreshDashGameQuiet = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
@@ -903,9 +944,13 @@ export function DashboardPage () {
   useGameStateRefresh(!!user?.id && gameTokensEnabled(), refreshDashGameQuiet)
 
   useEffect(() => {
-    if (!user?.id || !gameTokensEnabled()) {
+    if (!user?.id) {
       setDashGame(null)
       setDashPlushieLottie(null)
+      return
+    }
+    if (!gameTokensEnabled()) {
+      setDashGame(null)
       return
     }
     let cancelled = false
@@ -940,14 +985,14 @@ export function DashboardPage () {
   }, [user?.id, dashPath, refreshDashPlushMeta])
 
   useEffect(() => {
-    if (!resolvedDashPlushLottiePath) {
+    if (!dashboardMascotLottiePath) {
       setDashPlushieLottie(null)
       return
     }
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(resolvedDashPlushLottiePath)
+        const res = await fetch(dashboardMascotLottiePath)
         if (!res.ok) {
           if (!cancelled) setDashPlushieLottie(null)
           return
@@ -959,7 +1004,7 @@ export function DashboardPage () {
       }
     })()
     return () => { cancelled = true }
-  }, [resolvedDashPlushLottiePath])
+  }, [dashboardMascotLottiePath])
 
   useEffect(() => {
     if (!plushieDashCelebrate) return
@@ -2148,7 +2193,7 @@ export function DashboardPage () {
             }
           }
           const hasDashPlushie = !!dashPlushieLottie
-          const showPlushieMastColumn = !!(gameTokensEnabled() && resolvedDashPlushLottiePath)
+          const showPlushieMastColumn = !!dashboardMascotLottiePath
           return (
         <section
           className="scrap-sticky scrap-sticky--upcoming"
@@ -2170,7 +2215,11 @@ export function DashboardPage () {
                       className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
                       data-dash-plush-slug={dashSlotSlug ?? undefined}
                     >
-                      <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
+                      <DashPlushieLottie
+                        data={dashPlushieLottie!}
+                        className="scrap-dash-plushie-lottie"
+                        assetsPath={!gameTokensEnabled() ? getSimpleMascotImageAssetsBase() : undefined}
+                      />
                     </div>
                   </div>
                 )}

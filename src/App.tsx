@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { gameTokensEnabled } from './lib/gameTokens'
 import { useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/AppLayout'
 import { LoginPage } from './pages/LoginPage'
@@ -61,8 +62,14 @@ export default function App () {
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="plushies/mine" element={<MyPlushiesPage />} />
-        <Route path="plushies" element={<PlushieShopPage />} />
+        <Route
+          path="plushies/mine"
+          element={gameTokensEnabled() ? <MyPlushiesPage /> : <Navigate to="/app" replace />}
+        />
+        <Route
+          path="plushies"
+          element={gameTokensEnabled() ? <PlushieShopPage /> : <Navigate to="/app" replace />}
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { PlushiesSparkles } from '../components/more'
+import { gameTokensEnabled } from '../lib/gameTokens'
 
 type PolaroidNavCardProps = {
   to: string
@@ -67,23 +68,27 @@ export function MorePage () {
             ariaLabel="Account — profile and settings"
           />
         </div>
-        <PolaroidNavCard
-          to="/app/plushies"
-          title="Plushies"
-          caption="shop & collect"
-          photoClass="more-polaroid__photo--plushies"
-          tapeClass="more-polaroid__tape--rose"
-          frameRotateClass="rotate-[2.5deg]"
-          ariaLabel="Plushies — shop and collect"
-          sparkles
-        />
+        {gameTokensEnabled() && (
+          <PolaroidNavCard
+            to="/app/plushies"
+            title="Plushies"
+            caption="shop & collect"
+            photoClass="more-polaroid__photo--plushies"
+            tapeClass="more-polaroid__tape--rose"
+            frameRotateClass="rotate-[2.5deg]"
+            ariaLabel="Plushies — shop and collect"
+            sparkles
+          />
+        )}
       </div>
 
-      <p className="mx-auto mt-2 max-w-md px-4 text-center text-sm text-black/55">
-        <Link to="/app/plushies/mine" className="text-rose-700/90 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-800">
-          My plushies &amp; dashboard display
-        </Link>
-      </p>
+      {gameTokensEnabled() && (
+        <p className="mx-auto mt-2 max-w-md px-4 text-center text-sm text-black/55">
+          <Link to="/app/plushies/mine" className="text-rose-700/90 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-800">
+            My plushies &amp; dashboard display
+          </Link>
+        </p>
+      )}
     </div>
   )
 }
