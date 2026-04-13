@@ -10,7 +10,7 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
-import { SparkleStar } from '../components/more/SparkleStar'
+import { Sparkles } from 'lucide-react'
 
 type CatalogRow = {
   id: string
@@ -415,21 +415,29 @@ export function PlushieShopPage () {
             <span className="plush-shop-mystery-sparkles" aria-hidden>
               {(
                 [
-                  [1, 15],
-                  [2, 12],
-                  [3, 14],
-                  [4, 13],
-                  [5, 17],
-                  [6, 11],
-                  [7, 12],
-                  [8, 14],
+                  [1, 16],
+                  [2, 14],
+                  [3, 16],
+                  [4, 14],
+                  [5, 18],
+                  [6, 14],
+                  [7, 14],
+                  [8, 16],
                 ] as const
               ).map(([slot, size]) => (
                 <span
                   key={slot}
                   className={`plush-shop-mystery-sparkles__sprite plush-shop-mystery-sparkles__sprite--${slot}`}
                 >
-                  <SparkleStar size={size} variant="mystery" />
+                  <Sparkles
+                    size={size}
+                    strokeWidth={1.75}
+                    className={
+                      slot === 5
+                        ? 'text-yellow-400 animate-bounce motion-reduce:animate-none motion-reduce:opacity-70'
+                        : 'text-yellow-400 animate-pulse motion-reduce:animate-none motion-reduce:opacity-70'
+                    }
+                  />
                 </span>
               ))}
             </span>
