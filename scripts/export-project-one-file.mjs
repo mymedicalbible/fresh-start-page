@@ -54,6 +54,35 @@ function shouldIncludeFile (relPosix, baseName) {
   return false
 }
 
+function buildFrontMatter (filesAbs) {
+  const rels = filesAbs.map((a) => path.relative(root, a).replace(/\\/g, '/'))
+  const migrations = rels.filter((r) => r.startsWith('supabase/migrations/') && r.endsWith('.sql')).sort()
+  const supabaseLoose = rels.filter((r) => r.startsWith('supabase/') && r.endsWith('.sql') && !r.startsWith('supabase/migrations/')).sort()
+  const plushieMigs = migrations.filter((r) =>
+    /plushie|game_tokens|panda_popcorn|turtle|rotation_anchor|spotlight/i.test(r),
+  )
+  const lines = []
+  lines.push('FRONT MATTER — plushie / SQL index (read this first)\n')
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push('Plushie docs (full detail embedded later in this file): docs/plushie-system-export.md\n')
+  lines.push('Full export how-to: docs/full-project-export.md\n')
+  lines.push('Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY; optional VITE_GAME_TOKENS_ENABLED=false\n')
+  lines.push('Routes: /app/plushies (shop), /app/plushies/mine (My Plushies)\n')
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push(`All Supabase migrations in this dump (${migrations.length} files, apply in filename order):\n`)
+  for (const m of migrations) lines.push(`  ${m}\n`)
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push(`Other Supabase SQL in this dump (${supabaseLoose.length}):\n`)
+  for (const s of supabaseLoose) lines.push(`  ${s}\n`)
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push(`Plushie / game-token related migrations (${plushieMigs.length}):\n`)
+  for (const p of plushieMigs) lines.push(`  ${p}\n`)
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push('Public Lottie JSON paths (see docs/plushie-system-export.md): /lottie/*.json under public/lottie/\n')
+  lines.push(`${'='.repeat(72)}\n\n`)
+  return lines.join('')
+}
+
 async function collectFiles (dir, files, relBase = root) {
   let entries
   try {
@@ -90,6 +119,7 @@ async function main () {
   chunks.push(`Root: ${root}\n`)
   chunks.push(`Files: ${files.length}\n`)
   chunks.push(`${'='.repeat(72)}\n`)
+  chunks.push(buildFrontMatter(files))
 
   for (const abs of files) {
     const rel = path.relative(root, abs).replace(/\\/g, '/')
@@ -99,8 +129,8 @@ async function main () {
     } catch {
       body = '[Could not read file as UTF-8]\n'
     }
-    chunks.push(`${'='.repeat(72)}`)
-    chunks.push(`FILE: ${rel}`)
+    chunks.push(`${'='.repeat(72)}\n`)
+    chunks.push(`FILE: ${rel}\n`)
     chunks.push(`${'='.repeat(72)}\n`)
     chunks.push(body)
     if (!body.endsWith('\n')) chunks.push('\n')

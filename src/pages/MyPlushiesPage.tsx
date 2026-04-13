@@ -305,6 +305,7 @@ export function MyPlushiesPage () {
 
   const load = useCallback(async () => {
     setError(null)
+    await supabase.rpc('game_sync_plushie_unlocks_from_ledger')
     const [cat, un] = await Promise.all([
       supabase.from('plushie_catalog').select('id, slug, name, lottie_path, slot_index').order('slot_index'),
       supabase.from('user_plushie_unlocks').select('plushie_id'),

@@ -3752,7 +3752,7 @@ button.scrap-appt-q:focus-visible {
 /* ─── Plushie shop (kawaii cards + My Plushies overlay) ─── */
 .plush-shop-page {
   position: relative;
-  isolation: isolate;
+  z-index: 0;
   padding: 0 0 80px;
   min-height: 100vh;
   overflow-x: hidden;
@@ -3904,8 +3904,8 @@ button.scrap-appt-q:focus-visible {
 
 .plush-shop-hero-lottie {
   width: 100% !important;
-  max-width: 300px;
-  height: 260px !important;
+  max-width: 220px;
+  height: 220px !important;
 }
 
 .plush-shop-hero-fallback {
