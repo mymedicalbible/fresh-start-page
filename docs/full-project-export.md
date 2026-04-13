@@ -10,10 +10,10 @@ From the project root:
 .\scripts\export-full-project.ps1
 ```
 
-## Output
+## Output (this repo only — never `dist/` or your system temp)
 
-- **File:** `dist\medical-bible-project-FULL-<timestamp>.zip`
-- **Example:** `dist\medical-bible-project-FULL-20260413-083429.zip`
+- **File:** `exports\medical-bible-project-FULL-<timestamp>.zip`
+- **Example:** `exports\medical-bible-project-FULL-20260413-083429.zip`
 
 Inside the zip you get the **entire repo tree** except:
 

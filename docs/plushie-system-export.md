@@ -1,7 +1,7 @@
 # Plushie system — export index
 
 > **Need the ENTIRE project (all files, all SQL, everything)?**  
-> Run `.\scripts\export-full-project.ps1` and use the zip under `dist\medical-bible-project-FULL-*.zip`.  
+> Run `.\scripts\export-full-project.ps1` and use the zip under `exports\medical-bible-project-FULL-*.zip`.  
 > See `docs/full-project-export.md`.
 
 This document lists **every migration, asset, and source file** that matters for the **game tokens + weekly plush shop**, so you can archive, audit, or redeploy without hunting the repo.
@@ -97,7 +97,7 @@ From the project root, run:
 .\scripts\export-plushie-artifacts.ps1
 ```
 
-Output: `dist/plushie-system-export-<date>.zip` containing migrations, this doc, listed sources, and `public/lottie` JSON assets.
+Output: `exports/plushie-system-export-<date>.zip` (project folder only) — migrations, docs, listed sources, and `public/lottie` JSON assets.
 
 ---
 

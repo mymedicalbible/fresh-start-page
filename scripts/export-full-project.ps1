@@ -1,25 +1,16 @@
-<#
-.SYNOPSIS
-  Archives the WHOLE project: every source file, ALL supabase/migrations/*.sql,
-  public assets, configs, scripts, docs, .github, .cursor, everything important.
-
-  EXCLUDES only (regeneratable / bulky junk):
-    - node_modules (run npm install after unzip)
-    - .git       (use `git clone` for history)
-    - dist       (run npm run build)
-    - supabase\.temp (CLI cache)
-
-  Output: dist\medical-bible-project-FULL-<timestamp>.zip
-#>
+#
+# Full project archive. ALL output stays under the repo: exports/ only (never dist, never TEMP).
+#
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$outDir = Join-Path $root "dist"
+$exportsRoot = Join-Path $root "exports"
+$outDir = $exportsRoot
 $zipName = "medical-bible-project-FULL-$stamp.zip"
 $zipPath = Join-Path $outDir $zipName
-$stage = Join-Path $env:TEMP "mb-full-export-$stamp"
+$stage = Join-Path $exportsRoot "_staging_full_$stamp"
 
-New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+New-Item -ItemType Directory -Path $exportsRoot -Force | Out-Null
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
@@ -35,6 +26,7 @@ function Copy-TreeFiltered {
   Get-ChildItem -LiteralPath $SrcRoot -Force | ForEach-Object {
     $name = $_.Name
     if ($excludeDirs -contains $name) { return }
+    if ($name.StartsWith("_staging_")) { return }
     $dst = Join-Path $DstRoot $name
     if ($_.PSIsContainer) {
       New-Item -ItemType Directory -Path $dst -Force | Out-Null
@@ -45,10 +37,9 @@ function Copy-TreeFiltered {
   }
 }
 
-Write-Host "Staging full project (excluding: $($excludeDirs -join ', '))..."
+Write-Host "Staging full project into exports\_staging_* (excludes: $($excludeDirs -join ', '))..."
 Copy-TreeFiltered -SrcRoot $root -DstRoot $stage
 
-# Manifest: list EVERY .sql migration (proof nothing missed)
 $migrations = Get-ChildItem -Path (Join-Path $stage "supabase\migrations") -Filter "*.sql" -File -ErrorAction SilentlyContinue | Sort-Object Name
 $manifestPath = Join-Path $stage "EXPORT_MANIFEST.txt"
 $sb = New-Object System.Text.StringBuilder
@@ -61,16 +52,17 @@ if ($migrations) {
   foreach ($f in $migrations) { [void]$sb.AppendLine($f.Name) }
 }
 [void]$sb.AppendLine("")
-[void]$sb.AppendLine("Excluded: node_modules, .git, dist, supabase/.temp")
+[void]$sb.AppendLine("Output: exports\$zipName (project folder only)")
+[void]$sb.AppendLine("Excluded from zip: node_modules, .git, dist, supabase/.temp, exports\_staging_*")
 [void]$sb.AppendLine("Restore: unzip, npm install, npm run build")
 $sb.ToString() | Set-Content -Path $manifestPath -Encoding UTF8
 
-Write-Host "Creating zip ($zipPath) ..."
+Write-Host "Creating zip: exports\$zipName"
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 Compress-Archive -Path "$stage\*" -DestinationPath $zipPath -Force
 Remove-Item -Recurse -Force $stage
 
 $sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 Write-Host ""
-Write-Host "DONE: $zipPath  (${sizeMb} MB)"
+Write-Host "DONE (project folder only): $zipPath  (${sizeMb} MB)"
 Write-Host "Migrations bundled: $(if ($migrations) { $migrations.Count } else { 0 }) SQL files."
