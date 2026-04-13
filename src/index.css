@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Only scan app source — do not scan exports/, ExportedProject/, etc. (huge text dumps OOM Tailwind in CI). */
+@import "tailwindcss" source(none);
+@source "../src";
+@source "../index.html";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
