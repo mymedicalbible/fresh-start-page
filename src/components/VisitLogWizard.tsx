@@ -597,7 +597,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
       }
 
       if (!asPending && validTests.length > 0) {
-        await supabase.from('tests_ordered').insert(
+        const { error: te } = await supabase.from('tests_ordered').insert(
           validTests.map((t) => ({
             user_id: user.id,
             test_date: visitDate,
@@ -605,12 +605,20 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             test_name: t.test_name.trim(),
             reason: t.reason || null,
             status: 'Pending',
-          }))
+          })),
         )
+        if (te) {
+          setError(te.message)
+          return
+        }
       }
 
       if (!asPending && validDiags.length > 0) {
-        await upsertDiagnosesFromVisit(supabase, user.id, effectiveName, visitDate, validDiags)
+        const diagErr = await upsertDiagnosesFromVisit(supabase, user.id, effectiveName, visitDate, validDiags)
+        if (diagErr) {
+          setError(diagErr)
+          return
+        }
       }
 
       if (!asPending && nextApptDate) {
@@ -628,12 +636,19 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
           const res2 = await supabase.from('appointments').insert(fallback)
           apErr = res2.error
         }
-        if (apErr) console.warn('appointments insert:', apErr.message)
+        if (apErr) {
+          setError(apErr.message)
+          return
+        }
       }
 
       for (const m of dvMeds) {
         if (m.action === 'remove') {
-          await supabase.from('current_medications').delete().eq('user_id', user.id).eq('medication', m.medication)
+          const { error: delErr } = await supabase.from('current_medications').delete().eq('user_id', user.id).eq('medication', m.medication)
+          if (delErr) {
+            setError(delErr.message)
+            return
+          }
         }
       }
       if (!asPending) {
@@ -650,14 +665,17 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             notes: `Prescribed by: ${effectiveName}`,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,medication' })
-          if (upErr) console.warn('current_medications upsert:', upErr.message)
+          if (upErr) {
+            setError(upErr.message)
+            return
+          }
         }
       }
       if (!asPending && newMedEntry.medication.trim()) {
         const key = newMedEntry.medication.trim().toLowerCase()
         const alreadyKept = dvMeds.some((m) => m.action === 'keep' && m.medication.trim().toLowerCase() === key)
         if (!alreadyKept) {
-          await supabase.from('current_medications').upsert({
+          const { error: nmErr } = await supabase.from('current_medications').upsert({
             user_id: user.id,
             medication: newMedEntry.medication.trim(),
             dose: newMedEntry.dose || null,
@@ -665,6 +683,10 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
             notes: `Prescribed by: ${effectiveName}`,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,medication' })
+          if (nmErr) {
+            setError(nmErr.message)
+            return
+          }
         }
       }
 

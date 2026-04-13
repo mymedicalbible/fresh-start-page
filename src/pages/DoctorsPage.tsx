@@ -96,10 +96,14 @@ export function DoctorsPage () {
 
 
   async function archiveDoctor (id: string, reason: string) {
-    await supabase.from('doctors').update({
+    const { error: e } = await supabase.from('doctors').update({
       archived_at: new Date().toISOString(),
       archive_reason: reason || null,
     }).eq('id', id)
+    if (e) {
+      setError(e.message)
+      return
+    }
     setDoctors((prev) => prev.map((d) => d.id === id
       ? { ...d, archived_at: new Date().toISOString(), archive_reason: reason || null }
       : d
@@ -109,7 +113,11 @@ export function DoctorsPage () {
   }
 
   async function restoreDoctor (id: string) {
-    await supabase.from('doctors').update({ archived_at: null, archive_reason: null }).eq('id', id)
+    const { error: e } = await supabase.from('doctors').update({ archived_at: null, archive_reason: null }).eq('id', id)
+    if (e) {
+      setError(e.message)
+      return
+    }
     setDoctors((prev) => prev.map((d) => d.id === id ? { ...d, archived_at: null, archive_reason: null } : d))
   }
 

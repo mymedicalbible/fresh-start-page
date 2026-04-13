@@ -3,6 +3,7 @@ import {
   diagnosisDetailFieldsForStatus,
   type DiagnosisDirectoryDetailFields,
 } from './diagnosisDirectoryRow'
+import { escapePostgresRegexLiteral } from './pgRegex'
 
 function mergeDbText (existing: string | null | undefined, incoming: string | null): string | null {
   if (incoming !== null && incoming.trim() !== '') return incoming
@@ -20,22 +21,24 @@ export async function upsertDiagnosesFromVisit (
   doctorName: string,
   visitDate: string,
   rows: DiagnosisDirectoryDetailFields[],
-): Promise<void> {
+): Promise<string | null> {
+  let firstErr: string | null = null
   for (const row of rows) {
     const name = row.diagnosis.trim()
     if (!name) continue
 
     const detail = diagnosisDetailFieldsForStatus(row.status, row)
+    const nameExact = `^${escapePostgresRegexLiteral(name)}$`
 
     const { data: existing, error: selErr } = await supabase
       .from('diagnoses_directory')
       .select('id, doctor, how_or_why, treatment_plan, care_plan')
       .eq('user_id', userId)
-      .ilike('diagnosis', name)
+      .regexIMatch('diagnosis', nameExact)
       .limit(1)
 
     if (selErr) {
-      console.warn('diagnoses_directory select:', selErr.message)
+      if (!firstErr) firstErr = selErr.message
       continue
     }
 
@@ -50,7 +53,7 @@ export async function upsertDiagnosesFromVisit (
         treatment_plan: detail.treatment_plan,
         care_plan: detail.care_plan,
       })
-      if (insErr) console.warn('diagnoses_directory insert:', insErr.message)
+      if (insErr && !firstErr) firstErr = insErr.message
     } else {
       const ex = existing[0] as {
         id: string
@@ -71,7 +74,8 @@ export async function upsertDiagnosesFromVisit (
         .from('diagnoses_directory')
         .update(patch)
         .eq('id', ex.id)
-      if (upErr) console.warn('diagnoses_directory update:', upErr.message)
+      if (upErr && !firstErr) firstErr = upErr.message
     }
   }
+  return firstErr
 }

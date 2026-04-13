@@ -8,6 +8,11 @@ import { markAppointmentsVisitLoggedForVisitDay } from '../lib/markAppointmentsV
 import { formatTime12h } from '../lib/formatTime12h'
 import { VisitNotesWithTranscriptFold } from '../components/VisitNotesWithTranscriptFold'
 import { DIAGNOSIS_STATUS_OPTIONS } from '../lib/diagnosisStatusOptions'
+import {
+  doctorFieldContainsRegex,
+  escapePostgresRegexLiteral,
+  prescribedByNotesRegex,
+} from '../lib/pgRegex'
 
 
 /* ──────────────── Types ──────────────── */
@@ -147,6 +152,17 @@ export function DoctorProfilePage () {
 
   const [profileNotes, setProfileNotes] = useState<ProfileNoteRow[]>([])
 
+  const mountedRef = useRef(true)
+  const idRef = useRef<string | undefined>(undefined)
+  idRef.current = id
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
   /* ──────────── Load ──────────── */
   useEffect(() => {
     if (!user || !id) return
@@ -176,10 +192,17 @@ export function DoctorProfilePage () {
 
 
   async function load () {
+    const loadForId = idRef.current
+    if (!loadForId || !user) return
     setLoading(true)
     const { data: docData, error: docErr } = await supabase
-      .from('doctors').select('*').eq('id', id!).eq('user_id', user!.id).single()
+      .from('doctors').select('*').eq('id', loadForId).eq('user_id', user.id).single()
+    if (idRef.current !== loadForId || !mountedRef.current) {
+      setLoading(false)
+      return
+    }
     if (docErr || !docData) {
+      setLoading(false)
       navigate('/app/doctors')
       return
     }
@@ -187,20 +210,29 @@ export function DoctorProfilePage () {
     setDoctor(doc)
     setEditForm(emptyEditForm(doc))
     await loadData(doc.name)
+    if (idRef.current !== loadForId || !mountedRef.current) {
+      setLoading(false)
+      return
+    }
     const { data: pn } = await supabase
       .from('doctor_profile_notes')
       .select('id, body, created_at')
-      .eq('user_id', user!.id)
+      .eq('user_id', user.id)
       .eq('doctor_id', doc.id)
       .order('created_at', { ascending: false })
       .limit(50)
+    if (idRef.current !== loadForId || !mountedRef.current) {
+      setLoading(false)
+      return
+    }
     setProfileNotes((pn ?? []) as ProfileNoteRow[])
     setLoading(false)
   }
 
 
   async function loadData (doctorName: string, medsAllForVisit = visitMedsIncludeAll) {
-    const prescribedBy = `Prescribed by: ${doctorName}%`
+    const docContains = doctorFieldContainsRegex(doctorName)
+    const prescribedRx = prescribedByNotesRegex(doctorName)
     const mVisitQ = medsAllForVisit
       ? supabase.from('current_medications')
         .select('id, medication, dose, frequency, purpose')
@@ -210,34 +242,34 @@ export function DoctorProfilePage () {
       : supabase.from('current_medications')
         .select('id, medication, dose, frequency, purpose')
         .eq('user_id', user!.id)
-        .ilike('notes', prescribedBy)
+        .regexIMatch('notes', prescribedRx)
         .limit(60)
 
     const [v, q, d, dd, m, t, mVisit] = await Promise.all([
       supabase.from('doctor_visits')
         .select('id, visit_date, visit_time, reason, findings, tests_ordered, instructions, notes, follow_up')
-        .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
+        .eq('user_id', user!.id).regexIMatch('doctor', docContains)
         .order('visit_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(50),
       supabase.from('doctor_questions')
         .select('id, date_created, appointment_date, question, priority, answer, status')
-        .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
+        .eq('user_id', user!.id).regexIMatch('doctor', docContains)
         .order('date_created', { ascending: false }).limit(100),
       supabase.from('diagnosis_notes')
         .select('id, note_date, diagnoses_mentioned, diagnoses_ruled_out, notes')
-        .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
+        .eq('user_id', user!.id).regexIMatch('doctor', docContains)
         .order('note_date', { ascending: false }).limit(50),
       supabase.from('diagnoses_directory')
         .select('id, diagnosis, status, date_diagnosed')
-        .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
+        .eq('user_id', user!.id).regexIMatch('doctor', docContains)
         .order('created_at', { ascending: false }),
       supabase.from('current_medications')
         .select('id, medication, dose, frequency, purpose')
-        .eq('user_id', user!.id).ilike('notes', `%${doctorName}%`).limit(30),
+        .eq('user_id', user!.id).regexIMatch('notes', docContains).limit(30),
       supabase.from('tests_ordered')
         .select('id, test_date, test_name, status, reason')
-        .eq('user_id', user!.id).ilike('doctor', `%${doctorName}%`)
+        .eq('user_id', user!.id).regexIMatch('doctor', docContains)
         .order('test_date', { ascending: false }).limit(60),
       mVisitQ,
     ])
@@ -401,7 +433,9 @@ export function DoctorProfilePage () {
       const diags = diagForm.diagnoses_mentioned.split(',').map((d) => d.trim()).filter(Boolean)
       for (const diag of diags) {
         const { data: existing } = await supabase.from('diagnoses_directory')
-          .select('id, doctor').eq('user_id', user!.id).ilike('diagnosis', diag).limit(1)
+          .select('id, doctor').eq('user_id', user!.id)
+          .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
+          .limit(1)
         if (!existing || existing.length === 0) {
           await supabase.from('diagnoses_directory').insert({
             user_id: user!.id, diagnosis: diag, doctor: doctor.name,
@@ -418,7 +452,9 @@ export function DoctorProfilePage () {
       const diags = diagForm.diagnoses_ruled_out.split(',').map((d) => d.trim()).filter(Boolean)
       for (const diag of diags) {
         const { data: existing } = await supabase.from('diagnoses_directory')
-          .select('id, doctor').eq('user_id', user!.id).ilike('diagnosis', diag).limit(1)
+          .select('id, doctor').eq('user_id', user!.id)
+          .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
+          .limit(1)
         if (!existing || existing.length === 0) {
           await supabase.from('diagnoses_directory').insert({
             user_id: user!.id, diagnosis: diag, doctor: doctor.name,
@@ -442,7 +478,11 @@ export function DoctorProfilePage () {
 
   /* ──────────── Update diag status ──────────── */
   async function updateDiagStatus (diagId: string, status: string) {
-    await supabase.from('diagnoses_directory').update({ status }).eq('id', diagId)
+    const { error: ue } = await supabase.from('diagnoses_directory').update({ status }).eq('id', diagId)
+    if (ue) {
+      setError(ue.message)
+      return
+    }
     setDiagDir((prev) => prev.map((d) => d.id === diagId ? { ...d, status } : d))
   }
 

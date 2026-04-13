@@ -43,6 +43,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   const audioCtxRef = useRef<AudioContext | null>(null)
   const recordingPausedRef = useRef(false)
   const [recordingPaused, setRecordingPaused] = useState(false)
+  const mountedRef = useRef(true)
 
   function pushArchiveIfNeeded (save: boolean) {
     if (!save || !transcript.trim()) return
@@ -91,6 +92,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
 
     const { data, error: fnErr } = await supabase.functions.invoke('transcribe-visit', {})
     if (fnErr) {
+      if (!mountedRef.current) return
       let shown = fnErr.message || 'Could not reach transcription service.'
       if (fnErr instanceof FunctionsHttpError && fnErr.context instanceof Response) {
         try {
@@ -111,12 +113,14 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
     }
     const payload = data as { token?: string; error?: string; build?: string } | null
     if (payload?.error) {
+      if (!mountedRef.current) return
       const b = payload.build ? ` [${payload.build}]` : ''
       setError(`${payload.error}${b}`)
       setStatus('error')
       return
     }
     if (!payload?.token) {
+      if (!mountedRef.current) return
       setError('No transcription token returned.')
       setStatus('error')
       return
@@ -158,12 +162,16 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
         source.connect(processor)
         processor.connect(audioCtx.destination)
         recordingPausedRef.current = false
-        setRecordingPaused(false)
-        setRecording(true)
-        setStatus('recording')
+        if (mountedRef.current) {
+          setRecordingPaused(false)
+          setRecording(true)
+          setStatus('recording')
+        }
       } catch {
-        setError('Microphone access denied.')
-        setStatus('error')
+        if (mountedRef.current) {
+          setError('Microphone access denied.')
+          setStatus('error')
+        }
         stopAll()
       }
     }
@@ -190,15 +198,17 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
     }
 
     socket.onerror = () => {
-      setError('Transcription connection error.')
-      setStatus('error')
+      if (mountedRef.current) {
+        setError('Transcription connection error.')
+        setStatus('error')
+      }
       stopAll()
     }
 
     socket.onclose = () => {
       socketRef.current = null
       stopMediaTracks()
-      setRecording(false)
+      if (mountedRef.current) setRecording(false)
     }
   }
 
@@ -223,7 +233,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       } catch { /* ignore */ }
     }
     ws?.close()
-    setRecording(false)
+    if (mountedRef.current) setRecording(false)
   }
 
   async function stopRecording () {
@@ -258,7 +268,10 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   }
 
   useEffect(() => {
-    return () => { stopAll() }
+    return () => {
+      mountedRef.current = false
+      stopAll()
+    }
   }, [])
 
   const TX = { fontSize: '0.88rem' as const, lineHeight: 1.45 as const }

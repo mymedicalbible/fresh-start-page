@@ -7,6 +7,19 @@ export function isPlaceholderLottiePath (path: string | null | undefined): boole
   return /^\/lottie\/plushie-[0-4]\.json$/.test(t)
 }
 
+/**
+ * Human-facing name for shop, dashboard, and collection.
+ * Neutralizes deprecated trial seed slug `rustle-plant` (and similar copy) if the DB was not yet migrated.
+ */
+export function plushieCatalogDisplayName (slug: string | null | undefined, name: string | null | undefined): string {
+  const s = (slug ?? '').toLowerCase().trim()
+  const n = (name ?? '').trim()
+  if (s === 'rustle-plant') return 'Coming soon'
+  if (/rustle/.test(n.toLowerCase()) && /plant/.test(n.toLowerCase())) return 'Coming soon'
+  if (n.length > 0) return n
+  return 'Plushie'
+}
+
 /** User preference for which plush (if any) appears on the home dashboard — set only from My Plushies. */
 export type DashPlushieDisplayPref =
   | { mode: 'none' }

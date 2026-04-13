@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { plushieCatalogDisplayName } from './dashPlushieDisplay'
 
 /** Plushie tokens are on by default; set `VITE_GAME_TOKENS_ENABLED=false` to disable earns + RPC calls. */
 export function gameTokensEnabled (): boolean {
@@ -60,6 +61,13 @@ function isRpcMissingFunctionError (err: { message?: string; code?: string }): b
   return m.includes('could not find the function') || m.includes('schema cache')
 }
 
+function sanitizeActivePlushieForUi (p: ActivePlushie): ActivePlushie {
+  return {
+    ...p,
+    name: plushieCatalogDisplayName(p.slug, p.name),
+  }
+}
+
 export async function fetchGameState (): Promise<GameStateResult> {
   const tz = plushieRotationTimezone()
   let res = await supabase.rpc('game_get_state', { p_tz: tz })
@@ -79,7 +87,11 @@ export async function fetchGameState (): Promise<GameStateResult> {
       + 'Apply plushie rotation migrations so weekly plush matches the shop countdown.',
     )
   }
-  return row as GameStateResult
+  const ok = row as Extract<GameStateResult, { ok: true }>
+  return {
+    ...ok,
+    active_plushie: sanitizeActivePlushieForUi(ok.active_plushie),
+  }
 }
 
 export async function purchaseActivePlushie (): Promise<

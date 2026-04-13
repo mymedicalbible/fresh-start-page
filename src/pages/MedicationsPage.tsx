@@ -834,7 +834,12 @@ export function MedicationsPage () {
       notes: deleteTarget.notes,
     })
     if (archiveErr) { setDeleteError(archiveErr.message); setBusy(false); return }
-    await supabase.from('current_medications').delete().eq('id', deleteTarget.id)
+    const { error: delErr } = await supabase.from('current_medications').delete().eq('id', deleteTarget.id)
+    if (delErr) {
+      setDeleteError(delErr.message)
+      setBusy(false)
+      return
+    }
     setBusy(false)
     setBanner(`${deleteTarget.medication} archived.`)
     setDeleteTarget(null)
@@ -899,13 +904,18 @@ export function MedicationsPage () {
 
     // If there's effectiveness / side_effects, also update the current med record
     if (doseChangeForm.effectiveness || doseChangeForm.side_effects) {
-      await supabase.from('current_medications').update({
+      const { error: medUpErr } = await supabase.from('current_medications').update({
         dose: doseNew || doseChangeTarget.dose,
         frequency: freqNew || doseChangeTarget.frequency,
         effectiveness: doseChangeForm.effectiveness || doseChangeTarget.effectiveness,
         side_effects: doseChangeForm.side_effects || doseChangeTarget.side_effects,
         updated_at: new Date().toISOString(),
       }).eq('id', doseChangeTarget.id)
+      if (medUpErr) {
+        setDoseChangeError(medUpErr.message)
+        setBusy(false)
+        return
+      }
     }
 
     const loggedMedId = doseChangeTarget.id

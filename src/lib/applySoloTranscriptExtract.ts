@@ -72,11 +72,8 @@ export async function applySoloExtractToDatabase (
 
   const validDiags = (fields.diagnoses ?? []).filter((d) => d.diagnosis?.trim())
   if (validDiags.length > 0) {
-    try {
-      await upsertDiagnosesFromVisit(supabase, userId, SOLO_RECORD_SOURCE_LABEL, dateStr, validDiags)
-    } catch (e) {
-      errors.push(`Diagnoses: ${e instanceof Error ? e.message : String(e)}`)
-    }
+    const derr = await upsertDiagnosesFromVisit(supabase, userId, SOLO_RECORD_SOURCE_LABEL, dateStr, validDiags)
+    if (derr) errors.push(`Diagnoses: ${derr}`)
   }
 
   const validTests = (fields.tests ?? []).filter((t) => t.test_name?.trim())

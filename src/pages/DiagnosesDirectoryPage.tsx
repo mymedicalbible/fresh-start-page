@@ -222,7 +222,11 @@ export function DiagnosesDirectoryPage () {
       patch.date_resolved = null
       patch.date_ruled_out = null
     }
-    await supabase.from('diagnoses_directory').update(patch).eq('id', id)
+    const { error: e } = await supabase.from('diagnoses_directory').update(patch).eq('id', id)
+    if (e) {
+      setError(e.message)
+      return
+    }
     load()
   }
 

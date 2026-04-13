@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import {
   isPlaceholderLottiePath,
   loadDashPlushieDisplay,
+  plushieCatalogDisplayName,
   saveDashPlushieDisplay,
   type DashPlushieDisplayPref,
 } from '../lib/dashPlushieDisplay'
@@ -188,7 +189,7 @@ export function MyPlushiesPage () {
                       checked={dashPref.plushieId === p.id}
                       onChange={() => applyDashPref({ mode: 'plushie', plushieId: p.id })}
                     />
-                    <span>{p.name}</span>
+                    <span>{plushieCatalogDisplayName(p.slug, p.name)}</span>
                   </label>
                 ))}
               </div>
@@ -211,7 +212,11 @@ export function MyPlushiesPage () {
           : (
             <div className="plush-mine-grid">
               {unlockedPlushies.map((p) => (
-                <PlushPolaroid key={p.id} path={p.lottie_path} name={p.name} />
+                <PlushPolaroid
+                  key={p.id}
+                  path={p.lottie_path}
+                  name={plushieCatalogDisplayName(p.slug, p.name)}
+                />
               ))}
             </div>
             )}

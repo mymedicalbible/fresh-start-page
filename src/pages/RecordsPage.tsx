@@ -63,8 +63,13 @@ export function RecordsPage () {
           .eq('user_id', user!.id)
           .order('episode_date', { ascending: false }).limit(100),
       ])
-      if (p.error) setError(p.error.message); else setPain((p.data ?? []) as PainRow[])
-      if (s.error) setError(s.error.message); else setSymptoms((s.data ?? []) as SymptomRow[])
+      if (p.error && s.error) setError(`${p.error.message} · ${s.error.message}`)
+      else if (p.error) setError(p.error.message)
+      else if (s.error) setError(s.error.message)
+      else {
+        setPain((p.data ?? []) as PainRow[])
+        setSymptoms((s.data ?? []) as SymptomRow[])
+      }
     }
     load().catch((e) => setError(String(e)))
   }, [user])
