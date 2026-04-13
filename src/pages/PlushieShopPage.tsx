@@ -330,6 +330,18 @@ export function PlushieShopPage () {
 
   return (
     <div className="plush-shop-page">
+      <div className="plush-shop-page__bg" aria-hidden>
+        <video
+          className="plush-shop-page__bg-video"
+          src="/video/plushies-bg.mp4"
+          muted
+          loop
+          playsInline
+          autoPlay
+          preload="auto"
+        />
+      </div>
+      <div className="plush-shop-page__content">
       <BackButton fallbackTo="/app/more" />
 
       <details className="plush-shop-token-help">
@@ -495,6 +507,7 @@ export function PlushieShopPage () {
       </button>
 
       {overlay}
+      </div>
     </div>
   )
 }
