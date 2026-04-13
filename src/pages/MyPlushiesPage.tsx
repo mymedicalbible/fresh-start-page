@@ -4,6 +4,7 @@ import Lottie from 'lottie-react'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import {
+  isPlaceholderLottiePath,
   loadDashPlushieDisplay,
   saveDashPlushieDisplay,
   type DashPlushieDisplayPref,
@@ -20,7 +21,12 @@ type CatalogRow = {
 
 function PlushPolaroid ({ path, name }: { path: string; name: string }) {
   const [data, setData] = useState<object | null>(null)
+  const skipArt = isPlaceholderLottiePath(path)
   useEffect(() => {
+    if (skipArt) {
+      setData(null)
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
@@ -34,24 +40,26 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
     return () => {
       cancelled = true
     }
-  }, [path])
+  }, [path, skipArt])
 
   return (
     <div className="plush-mine-polaroid">
       <span className="plush-mine-polaroid-pin" aria-hidden />
       <div className="plush-mine-polaroid-frame">
-        {data
-          ? (
-            <Lottie
-              animationData={data}
-              loop
-              rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-              className="plush-mine-polaroid-lottie"
-            />
-            )
-          : (
-            <span className="plush-mine-polaroid-loading" aria-hidden>…</span>
-            )}
+        {skipArt
+          ? null
+          : data
+            ? (
+              <Lottie
+                animationData={data}
+                loop
+                rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                className="plush-mine-polaroid-lottie"
+              />
+              )
+            : (
+              <span className="plush-mine-polaroid-loading" aria-hidden>…</span>
+              )}
       </div>
       <div className="plush-mine-polaroid-caption">{name}</div>
     </div>

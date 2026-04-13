@@ -11,6 +11,7 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
+import { isPlaceholderLottiePath } from '../lib/dashPlushieDisplay'
 import { FlickerSparkle } from '../components/more/FlickerSparkle'
 
 type CatalogRow = {
@@ -92,7 +93,12 @@ function PlushMysteryGiftSvg () {
 
 function PlushPolaroid ({ path, name }: { path: string; name: string }) {
   const [data, setData] = useState<object | null>(null)
+  const skipArt = isPlaceholderLottiePath(path)
   useEffect(() => {
+    if (skipArt) {
+      setData(null)
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
@@ -106,24 +112,26 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
     return () => {
       cancelled = true
     }
-  }, [path])
+  }, [path, skipArt])
 
   return (
     <div className="plush-shop-polaroid">
       <span className="plush-shop-polaroid-pin" aria-hidden />
       <div className="plush-shop-polaroid-frame">
-        {data
-          ? (
-            <Lottie
-              animationData={data}
-              loop
-              rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-              className="plush-shop-polaroid-lottie"
-            />
-            )
-          : (
-            <span className="plush-shop-polaroid-loading" aria-hidden>…</span>
-            )}
+        {skipArt
+          ? null
+          : data
+            ? (
+              <Lottie
+                animationData={data}
+                loop
+                rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                className="plush-shop-polaroid-lottie"
+              />
+              )
+            : (
+              <span className="plush-shop-polaroid-loading" aria-hidden>…</span>
+              )}
       </div>
       <div className="plush-shop-polaroid-caption">{name}</div>
     </div>
@@ -184,15 +192,19 @@ export function PlushieShopPage () {
     setOwnedActive(state.owned_active)
 
     const path = state.active_plushie.lottie_path
-    try {
-      const res = await fetch(path)
-      if (res.ok) {
-        setLottieData(await res.json())
-      } else {
+    if (isPlaceholderLottiePath(path)) {
+      setLottieData(null)
+    } else {
+      try {
+        const res = await fetch(path)
+        if (res.ok) {
+          setLottieData(await res.json())
+        } else {
+          setLottieData(null)
+        }
+      } catch {
         setLottieData(null)
       }
-    } catch {
-      setLottieData(null)
     }
   }, [])
 
@@ -376,7 +388,7 @@ export function PlushieShopPage () {
             <span className="plush-shop-hero-badge">✨ This Week&apos;s Plushie!</span>
             <div className="plush-shop-hero-stage-shell">
               <div className="plush-shop-hero-stage">
-                {lottieData
+                {activePlushie && !isPlaceholderLottiePath(activePlushie.lottie_path) && lottieData
                   ? (
                     <Lottie
                       animationData={lottieData}
@@ -385,9 +397,11 @@ export function PlushieShopPage () {
                       className="plush-shop-hero-lottie"
                     />
                     )
-                  : (
-                    <div className="plush-shop-hero-fallback" aria-hidden>🧸</div>
-                    )}
+                  : activePlushie && !isPlaceholderLottiePath(activePlushie.lottie_path)
+                    ? (
+                      <div className="plush-shop-hero-fallback" aria-hidden>🧸</div>
+                      )
+                    : null}
               </div>
             </div>
             <h3 id="plush-shop-hero-heading" className="plush-shop-hero-name">{activePlushie.name}</h3>

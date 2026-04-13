@@ -1,5 +1,12 @@
 import type { ActivePlushie } from './gameTokens'
 
+/** Trial seed Lotties under `/lottie/plushie-0.json` … `plushie-4.json` are not real plush art (single-shape placeholders). Never show them as plushies. */
+export function isPlaceholderLottiePath (path: string | null | undefined): boolean {
+  if (path == null || typeof path !== 'string') return false
+  const t = path.trim().toLowerCase()
+  return /^\/lottie\/plushie-[0-4]\.json$/.test(t)
+}
+
 /** User preference for which plush (if any) appears on the home dashboard — set only from My Plushies. */
 export type DashPlushieDisplayPref =
   | { mode: 'none' }
@@ -45,13 +52,16 @@ export function resolveDashboardPlushieLottiePath (args: {
   const { pref, weeklyActive, catalogById, unlockedIds } = args
   if (pref.mode === 'none') return null
   if (pref.mode === 'weekly') {
-    /* Weekly slot: same Lottie as the shop hero for the current rotation — visible whether or not purchased; when the slot rotates, server sends a new active_plushie. */
     if (!weeklyActive?.lottie_path) return null
+    if (!unlockedIds.has(weeklyActive.id)) return null
+    if (isPlaceholderLottiePath(weeklyActive.lottie_path)) return null
     return weeklyActive.lottie_path
   }
   if (pref.mode === 'plushie') {
     if (!unlockedIds.has(pref.plushieId)) return null
-    return catalogById.get(pref.plushieId)?.lottie_path ?? null
+    const p = catalogById.get(pref.plushieId)?.lottie_path ?? null
+    if (isPlaceholderLottiePath(p)) return null
+    return p
   }
   return null
 }
