@@ -10,7 +10,7 @@ import {
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
-import { Sparkles } from 'lucide-react'
+import { FlickerSparkle } from '../components/more/FlickerSparkle'
 
 type CatalogRow = {
   id: string
@@ -146,15 +146,15 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
   )
 }
 
-const GIFT_SPARKLE_CONFIGS: Record<number, { anim: string; delay: string; rotate: string }> = {
-  1: { anim: 'animate-pulse', delay: '0ms', rotate: '' },
-  2: { anim: 'animate-bounce', delay: '200ms', rotate: 'rotate-12' },
-  3: { anim: 'animate-pulse', delay: '400ms', rotate: '-rotate-6' },
-  4: { anim: 'animate-pulse', delay: '100ms', rotate: 'rotate-45' },
-  5: { anim: 'animate-bounce', delay: '300ms', rotate: '-rotate-12' },
-  6: { anim: 'animate-pulse', delay: '500ms', rotate: 'rotate-6' },
-  7: { anim: 'animate-pulse', delay: '150ms', rotate: '-rotate-45' },
-  8: { anim: 'animate-bounce', delay: '350ms', rotate: 'rotate-12' },
+const GIFT_SPARKLE_CONFIGS: Record<number, { delay: string; duration: string; rotate: string }> = {
+  1: { delay: '0ms', duration: '2.1s', rotate: '' },
+  2: { delay: '220ms', duration: '1.75s', rotate: 'rotate-12' },
+  3: { delay: '440ms', duration: '2.3s', rotate: '-rotate-6' },
+  4: { delay: '110ms', duration: '1.9s', rotate: 'rotate-45' },
+  5: { delay: '330ms', duration: '2.05s', rotate: '-rotate-12' },
+  6: { delay: '520ms', duration: '1.7s', rotate: 'rotate-6' },
+  7: { delay: '160ms', duration: '2.2s', rotate: '-rotate-45' },
+  8: { delay: '380ms', duration: '1.85s', rotate: 'rotate-12' },
 }
 
 export function PlushieShopPage () {
@@ -426,28 +426,35 @@ export function PlushieShopPage () {
             <span className="plush-shop-mystery-sparkles" aria-hidden>
               {(
                 [
-                  [1, 16],
-                  [2, 14],
-                  [3, 16],
-                  [4, 14],
-                  [5, 18],
-                  [6, 14],
-                  [7, 14],
-                  [8, 16],
+                  [1, 18],
+                  [2, 16],
+                  [3, 20],
+                  [4, 16],
+                  [5, 22],
+                  [6, 16],
+                  [7, 16],
+                  [8, 18],
                 ] as const
-              ).map(([slot, size]) => (
-                <span
-                  key={slot}
-                  className={`plush-shop-mystery-sparkles__sprite plush-shop-mystery-sparkles__sprite--${slot}`}
-                >
-                  <Sparkles
-                    size={size}
-                    strokeWidth={1.75}
-                    style={{ animationDelay: GIFT_SPARKLE_CONFIGS[slot].delay }}
-                    className={`text-yellow-400 ${GIFT_SPARKLE_CONFIGS[slot].anim} ${GIFT_SPARKLE_CONFIGS[slot].rotate} motion-reduce:animate-none motion-reduce:opacity-70`}
-                  />
-                </span>
-              ))}
+              ).map(([slot, size]) => {
+                const cfg = GIFT_SPARKLE_CONFIGS[slot]
+                return (
+                  <span
+                    key={slot}
+                    className={`plush-shop-mystery-sparkles__sprite plush-shop-mystery-sparkles__sprite--${slot}`}
+                  >
+                    <span className={cfg.rotate}>
+                      <FlickerSparkle
+                        size={size}
+                        variant="gift"
+                        style={{
+                          animationDelay: cfg.delay,
+                          animationDuration: cfg.duration,
+                        }}
+                      />
+                    </span>
+                  </span>
+                )
+              })}
             </span>
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
