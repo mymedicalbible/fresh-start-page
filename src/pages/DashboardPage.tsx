@@ -30,12 +30,6 @@ import {
 import { normDoctorKey as normDoctorName } from '../lib/doctorNameNorm'
 import { dismissPendingDockNorm, loadDismissedPendingDockNorms } from '../lib/pendingDockDismiss'
 import {
-  DASH_PLUSHIE_DISPLAY_EVENT,
-  effectiveDashPlushieDisplay,
-  resolveDashboardPlushie,
-  type ResolvedDashPlushie,
-} from '../lib/dashPlushieDisplay'
-import {
   fetchGameState,
   gameTokensEnabled,
   tryGrantHandoffSummaryTokens,
@@ -747,8 +741,6 @@ export function DashboardPage () {
     active_plushie: ActivePlushie | null
   } | null>(null)
   const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
-  const [dashResolvedPlushie, setDashResolvedPlushie] = useState<ResolvedDashPlushie | null>(null)
-  const [dashPlushiePrefVersion, setDashPlushiePrefVersion] = useState(0)
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
   const [plushieDashCelebrate, setPlushieDashCelebrate] = useState(false)
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
@@ -849,24 +841,6 @@ export function DashboardPage () {
   useGameStateRefresh(!!user?.id && gameTokensEnabled(), refreshDashGameQuiet)
 
   useEffect(() => {
-    const onPref = () => setDashPlushiePrefVersion((v) => v + 1)
-    window.addEventListener(DASH_PLUSHIE_DISPLAY_EVENT, onPref)
-    return () => window.removeEventListener(DASH_PLUSHIE_DISPLAY_EVENT, onPref)
-  }, [])
-
-  useEffect(() => {
-    if (!user?.id || !gameTokensEnabled() || !dashGame) {
-      setDashResolvedPlushie(null)
-      return
-    }
-    let cancelled = false
-    void resolveDashboardPlushie(user.id, dashGame).then((r) => {
-      if (!cancelled) setDashResolvedPlushie(r)
-    })
-    return () => { cancelled = true }
-  }, [user?.id, dashGame, dashPlushiePrefVersion])
-
-  useEffect(() => {
     if (!user?.id || !gameTokensEnabled()) {
       setDashGame(null)
       setDashPlushieLottie(null)
@@ -903,15 +877,14 @@ export function DashboardPage () {
   }, [user?.id, dashPath])
 
   useEffect(() => {
-    if (!dashResolvedPlushie?.showLottie || !dashResolvedPlushie.plushie.lottie_path) {
+    if (!dashGame?.owned_active || !dashGame.active_plushie?.lottie_path) {
       setDashPlushieLottie(null)
       return
     }
-    const path = dashResolvedPlushie.plushie.lottie_path
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(path)
+        const res = await fetch(dashGame.active_plushie!.lottie_path)
         if (!res.ok) {
           if (!cancelled) setDashPlushieLottie(null)
           return
@@ -923,7 +896,7 @@ export function DashboardPage () {
       }
     })()
     return () => { cancelled = true }
-  }, [dashResolvedPlushie?.showLottie, dashResolvedPlushie?.plushie.lottie_path])
+  }, [dashGame?.owned_active, dashGame?.active_plushie?.lottie_path])
 
   useEffect(() => {
     if (!plushieDashCelebrate) return
@@ -2172,9 +2145,8 @@ export function DashboardPage () {
               else bannerLabel = 'UPCOMING'
             }
           }
-          const dashPref = effectiveDashPlushieDisplay()
-          const showPlushieMastColumn = !!(gameTokensEnabled() && dashGame?.active_plushie && dashPref.kind !== 'none')
-          const hasDashPlushie = !!(dashResolvedPlushie?.showLottie && dashPlushieLottie)
+          const hasDashPlushie = !!(dashGame?.owned_active && dashPlushieLottie)
+          const showPlushieMastColumn = !!(gameTokensEnabled() && dashGame?.active_plushie)
           return (
         <section
           className="scrap-sticky scrap-sticky--upcoming"
@@ -2197,15 +2169,20 @@ export function DashboardPage () {
                     >
                       <DashPlushieLottie data={dashPlushieLottie!} className="scrap-dash-plushie-lottie" />
                     </div>
+                    {dashGame?.active_plushie?.name ? (
+                      <span className="scrap-dash-plushie-name">{dashGame.active_plushie.name}</span>
+                    ) : null}
                   </div>
                 )}
-                {!hasDashPlushie && dashResolvedPlushie && !dashResolvedPlushie.showLottie && (
+                {!hasDashPlushie && dashGame?.active_plushie?.name ? (
                   <div className="scrap-dash-plushie-column scrap-dash-plushie-column--caption-only">
                     <span className="scrap-dash-plushie-name scrap-dash-plushie-name--unowned">
-                      This week’s plush — unlock in the shop
+                      This week:
+                      {' '}
+                      {dashGame.active_plushie.name}
                     </span>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
             <div className="scrap-appt-banner-main">

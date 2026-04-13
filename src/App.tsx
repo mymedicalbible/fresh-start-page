@@ -20,7 +20,6 @@ import { TranscriptsPage } from './pages/TranscriptsPage'
 import { SoloRecordingPage } from './pages/SoloRecordingPage'
 import { AppointmentsPage } from './pages/AppointmentsPage'
 import { PlushieShopPage } from './pages/PlushieShopPage'
-import { MyPlushiesPage } from './pages/MyPlushiesPage'
 
 
 function Protected ({ children }: { children: ReactNode }) {
@@ -61,7 +60,6 @@ export default function App () {
         <Route path="visits" element={<VisitsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="plushies" element={<PlushieShopPage />} />
-        <Route path="plushies/mine" element={<MyPlushiesPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/app" replace />} />

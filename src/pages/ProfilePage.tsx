@@ -87,6 +87,7 @@ export function ProfilePage () {
 
   const [tokenBalance, setTokenBalance] = useState<number | null>(null)
   const [nextPrice, setNextPrice] = useState(10)
+  const [activePlushieName, setActivePlushieName] = useState<string | null>(null)
   const [ownedActive, setOwnedActive] = useState(false)
   const [tokensOff, setTokensOff] = useState(false)
 
@@ -153,6 +154,7 @@ export function ProfilePage () {
     setTokensOff(false)
     setTokenBalance(state.balance)
     setNextPrice(state.next_price)
+    setActivePlushieName(state.active_plushie.name)
     setOwnedActive(state.owned_active)
     setActivePlushieLottiePath(state.active_plushie?.lottie_path ?? null)
   }, [user])
@@ -309,7 +311,7 @@ export function ProfilePage () {
               <div className="scrap-account-progress-fill" style={{ width: `${progressPct}%` }} />
             </div>
             <div className="scrap-account-progress-meta">
-              <span>plushies</span>
+              <span>{activePlushieName ? `${activePlushieName.toLowerCase()} ${ownedActive ? 'unlocked' : 'this week'}` : 'plushies'}</span>
               <span>
                 {tokenBalance} / {nextPrice}
               </span>
@@ -375,6 +377,7 @@ export function ProfilePage () {
                       key={p.id}
                       to="/app/plushies"
                       className={`scrap-account-plushie-cell${p.unlocked ? ' scrap-account-plushie-cell--on' : ''}`}
+                      title={p.name}
                     >
                       {p.unlocked ? (
                         <span className="scrap-account-plushie-emoji" aria-hidden>🧸</span>

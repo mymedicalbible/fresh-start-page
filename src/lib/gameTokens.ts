@@ -35,7 +35,7 @@ export type GameStateResult =
   | { ok: false; error: string }
 
 export async function fetchGameState (): Promise<GameStateResult> {
-  const { data, error } = await supabase.rpc('game_get_state', { p_tz: plushieRotationTimezone() })
+  const { data, error } = await supabase.rpc('game_get_state')
   if (error) return { ok: false, error: error.message }
   const row = data as { ok?: boolean; error?: string; balance?: number } | null
   if (!row || row.ok === false) return { ok: false, error: (row as { error?: string }).error ?? 'Unknown' }
