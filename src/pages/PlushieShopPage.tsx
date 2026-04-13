@@ -146,6 +146,17 @@ function PlushPolaroid ({ path, name }: { path: string; name: string }) {
   )
 }
 
+const GIFT_SPARKLE_CONFIGS: Record<number, { anim: string; delay: string; rotate: string }> = {
+  1: { anim: 'animate-pulse', delay: '0ms', rotate: '' },
+  2: { anim: 'animate-bounce', delay: '200ms', rotate: 'rotate-12' },
+  3: { anim: 'animate-pulse', delay: '400ms', rotate: '-rotate-6' },
+  4: { anim: 'animate-pulse', delay: '100ms', rotate: 'rotate-45' },
+  5: { anim: 'animate-bounce', delay: '300ms', rotate: '-rotate-12' },
+  6: { anim: 'animate-pulse', delay: '500ms', rotate: 'rotate-6' },
+  7: { anim: 'animate-pulse', delay: '150ms', rotate: '-rotate-45' },
+  8: { anim: 'animate-bounce', delay: '350ms', rotate: 'rotate-12' },
+}
+
 export function PlushieShopPage () {
   const [balance, setBalance] = useState<number | null>(null)
   const [activePlushie, setActivePlushie] = useState<ActivePlushie | null>(null)
@@ -432,11 +443,8 @@ export function PlushieShopPage () {
                   <Sparkles
                     size={size}
                     strokeWidth={1.75}
-                    className={
-                      slot === 5
-                        ? 'text-yellow-400 animate-bounce motion-reduce:animate-none motion-reduce:opacity-70'
-                        : 'text-yellow-400 animate-pulse motion-reduce:animate-none motion-reduce:opacity-70'
-                    }
+                    style={{ animationDelay: GIFT_SPARKLE_CONFIGS[slot].delay }}
+                    className={`text-yellow-400 ${GIFT_SPARKLE_CONFIGS[slot].anim} ${GIFT_SPARKLE_CONFIGS[slot].rotate} motion-reduce:animate-none motion-reduce:opacity-70`}
                   />
                 </span>
               ))}

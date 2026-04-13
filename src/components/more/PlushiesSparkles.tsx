@@ -8,28 +8,42 @@ type PlushiesSparklesProps = {
 const SIZES_FULL = [14, 16, 12, 16, 14, 16] as const
 const SIZES_POLAROID_DENSE = [14, 16, 12, 16, 14, 16, 12, 16, 14, 16, 12, 16] as const
 
-/** Lucide `Sparkles` + `animate-pulse` — soft shimmer (see Tailwind pulse). One icon uses `animate-bounce` for a bit of life. */
+const CONFIGS = [
+  { anim: 'animate-pulse', delay: '0ms', rotate: '' },
+  { anim: 'animate-bounce', delay: '150ms', rotate: 'rotate-12' },
+  { anim: 'animate-pulse', delay: '300ms', rotate: '-rotate-6' },
+  { anim: 'animate-pulse', delay: '75ms', rotate: 'rotate-45' },
+  { anim: 'animate-bounce', delay: '225ms', rotate: '-rotate-12' },
+  { anim: 'animate-pulse', delay: '450ms', rotate: 'rotate-6' },
+] as const
+
+const CONFIGS_DENSE = [
+  ...CONFIGS,
+  { anim: 'animate-pulse', delay: '525ms', rotate: 'rotate-12' },
+  { anim: 'animate-bounce', delay: '100ms', rotate: '' },
+  { anim: 'animate-pulse', delay: '375ms', rotate: '-rotate-45' },
+  { anim: 'animate-pulse', delay: '250ms', rotate: 'rotate-6' },
+  { anim: 'animate-bounce', delay: '475ms', rotate: '-rotate-12' },
+  { anim: 'animate-pulse', delay: '600ms', rotate: 'rotate-12' },
+] as const
+
+/** Lucide `Sparkles` — staggered delays + mixed pulse/bounce so each reads independent. */
 export function PlushiesSparkles ({ compact = false }: PlushiesSparklesProps) {
-  const keys = compact
-    ? ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const)
-    : ([1, 2, 3, 4, 5, 6] as const)
+  const configs = compact ? CONFIGS_DENSE : CONFIGS
   const sizes = compact ? SIZES_POLAROID_DENSE : SIZES_FULL
-  const pulseClass =
-    'text-yellow-400 animate-pulse motion-reduce:animate-none motion-reduce:opacity-70'
-  const bounceClass =
-    'text-yellow-400 animate-bounce rotate-12 motion-reduce:animate-none motion-reduce:opacity-70'
 
   return (
     <span
       className={`cork-sparkles${compact ? ' cork-sparkles--polaroid cork-sparkles--polaroid-dense' : ''}`}
       aria-hidden
     >
-      {keys.map((n, i) => (
-        <span key={n} className={`cork-sparkles__shape cork-sparkles__shape--${n}`}>
+      {configs.map((cfg, i) => (
+        <span key={i} className={`cork-sparkles__shape cork-sparkles__shape--${i + 1}`}>
           <Sparkles
             size={sizes[i]}
             strokeWidth={1.75}
-            className={n === 5 ? bounceClass : pulseClass}
+            style={{ animationDelay: cfg.delay }}
+            className={`text-yellow-400 ${cfg.anim} ${cfg.rotate} motion-reduce:animate-none motion-reduce:opacity-70`}
           />
         </span>
       ))}
