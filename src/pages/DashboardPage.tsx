@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import Lottie from 'lottie-react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
@@ -169,6 +169,94 @@ function ScrapSticker ({
     <Link to={to} className={`scrap-sticker scrap-sticker--${tone}`}>
       <span className="scrap-sticker-title">{title}</span>
       <span className="scrap-sticker-sub">{sub}</span>
+    </Link>
+  )
+}
+
+type LogArchiveSheetKind = 'pain' | 'symptoms' | 'questions' | 'visit'
+
+const LOG_LONG_PRESS_MS = 550
+
+const LOG_ARCHIVE_SHEET: Record<LogArchiveSheetKind, { title: string; description: string; to: string; cta: string }> = {
+  pain: {
+    title: 'Pain log',
+    description: 'Browse and search your pain entries in Charts/Trends.',
+    to: '/app/charts-trends?tab=pain',
+    cta: 'Open pain log',
+  },
+  symptoms: {
+    title: 'Episode log',
+    description: 'Browse and search your episode entries in Charts/Trends.',
+    to: '/app/charts-trends?tab=symptoms',
+    cta: 'Open episode log',
+  },
+  questions: {
+    title: 'Questions',
+    description: 'Your saved questions for doctors.',
+    to: '/app/questions',
+    cta: 'Open questions',
+  },
+  visit: {
+    title: 'Visits',
+    description: 'All visit records and drafts.',
+    to: '/app/visits',
+    cta: 'Open visits',
+  },
+}
+
+function LogTodayTile ({
+  to,
+  className,
+  title,
+  sub,
+  kind,
+  onLongPress,
+  children,
+}: {
+  to: string
+  className: string
+  title: string
+  sub: string
+  kind: LogArchiveSheetKind
+  onLongPress: (k: LogArchiveSheetKind) => void
+  children: ReactNode
+}) {
+  const timerRef = useRef<number | null>(null)
+  const longPressConsumedRef = useRef(false)
+
+  function clearTimer () {
+    if (timerRef.current != null) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  return (
+    <Link
+      to={to}
+      state={{ backTo: '/app' }}
+      className={className}
+      onPointerDown={() => {
+        longPressConsumedRef.current = false
+        clearTimer()
+        timerRef.current = window.setTimeout(() => {
+          longPressConsumedRef.current = true
+          onLongPress(kind)
+        }, LOG_LONG_PRESS_MS)
+      }}
+      onPointerUp={clearTimer}
+      onPointerCancel={clearTimer}
+      onPointerLeave={clearTimer}
+      onClick={(e) => {
+        if (longPressConsumedRef.current) {
+          e.preventDefault()
+          longPressConsumedRef.current = false
+        }
+      }}
+    >
+      {children}
+      <span className="scrap-log-title">{title}</span>
+      <span className="scrap-log-sub">{sub}</span>
     </Link>
   )
 }
@@ -585,6 +673,7 @@ export function DashboardPage () {
   /** Meds / diagnoses for extract context (VisitTranscriber prompt). */
   const [transcriptExtractMeds, setTranscriptExtractMeds] = useState<string[]>([])
   const [transcriptExtractDiags, setTranscriptExtractDiags] = useState<string[]>([])
+  const [logArchiveSheet, setLogArchiveSheet] = useState<LogArchiveSheetKind | null>(null)
 
   useEffect(() => {
     if (!user?.id || !transcribeModalOpen) return
@@ -1695,6 +1784,63 @@ export function DashboardPage () {
         </div>
       )}
 
+      {logArchiveSheet && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="log-archive-sheet-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 210,
+            background: 'rgba(30,77,52,0.2)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setLogArchiveSheet(null)}
+        >
+          <div
+            className="card shadow"
+            style={{
+              maxWidth: 380,
+              width: '100%',
+              borderRadius: 16,
+              padding: 20,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="log-archive-sheet-title" style={{ margin: '0 0 8px', fontSize: '1.1rem' }}>
+              {LOG_ARCHIVE_SHEET[logArchiveSheet].title}
+            </h2>
+            <p className="muted" style={{ fontSize: '0.92rem', lineHeight: 1.5, margin: '0 0 18px' }}>
+              {LOG_ARCHIVE_SHEET[logArchiveSheet].description}
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link
+                className="btn btn-primary"
+                style={{ flex: 1, minWidth: 140, justifyContent: 'center', display: 'inline-flex' }}
+                to={LOG_ARCHIVE_SHEET[logArchiveSheet].to}
+                onClick={() => setLogArchiveSheet(null)}
+              >
+                {LOG_ARCHIVE_SHEET[logArchiveSheet].cta}
+              </Link>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1, minWidth: 100 }}
+                onClick={() => setLogArchiveSheet(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {allApptsSheetOpen && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
@@ -2041,26 +2187,46 @@ export function DashboardPage () {
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
         <div className="scrap-log-grid">
-          <Link to={`/app/log?tab=pain&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--pink">
+          <LogTodayTile
+            to={`/app/log?tab=pain&returnTo=${dashReturnTo}`}
+            className="scrap-log-tile scrap-log-tile--pink"
+            kind="pain"
+            title="Pain"
+            sub="Log a pain entry"
+            onLongPress={setLogArchiveSheet}
+          >
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
-            <span className="scrap-log-title">Pain</span>
-            <span className="scrap-log-sub">Log a pain entry</span>
-          </Link>
-          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--green">
+          </LogTodayTile>
+          <LogTodayTile
+            to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`}
+            className="scrap-log-tile scrap-log-tile--green"
+            kind="symptoms"
+            title="Episodes"
+            sub="Log an episode"
+            onLongPress={setLogArchiveSheet}
+          >
             <span className="scrap-tape scrap-tape--mint" aria-hidden />
-            <span className="scrap-log-title">Episodes</span>
-            <span className="scrap-log-sub">Log an episode</span>
-          </Link>
-          <Link to={`/app/log?tab=questions&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--blue">
+          </LogTodayTile>
+          <LogTodayTile
+            to={`/app/log?tab=questions&returnTo=${dashReturnTo}`}
+            className="scrap-log-tile scrap-log-tile--blue"
+            kind="questions"
+            title="Questions"
+            sub="Add for your doctor"
+            onLongPress={setLogArchiveSheet}
+          >
             <span className="scrap-tape scrap-tape--sky" aria-hidden />
-            <span className="scrap-log-title">Questions</span>
-            <span className="scrap-log-sub">Add for your doctor</span>
-          </Link>
-          <Link to={`/app/visits?new=1&returnTo=${dashReturnTo}`} state={{ backTo: '/app' }} className="scrap-log-tile scrap-log-tile--yellow">
+          </LogTodayTile>
+          <LogTodayTile
+            to={`/app/visits?new=1&returnTo=${dashReturnTo}`}
+            className="scrap-log-tile scrap-log-tile--yellow"
+            kind="visit"
+            title="Visit log"
+            sub="Record a visit"
+            onLongPress={setLogArchiveSheet}
+          >
             <span className="scrap-tape scrap-tape--butter" aria-hidden />
-            <span className="scrap-log-title">Visit log</span>
-            <span className="scrap-log-sub">Record a visit</span>
-          </Link>
+          </LogTodayTile>
         </div>
 
         <section className="scrap-handoff">
@@ -2082,6 +2248,8 @@ export function DashboardPage () {
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
           <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
+          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="Visit recordings" tone="lavender" />
+          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your list" tone="pink" />
         </div>
 
         <p className="scrap-dash-account-line">
