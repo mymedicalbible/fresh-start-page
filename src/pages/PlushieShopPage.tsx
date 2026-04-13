@@ -5,6 +5,7 @@ import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import {
   fetchGameState,
+  plushieNextMondayMidnightLocalMs,
   purchaseActivePlushie,
   plushieRotationTimezone,
   type ActivePlushie,
@@ -18,23 +19,6 @@ type CatalogRow = {
   name: string
   lottie_path: string
   slot_index: number
-}
-
-/**
- * Next Monday 00:00:00 in the browser’s local timezone — same weekly boundary as `game_get_state(p_tz)`.
- */
-function computeNextMondayMidnightLocalMs (from = Date.now()): number {
-  const now = new Date(from)
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dow = d.getDay()
-  let daysToMonday = (8 - dow) % 7
-  if (daysToMonday === 0) daysToMonday = 7
-  d.setDate(d.getDate() + daysToMonday)
-  d.setHours(0, 0, 0, 0)
-  if (d.getTime() <= now.getTime()) {
-    d.setDate(d.getDate() + 7)
-  }
-  return d.getTime()
 }
 
 function formatCountdown (remainingMs: number): { d: number; h: number; m: number; s: number } {
@@ -239,7 +223,7 @@ export function PlushieShopPage () {
 
   useEffect(() => {
     const tick = () => {
-      const target = computeNextMondayMidnightLocalMs()
+      const target = plushieNextMondayMidnightLocalMs()
       setCountdownRemainMs(Math.max(0, target - Date.now()))
     }
     tick()
@@ -249,7 +233,7 @@ export function PlushieShopPage () {
 
   const cd = useMemo(() => formatCountdown(countdownRemainMs), [countdownRemainMs])
 
-  const nextRotationAtMs = computeNextMondayMidnightLocalMs()
+  const nextRotationAtMs = plushieNextMondayMidnightLocalMs()
   const nextRotationLabel = new Date(nextRotationAtMs).toLocaleString(undefined, {
     weekday: 'long',
     month: 'short',

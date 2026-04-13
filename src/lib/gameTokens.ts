@@ -14,6 +14,24 @@ export function plushieRotationTimezone (): string {
   }
 }
 
+/**
+ * Next Monday 00:00:00.000 in the browser’s local timezone (matches shop countdown and Postgres
+ * `game_get_state(p_tz)` week boundaries).
+ */
+export function plushieNextMondayMidnightLocalMs (from = Date.now()): number {
+  const now = new Date(from)
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dow = d.getDay()
+  let daysToMonday = (8 - dow) % 7
+  if (daysToMonday === 0) daysToMonday = 7
+  d.setDate(d.getDate() + daysToMonday)
+  d.setHours(0, 0, 0, 0)
+  if (d.getTime() <= now.getTime()) {
+    d.setDate(d.getDate() + 7)
+  }
+  return d.getTime()
+}
+
 export type ActivePlushie = {
   id: string
   slug: string
@@ -35,7 +53,9 @@ export type GameStateResult =
   | { ok: false; error: string }
 
 export async function fetchGameState (): Promise<GameStateResult> {
-  const { data, error } = await supabase.rpc('game_get_state')
+  const { data, error } = await supabase.rpc('game_get_state', {
+    p_tz: plushieRotationTimezone(),
+  })
   if (error) return { ok: false, error: error.message }
   const row = data as { ok?: boolean; error?: string; balance?: number } | null
   if (!row || row.ok === false) return { ok: false, error: (row as { error?: string }).error ?? 'Unknown' }
