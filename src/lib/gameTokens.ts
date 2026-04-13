@@ -5,6 +5,15 @@ export function gameTokensEnabled (): boolean {
   return import.meta.env.VITE_GAME_TOKENS_ENABLED !== 'false'
 }
 
+/** IANA zone for weekly plushie rotation (must match `game_get_state` / `game_purchase_active_plushie`). */
+export function plushieRotationTimezone (): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
 export type ActivePlushie = {
   id: string
   slug: string
@@ -37,7 +46,7 @@ export async function purchaseActivePlushie (): Promise<
   | { ok: true; spent: number; balance_after: number }
   | { ok: false; error: string; balance?: number; needed?: number }
 > {
-  const { data, error } = await supabase.rpc('game_purchase_active_plushie')
+  const { data, error } = await supabase.rpc('game_purchase_active_plushie', { p_tz: plushieRotationTimezone() })
   if (error) return { ok: false, error: error.message }
   const row = data as Record<string, unknown>
   if (row.ok === false) {

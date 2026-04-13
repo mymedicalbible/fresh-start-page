@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import {
   fetchGameState,
   purchaseActivePlushie,
+  plushieRotationTimezone,
   type ActivePlushie,
 } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
@@ -18,27 +19,21 @@ type CatalogRow = {
   slot_index: number
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 /**
- * Next time the weekly slot advances — matches Postgres `game_get_state`:
- * `slot := mod((current_date - anchor) / 7, 5)` using **UTC** calendar days (same as Supabase `current_date`).
- * Reset occurs at **00:00:00 UTC** on that boundary (not “next Monday” in local time unless it lines up).
+ * Next Monday 00:00:00 in the browser’s local timezone — same weekly boundary as `game_get_state(p_tz)`.
  */
-function computeNextRotationUtcMs (anchorStr: string): number | null {
-  try {
-    const parts = anchorStr.trim().split('-').map(Number)
-    if (parts.length !== 3 || parts.some(Number.isNaN)) return null
-    const [y, mo, d] = parts
-    const anchor = new Date(Date.UTC(y, mo - 1, d))
-    const now = new Date()
-    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const daysSince = Math.floor((todayUtc.getTime() - anchor.getTime()) / DAY_MS)
-    const weeksElapsed = Math.floor(daysSince / 7)
-    return anchor.getTime() + (weeksElapsed + 1) * 7 * DAY_MS
-  } catch {
-    return null
+function computeNextMondayMidnightLocalMs (from = Date.now()): number {
+  const now = new Date(from)
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dow = d.getDay()
+  let daysToMonday = (8 - dow) % 7
+  if (daysToMonday === 0) daysToMonday = 7
+  d.setDate(d.getDate() + daysToMonday)
+  d.setHours(0, 0, 0, 0)
+  if (d.getTime() <= now.getTime()) {
+    d.setDate(d.getDate() + 7)
   }
+  return d.getTime()
 }
 
 function formatCountdown (remainingMs: number): { d: number; h: number; m: number; s: number } {
@@ -161,17 +156,15 @@ export function PlushieShopPage () {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
-  const [rotationAnchorStr, setRotationAnchorStr] = useState<string | null>(null)
   const [countdownRemainMs, setCountdownRemainMs] = useState(0)
   const [myPlushiesOpen, setMyPlushiesOpen] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
-    const [state, cat, un, cfg] = await Promise.all([
+    const [state, cat, un] = await Promise.all([
       fetchGameState(),
       supabase.from('plushie_catalog').select('id, slug, name, lottie_path, slot_index').order('slot_index'),
       supabase.from('user_plushie_unlocks').select('plushie_id'),
-      supabase.from('game_config').select('value').eq('key', 'rotation_anchor').maybeSingle(),
     ])
     if (cat.error) {
       setError(cat.error.message)
@@ -184,8 +177,6 @@ export function PlushieShopPage () {
     }
     const ids = new Set((un.data ?? []).map((r: { plushie_id: string }) => r.plushie_id))
     setUnlockedIds(ids)
-
-    setRotationAnchorStr(!cfg.error && cfg.data?.value ? cfg.data.value : null)
 
     if (!state.ok) {
       setError(state.error)
@@ -235,40 +226,26 @@ export function PlushieShopPage () {
   }, [myPlushiesOpen])
 
   useEffect(() => {
-    if (!rotationAnchorStr) {
-      setCountdownRemainMs(0)
-      return
-    }
     const tick = () => {
-      const target = computeNextRotationUtcMs(rotationAnchorStr)
-      if (target == null) {
-        setCountdownRemainMs(0)
-        return
-      }
+      const target = computeNextMondayMidnightLocalMs()
       setCountdownRemainMs(Math.max(0, target - Date.now()))
     }
     tick()
     const id = window.setInterval(tick, 1000)
     return () => window.clearInterval(id)
-  }, [rotationAnchorStr])
+  }, [])
 
   const cd = useMemo(() => formatCountdown(countdownRemainMs), [countdownRemainMs])
 
-  const nextRotationAtMs = useMemo(() => {
-    if (!rotationAnchorStr) return null
-    return computeNextRotationUtcMs(rotationAnchorStr)
-  }, [rotationAnchorStr])
-
-  const nextRotationLabel = useMemo(() => {
-    if (nextRotationAtMs == null) return null
-    return new Date(nextRotationAtMs).toLocaleString(undefined, {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }, [nextRotationAtMs])
+  const nextRotationAtMs = computeNextMondayMidnightLocalMs()
+  const nextRotationLabel = new Date(nextRotationAtMs).toLocaleString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const rotationTzLabel = plushieRotationTimezone()
 
   const unlockedPlushies = useMemo(
     () => catalog.filter((p) => unlockedIds.has(p.id)),
@@ -428,20 +405,18 @@ export function PlushieShopPage () {
         </section>
       )}
 
-      {rotationAnchorStr && (
-        <section className="plush-shop-next-card" aria-labelledby="plush-shop-next-heading">
+      <section className="plush-shop-next-card" aria-labelledby="plush-shop-next-heading">
           <h3 id="plush-shop-next-heading" className="plush-shop-next-title">Coming next week…</h3>
           <div className="plush-shop-mystery-box">
             <PlushMysteryGiftSvg />
           </div>
           <p className="plush-shop-next-line">A new friend is hiding in the box!</p>
           <p className="plush-shop-next-line plush-shop-next-line--sub">Come back when the timer hits zero to find out who.</p>
-          {nextRotationLabel != null && nextRotationAtMs != null && countdownRemainMs > 0 && (
+          {countdownRemainMs > 0 && (
             <p className="plush-shop-next-line plush-shop-next-line--sub">
-              Next weekly reset:{' '}
+              Next weekly reset (Monday 12:00 AM{' '}
+              <span className="muted">{rotationTzLabel}</span>):{' '}
               <time dateTime={new Date(nextRotationAtMs).toISOString()}>{nextRotationLabel}</time>
-              {' '}
-              <span className="muted" style={{ fontSize: '0.88em' }}>(your time · same schedule as the server)</span>
             </p>
           )}
           <div className="plush-shop-countdown" role="timer" aria-live="polite" aria-atomic="true">
@@ -463,7 +438,6 @@ export function PlushieShopPage () {
             </div>
           </div>
         </section>
-      )}
 
       <button
         type="button"
