@@ -24,6 +24,7 @@ Run migrations in **timestamp order** (folder `supabase/migrations/`). Plush-rel
 | `20260416170000_plushie_turtle_name_oneal.sql` | O’Neal turtle display name. |
 | `20260418100000_plushie_next_week_rpc_and_copy.sql` | `next_week_plushie` in JSON; `rotation_anchor` + stub names; **`mod(..., 5)`** in this file’s `game_get_state`. |
 | `20260420150000_plushie_seven_slot_catalog_and_rpc.sql` | **Seven slots (0–6):** constraint, six new plush rows + **unchanged slot 0 turtle**, **`mod(..., 7)`**, purchase RPC aligned. |
+| `20260422100000_plushie_spotlight_override_and_anchor.sql` | Optional `game_config.plushie_spotlight_slot` (**0–6** or empty); RPCs respect override; re-anchors `rotation_anchor`; hardens slot 0 turtle + slot 1 vs rustle. |
 
 **Authoritative RPC bodies** after full migration chain: **latest** `CREATE OR REPLACE` wins — currently **7-slot** logic lives in `20260420150000_*` for `game_get_state` and `game_purchase_active_plushie`.
 

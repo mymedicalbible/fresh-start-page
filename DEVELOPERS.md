@@ -261,14 +261,15 @@ Use the same pipeline for **every** plushie—there are no turtle-specific branc
 
 #### How rotation works (brief)
 
-- `plushie_catalog` has up to **five** rows with distinct `slot_index` values **0–4**.
-- Each ISO week, `game_get_state(p_tz)` / `game_purchase_active_plushie(p_tz)` pick **one** row: `slot := mod((week_monday - anchor_monday) / 7, 5)` vs `rotation_anchor` in `game_config` (see `20260413103000_plushie_rotation_monday_local_tz.sql`). That row is **this week’s** shop plush.
+- `plushie_catalog` has rows with distinct `slot_index` values **0–6** (seven-slot rotation; see `20260420150000_plushie_seven_slot_catalog_and_rpc.sql`).
+- Each ISO week, `game_get_state(p_tz)` / `game_purchase_active_plushie(p_tz)` pick **one** row: `slot := mod((week_monday - anchor_monday) / 7, 7)` using `rotation_anchor` in `game_config` and the browser timezone (`p_tz`). That row is **this week’s** shop plush.
+- Optional **content override**: if `game_config.plushie_spotlight_slot` is a single digit **0–6** (non-empty), that catalog `slot_index` is used instead of the weekly math for both read and purchase; leave **empty** for normal rotation (`20260422100000_plushie_spotlight_override_and_anchor.sql`).
 - Purchasing inserts into `user_plushie_unlocks`. **My Plushies** and dashboard **“A plush from my collection”** use unlocks + catalog IDs—same for all plushies.
 
 #### Checklist when implementing a new plushie
 
 1. **Asset** — Add a real Lottie JSON or `.lottie` under [`public/lottie/`](public/lottie/) (or another URL you control). **Do not** point production catalog rows at the trial placeholder files `/lottie/plushie-0.json` … `plushie-4.json`; the client treats those as non-display placeholders (`isPlaceholderLottiePath`).
-2. **Catalog** — Ship a **forward-only migration** that `INSERT`s or `UPDATE`s `plushie_catalog` with the correct `slug`, **`name` (approved copy)**, `lottie_path`, and **`slot_index`** (0–4). Respect existing unique constraints on `slug` and `slot_index`.
+2. **Catalog** — Ship a **forward-only migration** that `INSERT`s or `UPDATE`s `plushie_catalog` with the correct `slug`, **`name` (approved copy)**, `lottie_path`, and **`slot_index`** (0–6). Respect existing unique constraints on `slug` and `slot_index`.
 3. **Optional copy-only migration** — If you only need to rename an existing slug, a small `UPDATE … WHERE slug = '…'` migration is enough.
 4. **RPCs** — Ensure **`game_get_state(text)`** and **`game_purchase_active_plushie(text)`** exist on the project so the client can pass `p_tz` (browser IANA zone). Older DBs without those signatures fall back in the client, but rotation then follows **UTC** until migrated.
 5. **Client behavior (already centralized—do not fork per plushie)**:
