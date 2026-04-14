@@ -320,7 +320,7 @@ button, input, select, textarea { font: inherit; }
   font-family: 'Nothing You Could Do', cursive;
   font-weight: 400;
   transition: color 0.15s ease;
-  font-size: clamp(1.05rem, 4.5vw, 1.65rem);
+  font-size: clamp(2.1rem, 9vw, 3.3rem);
   line-height: 1.8;
   color: rgba(28, 28, 46, 0.82);
 }
