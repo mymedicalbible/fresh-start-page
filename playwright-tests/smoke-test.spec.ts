@@ -1,3 +1,7 @@
+/**
+ * Smoke tests only: unauthenticated redirect, sign-in, dashboard sections, quick-log pain step,
+ * doctors/meds and analytics headings. Does not cover uploads, summaries, transcripts, push, or full auth edge cases.
+ */
 import { test, expect } from '@playwright/test'
 
 /** App + HTML title use Medical Bible; older deploys may still show Medical Tracker. */

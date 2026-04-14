@@ -172,6 +172,9 @@ function buildSingleFileIntro (totalFiles, orderedAbs) {
   lines.push('README.md and DEVELOPERS.md appear first as FILE: sections, then all other paths A–Z.\n')
   lines.push(`Embedded files: ${totalFiles}. First FILE: ${spFirst} — Last FILE: ${spLast}\n`)
   lines.push(`Excluded: node_modules, dist, .git, exports, caches, non-text binaries.\n`)
+  lines.push(
+    'Each FILE block matches the repo on disk (UTF-8). If a pasted excerpt looks wrong (e.g. imports), open that path in the project.\n',
+  )
   lines.push(`${'='.repeat(72)}\n\n`)
   return lines.join('')
 }
