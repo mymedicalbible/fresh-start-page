@@ -43,11 +43,23 @@ const TEXT_EXT = new Set([
   '.example',
 ])
 
+/** Dotfiles and license at any depth (useful for restore / tooling). */
+const EXTRA_NAMES = new Set([
+  '.gitignore',
+  '.editorconfig',
+  '.npmrc',
+  '.nvmrc',
+  'LICENSE',
+  'LICENSE.md',
+  'AGENTS.md',
+])
+
 function shouldIncludeFile (relPosix, baseName) {
   if (baseName.endsWith('.map')) return false
   if (relPosix === '' || relPosix === '.') return false
   if (!relPosix.includes('/') && SKIP_ROOT_FILES.has(baseName)) return false
   if (relPosix.startsWith('supabase/.temp/')) return false
+  if (EXTRA_NAMES.has(baseName)) return true
   const ext = path.extname(baseName)
   if (TEXT_EXT.has(ext)) return true
   if (baseName === 'Dockerfile' || baseName === 'Caddyfile') return true
