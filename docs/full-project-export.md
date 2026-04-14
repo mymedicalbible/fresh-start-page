@@ -12,7 +12,7 @@ This **overwrites** exactly:
 
 **`exports/ALL_CODE_AND_SQL.txt`**
 
-That file concatenates essentially all typed source, SQL, configs, Markdown, YAML workflows, manifests, and related text assets. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
+That file concatenates essentially all typed source, SQL, configs, Markdown, YAML workflows, manifests, and related text assets. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions. **`FILE:` paths match the repo on disk**—if a pasted line looks wrong (e.g. imports), open the same path in the project; the export is UTF-8 concatenation only.
 
 Order inside the file:
 

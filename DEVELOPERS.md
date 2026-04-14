@@ -71,24 +71,32 @@ The UI uses a **pastel, accessible theme** (mint, butter, sky, blush) defined in
 
 ## Routes
 
+Aligned with [`src/App.tsx`](src/App.tsx): `/app` and nested routes are wrapped in `<Protected>` (redirect to `/login` if not signed in).
+
 | Path | Page |
 |------|------|
-| `/`, `*` | Redirect to `/app` |
+| `/` | Redirect to `/login` |
 | `/login` | Login |
+| `*` (outside `/app`) | Not found (top-level) |
 | `/app` | Dashboard (home) |
 | `/app/log` | Quick log |
-| `/app/archives` | Archives hub |
-| `/app/charts-trends` | Records hub (canonical with bottom nav) |
-| `/app/records` | Records hub (alias) |
-| `/app/flares` | Redirects to `/app/charts-trends` |
+| `/app/archives` | Redirect to `/app` |
+| `/app/charts-trends`, `/app/records` | Records hub |
+| `/app/flares` | Redirect to `/app/charts-trends` |
 | `/app/analytics` | Analytics |
 | `/app/meds` | Medications |
-| `/app/doctors` | Doctor list |
-| `/app/doctors/:id` | Doctor profile |
+| `/app/doctors`, `/app/doctors/:id` | Doctors / doctor profile |
 | `/app/tests` | Tests & orders |
 | `/app/questions` | Questions |
 | `/app/diagnoses` | Diagnoses |
 | `/app/visits` | Visits / visit wizard |
+| `/app/appointments` | Appointments |
+| `/app/transcripts` | Transcripts |
+| `/app/solo-record` | Solo recording |
+| `/app/more` | More |
+| `/app/profile` | Profile |
+| `/app/plushies`, `/app/plushies/mine` | Plushie shop / mine (or redirect to `/app` when feature off) |
+| `/app/*` (unknown) | Not found (in-app) |
 
 ---
 
@@ -404,7 +412,8 @@ If you do not deploy the function, the app **still works** with the built-in nar
 
 ## Security and compliance
 
-- This README is **not legal advice**. HIPAA, GDPR, and regional health-privacy rules may apply depending on how you host and who uses the app.
+- **Privacy and local data:** See **[README.md — Where your data lives](./README.md#where-your-data-lives)** and **[README.md — Privacy and third-party services](./README.md#privacy-and-third-party-services)**. Summaries/transcript archives and some UI state use **browser `localStorage`**; optional AI/transcription sends data through **Edge Functions** to configured vendors (Anthropic, OpenAI, AssemblyAI). Do not assume all health data stays only in Supabase or only on servers you control without reading those sections.
+- This document is **not legal advice**. HIPAA, GDPR, and regional health-privacy rules may apply depending on how you host and who uses the app.
 - Use **HTTPS**, strong passwords, and **RLS** on all user tables.
 - Prefer **Edge Functions** (or another server) for third-party AI keys.
 - If the repo lives in **OneDrive/iCloud**, occasional file-sync conflicts in `node_modules` can break installs; clean reinstall or exclude `node_modules` from sync.
@@ -468,7 +477,7 @@ package.json
 | `npm run test:e2e` | Playwright tests |
 | `npm run assets:more-grass` | Rebuild **`public/more-grass-footer.png`** from **`public/more-grass-footer.source.png`** (edge flood-fill: near-white pixels connected to top/left/right edges → transparent). Run after replacing the source artwork. |
 
-**Playwright** is listed in `devDependencies`; use `test:e2e` for the configured E2E suite.
+**Playwright** is listed in `devDependencies`; use `test:e2e` for the configured E2E suite. Coverage is **smoke-level** only—see **[README.md — Before inviting testers](./README.md#before-inviting-testers)** for deployment checklist and realistic expectations.
 
 ### Full codebase text export
 

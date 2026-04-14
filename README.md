@@ -27,6 +27,15 @@ Medical Bible is a browser-based personal health journal for tracking pain, symp
 
 Use the same site URL (e.g. production vs `localhost`) and browser, or archived summaries/transcripts will not appear—they are not synced to the cloud in the current app.
 
+### Privacy and third-party services
+
+Read this before storing sensitive information on a device or enabling optional cloud/AI features.
+
+- **Not “cloud-only.”** Archived handoff summaries and archived transcripts live in **browser storage** (`localStorage`) for this site origin, in addition to whatever you store in Supabase. **Shared computers, cleared site data, another browser profile, or a different URL** (e.g. preview vs production) can hide or wipe that local data—or leave it behind for the next user of the device.
+- **Other local state.** Some UI preferences and draft-style fields (for example handoff **patient focus** text) may also persist in `localStorage` on this device. Treat it like sensitive notes on the machine.
+- **Optional AI and transcription.** If you enable features that call **Edge Functions**, payloads may be processed server-side; **`generate-summary`** can call **Anthropic** and/or **OpenAI** (per your secrets), and **`transcribe-visit`** uses **AssemblyAI**. Do **not** use those flows for information that must never leave your control or reach third-party APIs unless you accept their terms and your own compliance obligations.
+- **What this app is not.** Medical Bible is a **personal health organizer** for you and your care team’s coordination. It is **not** a certified medical device, a HIPAA-covered product, or a substitute for a BAA with a vendor—unless **you** put that in place for your deployment.
+
 ---
 
 ## Time display
@@ -130,6 +139,18 @@ npm run export:txt
 **Output (overwritten each run):** `exports/ALL_CODE_AND_SQL.txt`. It opens with an index, then **`README.md` and `DEVELOPERS.md` as the first `FILE:` sections**, then the rest of the repo in alphabetical path order.
 
 Details: [`docs/full-project-export.md`](docs/full-project-export.md).
+
+---
+
+## Before inviting testers
+
+Use this checklist so the environment matches what you expect; **wrong Supabase project or missing migrations** is the most common cause of “broken” features.
+
+- **Same Supabase project everywhere:** Production (or preview) host **must** use the same `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as the database you `db push` migrations to.
+- **Migrations applied:** Run `npm run supabase:push` (or your equivalent) against that project so **all** files under `supabase/migrations/` are applied—including safety-net RLS (e.g. `20260427120000_*` if present). Schema drift shows up as missing columns or RLS surprises.
+- **Edge secrets (if you use those features):** LLM keys for **`generate-summary`**, **`ASSEMBLYAI_API_KEY`** for **`transcribe-visit`**, VAPID + **`PUSH_REMINDER_CRON_TOKEN`** for **`push-reminders`**, as documented in [DEVELOPERS.md](./DEVELOPERS.md).
+- **Build:** `npm run build` should succeed on the branch you ship.
+- **Automated tests:** `npm run test:e2e` is **smoke-level** (dashboard, quick log, a few routes, etc.). It does **not** fully exercise auth edge cases, uploads, every summary/transcript path, push reminders, or migration rollback—plan manual checks for anything critical to your testers.
 
 ---
 
