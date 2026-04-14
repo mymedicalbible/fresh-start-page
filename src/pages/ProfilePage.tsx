@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Lottie from 'lottie-react'
 import type { User } from '@supabase/supabase-js'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,6 +20,14 @@ import {
   type ManualWeatherLocation,
   type WeatherLocationMode,
 } from '../lib/weatherLocationSettings'
+import {
+  AVATAR_CROP_VIEWPORT_PX,
+  clampPan,
+  coverScaleForViewport,
+  extensionForMime,
+  loadImageFromUrl,
+  renderCroppedAvatarBlob,
+} from '../lib/avatarImage'
 
 function PandaLottieLoop ({
   data,
@@ -122,6 +130,37 @@ export function ProfilePage () {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [avatarCropOpen, setAvatarCropOpen] = useState(false)
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null)
+  const [cropIw, setCropIw] = useState(0)
+  const [cropIh, setCropIh] = useState(0)
+  const [cropZoom, setCropZoom] = useState(1)
+  const [cropPan, setCropPan] = useState({ x: 0, y: 0 })
+  const [cropImageBusy, setCropImageBusy] = useState(false)
+  const [cropImageError, setCropImageError] = useState<string | null>(null)
+  const cropDragRef = useRef<{ active: boolean; lastX: number; lastY: number }>({
+    active: false,
+    lastX: 0,
+    lastY: 0,
+  })
+  const cropPanRef = useRef(cropPan)
+  cropPanRef.current = cropPan
+
+  const closeCropModal = useCallback(() => {
+    setAvatarCropOpen(false)
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    setCropIw(0)
+    setCropIh(0)
+    setCropZoom(1)
+    setCropPan({ x: 0, y: 0 })
+    setCropImageError(null)
+    setCropImageBusy(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [])
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -290,6 +329,50 @@ export function ProfilePage () {
     }
   }, [placeQuery])
 
+  useEffect(() => {
+    if (!avatarCropOpen || !cropObjectUrl) return
+    let cancelled = false
+    setCropImageBusy(true)
+    setCropImageError(null)
+    setCropIw(0)
+    setCropIh(0)
+    void loadImageFromUrl(cropObjectUrl)
+      .then((img) => {
+        if (cancelled) return
+        setCropIw(img.naturalWidth)
+        setCropIh(img.naturalHeight)
+        setCropZoom(1)
+        setCropPan({ x: 0, y: 0 })
+      })
+      .catch(() => {
+        if (!cancelled) setCropImageError('Could not load this image.')
+      })
+      .finally(() => {
+        if (!cancelled) setCropImageBusy(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [avatarCropOpen, cropObjectUrl])
+
+  useEffect(() => {
+    if (!cropIw || !cropIh) return
+    const { x, y } = cropPanRef.current
+    const c = clampPan(cropIw, cropIh, AVATAR_CROP_VIEWPORT_PX, cropZoom, x, y)
+    if (c.panX !== x || c.panY !== y) {
+      setCropPan({ x: c.panX, y: c.panY })
+    }
+  }, [cropZoom, cropIw, cropIh])
+
+  useEffect(() => {
+    if (!avatarCropOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeCropModal()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [avatarCropOpen, closeCropModal])
+
   async function onChangePassword () {
     setAccountBanner(null)
     if (!email) {
@@ -326,7 +409,7 @@ export function ProfilePage () {
     else setAccountBanner('If your project requires it, check both inboxes to confirm the new email.')
   }
 
-  async function onPickAvatarFile (file: File | null) {
+  function onPickAvatarFile (file: File | null) {
     if (!user || !file || avatarUploading) return
     const fileType = file.type.toLowerCase()
     const allowed = ['image/jpeg', 'image/png', 'image/webp']
@@ -334,24 +417,34 @@ export function ProfilePage () {
       setAccountBanner('Use JPG, PNG, or WEBP for profile photo.')
       return
     }
-    const maxBytes = 2 * 1024 * 1024
-    if (file.size > maxBytes) {
-      setAccountBanner('Profile photo must be 2MB or smaller.')
-      return
-    }
-    const ext = fileType === 'image/png'
-      ? 'png'
-      : fileType === 'image/webp'
-        ? 'webp'
-        : 'jpg'
-    const objectPath = `${user.id}/avatar.${ext}`
+    setAccountBanner(null)
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
+    setAvatarCropOpen(true)
+  }
+
+  async function onConfirmAvatarCrop () {
+    if (!user || !cropObjectUrl || avatarUploading || !cropIw || !cropIh) return
     setAvatarUploading(true)
     setAccountBanner(null)
     try {
+      const img = await loadImageFromUrl(cropObjectUrl)
+      const { blob, mime } = await renderCroppedAvatarBlob(img, {
+        iw: cropIw,
+        ih: cropIh,
+        viewportPx: AVATAR_CROP_VIEWPORT_PX,
+        zoom: cropZoom,
+        panX: cropPan.x,
+        panY: cropPan.y,
+      })
+      const ext = extensionForMime(mime)
+      const objectPath = `${user.id}/avatar.${ext}`
       const { error: upErr } = await supabase
         .storage
         .from('profile-icons')
-        .upload(objectPath, file, { upsert: true, contentType: fileType, cacheControl: '3600' })
+        .upload(objectPath, blob, { upsert: true, contentType: mime, cacheControl: '3600' })
       if (upErr) {
         setAccountBanner(upErr.message)
         return
@@ -364,12 +457,40 @@ export function ProfilePage () {
         setAccountBanner(profileErr.message)
         return
       }
+      closeCropModal()
       await loadProfileAvatar()
       setAccountBanner('Profile photo updated.')
+    } catch (e) {
+      setAccountBanner(e instanceof Error ? e.message : 'Could not save profile photo.')
     } finally {
       setAvatarUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  function onCropPointerDown (e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    cropDragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onCropPointerMove (e: React.PointerEvent<HTMLDivElement>) {
+    if (!cropDragRef.current.active || !cropIw || !cropIh) return
+    const dx = e.clientX - cropDragRef.current.lastX
+    const dy = e.clientY - cropDragRef.current.lastY
+    cropDragRef.current.lastX = e.clientX
+    cropDragRef.current.lastY = e.clientY
+    setCropPan((p) => {
+      const c = clampPan(cropIw, cropIh, AVATAR_CROP_VIEWPORT_PX, cropZoom, p.x + dx, p.y + dy)
+      return { x: c.panX, y: c.panY }
+    })
+  }
+
+  function onCropPointerUp (e: React.PointerEvent<HTMLDivElement>) {
+    cropDragRef.current.active = false
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch { /* ignore */ }
   }
 
   async function onRemoveProfilePhoto () {
@@ -402,6 +523,12 @@ export function ProfilePage () {
   }
 
   if (!user) return null
+
+  const cropV = AVATAR_CROP_VIEWPORT_PX
+  const cropCover = cropIw > 0 && cropIh > 0 ? coverScaleForViewport(cropIw, cropIh, cropV) : 0
+  const cropScale = cropCover * cropZoom
+  const cropDispW = cropIw * cropScale
+  const cropDispH = cropIh * cropScale
 
   const nameLower = displayNameFromUser(user).toLowerCase()
   const memberSince = memberSinceLabel(user)
@@ -714,7 +841,7 @@ export function ProfilePage () {
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="scrap-account-avatar-file-input"
-            onChange={(e) => void onPickAvatarFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => onPickAvatarFile(e.target.files?.[0] ?? null)}
           />
           <button
             type="button"
@@ -725,7 +852,7 @@ export function ProfilePage () {
             <div>
               <div className="scrap-account-action-title">upload profile photo</div>
               <div className="scrap-account-action-sub">
-                {avatarUploading ? 'uploading…' : 'JPG, PNG, WEBP up to 2MB'}
+                {avatarUploading ? 'uploading…' : 'JPG, PNG, WEBP — crop & resize in app'}
               </div>
             </div>
             <span aria-hidden className="scrap-account-chevron">›</span>
@@ -838,6 +965,99 @@ export function ProfilePage () {
             >
               cancel
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {avatarCropOpen ? (
+        <div
+          className="scrap-avatar-crop-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeCropModal()
+          }}
+        >
+          <div
+            className="scrap-avatar-crop-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scrap-avatar-crop-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="scrap-avatar-crop-title" className="scrap-avatar-crop-title">
+              Crop profile photo
+            </h3>
+            <p className="scrap-avatar-crop-lead">
+              Drag to move. Use zoom to frame your face. Saved as 1024×1024.
+            </p>
+            <div
+              className="scrap-avatar-crop-viewport"
+              style={{ width: cropV, height: cropV }}
+              onPointerDown={onCropPointerDown}
+              onPointerMove={onCropPointerMove}
+              onPointerUp={onCropPointerUp}
+              onPointerCancel={onCropPointerUp}
+            >
+              {cropImageBusy && (
+                <div className="scrap-avatar-crop-loading">Loading…</div>
+              )}
+              {cropImageError && (
+                <div className="scrap-avatar-crop-error" role="alert">
+                  {cropImageError}
+                </div>
+              )}
+              {!cropImageBusy && !cropImageError && cropObjectUrl && cropIw > 0 && (
+                <div
+                  className="scrap-avatar-crop-image-wrap"
+                  style={{
+                    width: cropDispW,
+                    height: cropDispH,
+                    left: (cropV - cropDispW) / 2 + cropPan.x,
+                    top: (cropV - cropDispH) / 2 + cropPan.y,
+                  }}
+                >
+                  <img src={cropObjectUrl} alt="" draggable={false} className="scrap-avatar-crop-img" />
+                </div>
+              )}
+            </div>
+            <div className="scrap-avatar-crop-zoom">
+              <label htmlFor="scrap-avatar-crop-zoom-range" className="scrap-avatar-crop-zoom-label">
+                Zoom
+              </label>
+              <input
+                id="scrap-avatar-crop-zoom-range"
+                type="range"
+                min={1}
+                max={3}
+                step={0.02}
+                value={cropZoom}
+                onChange={(e) => setCropZoom(Number(e.target.value))}
+                className="scrap-avatar-crop-zoom-range"
+              />
+            </div>
+            <div className="scrap-avatar-crop-actions">
+              <button
+                type="button"
+                className="scrap-avatar-crop-btn scrap-avatar-crop-btn--ghost"
+                onClick={closeCropModal}
+                disabled={avatarUploading}
+              >
+                cancel
+              </button>
+              <button
+                type="button"
+                className="scrap-avatar-crop-btn scrap-avatar-crop-btn--primary"
+                disabled={
+                  avatarUploading
+                  || cropImageBusy
+                  || !!cropImageError
+                  || !cropIw
+                }
+                onClick={() => void onConfirmAvatarCrop()}
+              >
+                {avatarUploading ? 'saving…' : 'save'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
