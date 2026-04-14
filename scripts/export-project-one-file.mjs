@@ -1,7 +1,7 @@
 /**
- * THREE text files in exports/: ALL app source + Supabase SQL + configs (no node_modules / dist).
- * Output paths: exports/1.txt, exports/2.txt, exports/3.txt (overwritten each run).
- * Part 1 holds the migration index / front matter; parts 2–3 continue the same FILE: sections.
+ * ONE text file in exports/: ALL app source + Supabase SQL + configs (no node_modules / dist).
+ * Output: exports/ALL_CODE_AND_SQL.txt (overwritten each run).
+ * README.md and DEVELOPERS.md are emitted first (after index) for easier review.
  * Run: npm run export:txt
  */
 import fs from 'node:fs/promises'
@@ -56,6 +56,10 @@ const EXTRA_NAMES = new Set([
   'AGENTS.md',
 ])
 
+function relPath (abs) {
+  return path.relative(root, abs).replace(/\\/g, '/')
+}
+
 function shouldIncludeFile (relPosix, baseName) {
   if (baseName.endsWith('.map')) return false
   if (relPosix === '' || relPosix === '.') return false
@@ -69,7 +73,7 @@ function shouldIncludeFile (relPosix, baseName) {
 }
 
 function buildFrontMatter (filesAbs) {
-  const rels = filesAbs.map((a) => path.relative(root, a).replace(/\\/g, '/'))
+  const rels = filesAbs.map((a) => relPath(a))
   const migrations = rels.filter((r) => r.startsWith('supabase/migrations/') && r.endsWith('.sql')).sort()
   const supabaseLoose = rels.filter((r) => r.startsWith('supabase/') && r.endsWith('.sql') && !r.startsWith('supabase/migrations/')).sort()
   const plushieMigs = migrations.filter((r) =>
@@ -78,7 +82,7 @@ function buildFrontMatter (filesAbs) {
   const lines = []
   lines.push('FRONT MATTER — SQL index + key topics (read this first)\n')
   lines.push(`${'─'.repeat(72)}\n`)
-  lines.push('Regenerate: npm run export:txt → exports/1.txt, 2.txt, 3.txt — see docs/full-project-export.md\n')
+  lines.push('Regenerate: npm run export:txt → exports/ALL_CODE_AND_SQL.txt — see docs/full-project-export.md\n')
   lines.push('Plushie system (optional): docs/plushie-system-export.md (embedded later in this dump)\n')
   lines.push(`${'─'.repeat(72)}\n`)
   lines.push('Supabase Edge Functions in this repo:\n')
@@ -105,6 +109,22 @@ function buildFrontMatter (filesAbs) {
   return lines.join('')
 }
 
+/** README + DEVELOPERS first, then remaining paths in alphabetical order. */
+function orderForExport (sortedAbs) {
+  const pick = (name) => sortedAbs.find((a) => relPath(a) === name)
+  const readme = pick('README.md')
+  const dev = pick('DEVELOPERS.md')
+  const rest = sortedAbs.filter((a) => {
+    const r = relPath(a)
+    return r !== 'README.md' && r !== 'DEVELOPERS.md'
+  })
+  const ordered = []
+  if (readme) ordered.push(readme)
+  if (dev) ordered.push(dev)
+  ordered.push(...rest)
+  return ordered
+}
+
 async function collectFiles (dir, files, relBase = root) {
   let entries
   try {
@@ -124,10 +144,9 @@ async function collectFiles (dir, files, relBase = root) {
   }
 }
 
-/** Append FILE: sections for a slice of absolute paths. */
 async function appendFileSections (chunks, absFiles) {
   for (const abs of absFiles) {
-    const rel = path.relative(root, abs).replace(/\\/g, '/')
+    const rel = relPath(abs)
     let body
     try {
       body = await fs.readFile(abs, 'utf8')
@@ -143,52 +162,16 @@ async function appendFileSections (chunks, absFiles) {
   }
 }
 
-function splitIntoThree (sortedAbs) {
-  const n = sortedAbs.length
-  const i1 = Math.ceil(n / 3)
-  const i2 = Math.ceil((2 * n) / 3)
-  return [
-    sortedAbs.slice(0, i1),
-    sortedAbs.slice(i1, i2),
-    sortedAbs.slice(i2),
-  ]
-}
-
-function relPath (abs) {
-  return path.relative(root, abs).replace(/\\/g, '/')
-}
-
-/** First and last path in a slice (sorted paths = alphabetical). */
-function spanLabel (sliceAbs) {
-  if (sliceAbs.length === 0) return { first: '(none)', last: '(none)' }
-  return { first: relPath(sliceAbs[0]), last: relPath(sliceAbs[sliceAbs.length - 1]) }
-}
-
-function buildReadOrderGuide (total, part1, part2, part3) {
-  const s1 = spanLabel(part1)
-  const s2 = spanLabel(part2)
-  const s3 = spanLabel(part3)
+function buildSingleFileIntro (totalFiles, orderedAbs) {
+  const spFirst = relPath(orderedAbs[0])
+  const spLast = relPath(orderedAbs[orderedAbs.length - 1])
   const lines = []
-  lines.push('READ ORDER — FOR REVIEW (e.g. ChatGPT, auditors)\n')
+  lines.push('SINGLE-FILE EXPORT — FOR REVIEW\n')
   lines.push(`${'─'.repeat(72)}\n`)
-  lines.push('The repo is split into 3 text files. Read them in order: 1.txt → 2.txt → 3.txt.\n')
-  lines.push('Files are listed in **alphabetical path order** (same order in every run).\n')
-  lines.push(`Excluded from this dump: node_modules, dist, .git, exports, caches, non-text binaries.\n`)
-  lines.push(`Total embedded files: ${total}\n`)
-  lines.push(`${'─'.repeat(72)}\n`)
-  lines.push('WHAT IS IN EACH FILE\n')
-  lines.push(`\n`)
-  lines.push(`  [1.txt]  Migration/SQL index + env/Edge notes (below), then ${part1.length} files:\n`)
-  lines.push(`           from: ${s1.first}\n`)
-  lines.push(`           to:   ${s1.last}\n`)
-  lines.push(`\n`)
-  lines.push(`  [2.txt]  Part 2 of 3 — ${part2.length} files:\n`)
-  lines.push(`           from: ${s2.first}\n`)
-  lines.push(`           to:   ${s2.last}\n`)
-  lines.push(`\n`)
-  lines.push(`  [3.txt]  Part 3 of 3 — ${part3.length} files:\n`)
-  lines.push(`           from: ${s3.first}\n`)
-  lines.push(`           to:   ${s3.last}\n`)
+  lines.push('This is one concatenated dump of the project (text sources only).\n')
+  lines.push('README.md and DEVELOPERS.md appear first as FILE: sections, then all other paths A–Z.\n')
+  lines.push(`Embedded files: ${totalFiles}. First FILE: ${spFirst} — Last FILE: ${spLast}\n`)
+  lines.push(`Excluded: node_modules, dist, .git, exports, caches, non-text binaries.\n`)
   lines.push(`${'='.repeat(72)}\n\n`)
   return lines.join('')
 }
@@ -197,60 +180,34 @@ async function main () {
   const files = []
   await collectFiles(root, files)
   files.sort((a, b) => a.localeCompare(b, 'en'))
+  const ordered = orderForExport(files)
 
   const stamp = new Date().toISOString()
   const outDir = path.join(root, 'exports')
   await fs.mkdir(outDir, { recursive: true })
 
-  const legacyPath = path.join(outDir, 'ALL_CODE_AND_SQL.txt')
-  try {
-    await fs.unlink(legacyPath)
-  } catch {
-    /* ignore if missing */
-  }
-
-  const [part1, part2, part3] = splitIntoThree(files)
-  const names = ['1.txt', '2.txt', '3.txt']
-  const parts = [part1, part2, part3]
-
-  const written = []
-
-  const readOrderBlock = buildReadOrderGuide(files.length, part1, part2, part3)
-
-  for (let i = 0; i < 3; i++) {
-    const chunks = []
-    const num = i + 1
-    const sp = spanLabel(parts[i])
-    chunks.push(`TITLE: ${num} of 3 — Medical Bible Project (full text export)\n`)
-    chunks.push(`File: exports/${names[i]}\n`)
-    chunks.push(`Generated (UTC): ${stamp}\n`)
-    chunks.push(`Project root: ${root}\n`)
-    chunks.push(`Embedded in this .txt: ${parts[i].length} files | Full export: ${files.length} files total\n`)
-    chunks.push(`Path span (alphabetical): ${sp.first}  →  ${sp.last}\n`)
-    chunks.push(`${'='.repeat(72)}\n`)
-
-    if (i === 0) {
-      chunks.push(readOrderBlock)
-      chunks.push(buildFrontMatter(files))
-    } else {
-      chunks.push(
-        `PART ${num} OF 3 — CONTINUATION\n`,
-        `${'─'.repeat(72)}\n`,
-        `Start with exports/1.txt for the READ ORDER guide, migration list, and env/Edge notes.\n`,
-        `This file continues the concatenation: paths from "${sp.first}" through "${sp.last}".\n\n`,
-      )
+  for (const name of ['1.txt', '2.txt', '3.txt']) {
+    try {
+      await fs.unlink(path.join(outDir, name))
+    } catch {
+      /* ignore */
     }
-
-    await appendFileSections(chunks, parts[i])
-
-    const outPath = path.join(outDir, names[i])
-    await fs.writeFile(outPath, chunks.join(''), 'utf8')
-    written.push(path.resolve(outPath))
   }
 
-  console.log(`\nWrote ${files.length} source files into THREE files:\n`)
-  for (const p of written) console.log(`  ${p}`)
-  console.log('')
+  const chunks = []
+  chunks.push('Medical Bible Project — full code + SQL dump (ONE FILE)\n')
+  chunks.push('Location: exports/ALL_CODE_AND_SQL.txt\n')
+  chunks.push(`Generated (UTC): ${stamp}\n`)
+  chunks.push(`Root: ${root}\n`)
+  chunks.push(`Files: ${files.length}\n`)
+  chunks.push(`${'='.repeat(72)}\n`)
+  chunks.push(buildSingleFileIntro(files.length, ordered))
+  chunks.push(buildFrontMatter(files))
+  await appendFileSections(chunks, ordered)
+
+  const outPath = path.join(outDir, 'ALL_CODE_AND_SQL.txt')
+  await fs.writeFile(outPath, chunks.join(''), 'utf8')
+  console.log(`\nWrote ${files.length} source files into ONE file:\n  ${path.resolve(outPath)}\n`)
 }
 
 main().catch((err) => {

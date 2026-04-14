@@ -109,7 +109,7 @@ Requires `VITE_WEB_PUSH_PUBLIC_KEY`, VAPID keys and `PUSH_REMINDER_CRON_TOKEN` i
 | `npm run dev` | Vite dev server |
 | `npm run build` | Typecheck + production build |
 | `npm run preview` | Preview production build locally |
-| `npm run export:txt` | Three text files `exports/1.txt` … `3.txt`: full source + SQL split (see below) |
+| `npm run export:txt` | One file `exports/ALL_CODE_AND_SQL.txt`: full source + SQL + README first (see below) |
 | `npm run export` | Timestamped zip of the codebase (see [`scripts/export-codebase.mjs`](scripts/export-codebase.mjs)) |
 | `npm run supabase:push` | Apply database migrations to linked Supabase project |
 | `npm run push:run` | POST to `push-reminders` Edge Function (needs `.env` tokens) |
@@ -119,15 +119,15 @@ Requires `VITE_WEB_PUSH_PUBLIC_KEY`, VAPID keys and `PUSH_REMINDER_CRON_TOKEN` i
 
 ---
 
-## Full project export (three files: 1, 2, 3)
+## Full project export (one file)
 
-To generate a dump split across **three** text files of essentially all `.ts`, `.tsx`, `.sql`, configs, docs, workflows, etc. (excluding `node_modules`, `dist`, `exports`):
+To generate a **single** text file with essentially all `.ts`, `.tsx`, `.sql`, configs, docs, workflows, etc. (excluding `node_modules`, `dist`, `exports`):
 
 ```bash
 npm run export:txt
 ```
 
-**Output (overwritten each run):** `exports/1.txt`, `exports/2.txt`, `exports/3.txt`. Part **1** contains the migration index / front matter; parts **2** and **3** continue the same `FILE:` sections in path order.
+**Output (overwritten each run):** `exports/ALL_CODE_AND_SQL.txt`. It opens with an index, then **`README.md` and `DEVELOPERS.md` as the first `FILE:` sections**, then the rest of the repo in alphabetical path order.
 
 Details: [`docs/full-project-export.md`](docs/full-project-export.md).
 

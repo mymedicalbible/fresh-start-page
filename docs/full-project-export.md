@@ -1,6 +1,6 @@
 # Full project export (everything important)
 
-## Three files — all code + SQL (fixed paths)
+## One file — all code + SQL
 
 From the project root:
 
@@ -10,13 +10,15 @@ npm run export:txt
 
 This **overwrites** exactly:
 
-- **`exports/1.txt`** — title **1**, migration index / front matter, and the first third of embedded files (sorted by path)
-- **`exports/2.txt`** — title **2**, second third
-- **`exports/3.txt`** — title **3**, final third
+**`exports/ALL_CODE_AND_SQL.txt`**
 
-Together they contain the same content as the old single-file export, split for size. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
+That file concatenates essentially all typed source, SQL, configs, Markdown, YAML workflows, manifests, and related text assets. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
 
-The dump in **`1.txt`** opens with **front matter** listing every `supabase/migrations/*.sql` file (apply in filename order), plus notes on Edge Functions and environment variables.
+Order inside the file:
+
+1. Short **single-file intro** (for reviewers).
+2. **Front matter** — every `supabase/migrations/*.sql` (apply in filename order), Edge Functions, env notes.
+3. **`FILE: README.md`** then **`FILE: DEVELOPERS.md`** (when present), then all other paths **A–Z**.
 
 **Excluded** (not embedded): `node_modules`, `dist`, `.git`, `exports` (avoids nesting prior dumps), `ExportedProject`, typical caches, `supabase/.temp/`, and non-text/binary blobs not in the allowlist.
 
@@ -28,7 +30,7 @@ The dump in **`1.txt`** opens with **front matter** listing every `supabase/migr
 npm run export
 ```
 
-Creates a timestamped zip under `exports/` via [`scripts/export-codebase.mjs`](../scripts/export-codebase.mjs). Use this when you want a normal folder tree without the mega-text files.
+Creates a timestamped zip under `exports/` via [`scripts/export-codebase.mjs`](../scripts/export-codebase.mjs). Use this when you want a normal folder tree without the mega-text file.
 
 ---
 
@@ -40,7 +42,7 @@ If present in the repo, `scripts/export-full-project.ps1` can build a broader zi
 
 ## SQL coverage
 
-All migrations live under `supabase/migrations/`; the exact list and count appear at the top of **`exports/1.txt`** each time you run `npm run export:txt`.
+All migrations live under `supabase/migrations/`; the exact list and count appear in the **front matter** at the top of **`exports/ALL_CODE_AND_SQL.txt`** each time you run `npm run export:txt`.
 
 ---
 

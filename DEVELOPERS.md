@@ -463,7 +463,7 @@ package.json
 | `npm run dev` | Vite dev server |
 | `npm run build` | `tsc -b` + production bundle to `dist/` |
 | `npm run preview` | Serve `dist/` locally |
-| `npm run export:txt` | Three **`exports/1.txt` … `3.txt`** files (split by file count) with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, etc. (skips `node_modules`, `dist`, `ExportedProject`, `exports/` itself) |
+| `npm run export:txt` | One **`exports/ALL_CODE_AND_SQL.txt`** with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, **`README.md`** / **`DEVELOPERS.md`** first after the index, etc. (skips `node_modules`, `dist`, `ExportedProject`, `exports/` itself) |
 | `npm run export` | **`git archive`** of tracked files as a **`.zip`** at repo root (requires Git) |
 | `npm run test:e2e` | Playwright tests |
 | `npm run assets:more-grass` | Rebuild **`public/more-grass-footer.png`** from **`public/more-grass-footer.source.png`** (edge flood-fill: near-white pixels connected to top/left/right edges → transparent). Run after replacing the source artwork. |
@@ -472,7 +472,7 @@ package.json
 
 ### Full codebase text export
 
-Use **`npm run export:txt`** when you want to search, diff, or archive the whole tree—especially to review **all SQL migrations** and app code together. It writes **`exports/1.txt`**, **`exports/2.txt`**, **`exports/3.txt`** (read in order; **`1.txt`** has the migration index). Paths are printed when the script finishes. Legacy **`ALL_CODE_AND_SQL.txt`** is removed if present.
+Use **`npm run export:txt`** when you want to search, diff, or archive the whole tree—especially to review **all SQL migrations** and app code together. It writes **`exports/ALL_CODE_AND_SQL.txt`**; the migration index is at the top, then **`FILE: README.md`** and **`FILE: DEVELOPERS.md`**, then the rest alphabetically. Split **`1.txt` / `2.txt` / `3.txt`** are deleted if present from an older export.
 
 ---
 
