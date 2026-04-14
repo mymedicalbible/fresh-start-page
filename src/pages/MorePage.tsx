@@ -32,15 +32,15 @@ function PolaroidNavCard ({
       aria-label={ariaLabel}
       className={`more-polaroid-link group relative block shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)] ${
         squarePhoto
-          ? 'aspect-square w-[min(44vw,180px)]'
+          ? 'aspect-square w-[min(88vw,360px)]'
           : 'w-[min(44vw,180px)]'
       }`}
     >
       <div
-        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)] ${
+        className={`more-polaroid__frame ${frameRotateClass} relative border border-black/[0.06] bg-white ${
           squarePhoto
-            ? 'flex h-full min-h-0 flex-col overflow-hidden pt-2.5 px-2.5 pb-2'
-            : ''
+            ? 'more-polaroid__frame--square-2x flex h-full min-h-0 flex-col overflow-hidden rounded-[4px] pt-5 px-5 pb-4 shadow-[0_16px_40px_rgba(45,38,42,0.18),0_4px_16px_rgba(0,0,0,0.07)]'
+            : 'rounded-[2px] shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]'
         }`}
       >
         <span
@@ -51,17 +51,29 @@ function PolaroidNavCard ({
           className={`more-polaroid__photo ${photoClass} ${
             squarePhoto
               ? 'flex-1 min-h-0 !m-0 !min-h-0'
-              : 'h-[100px] min-h-[100px]'
+              : 'h-[128px] min-h-[128px]'
           }`}
         >
-          <span className="more-polaroid__title !text-[0.85rem]">{title}</span>
+          <span
+            className={`more-polaroid__title ${
+              squarePhoto ? '!text-[1.7rem]' : '!text-[1.2rem]'
+            }`}
+          >
+            {title}
+          </span>
         </div>
         <div
-          className={`more-polaroid__caption-strip py-2 px-3 !min-h-0 ${
-            squarePhoto ? 'shrink-0' : ''
+          className={`more-polaroid__caption-strip !min-h-0 ${
+            squarePhoto ? 'shrink-0 py-3 px-4' : 'py-2 px-3'
           }`}
         >
-          <span className="more-polaroid__caption text-[0.7rem]">{caption}</span>
+          <span
+            className={`more-polaroid__caption ${
+              squarePhoto ? 'text-[1.4rem]' : 'text-[1rem]'
+            }`}
+          >
+            {caption}
+          </span>
         </div>
       </div>
     </Link>

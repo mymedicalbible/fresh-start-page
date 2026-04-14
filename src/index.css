@@ -304,6 +304,14 @@ button, input, select, textarea { font: inherit; }
     linear-gradient(168deg, rgba(251, 207, 232, 0.62), rgba(254, 240, 138, 0.55));
 }
 
+/* 2× square Account polaroid on More — tape scales with frame */
+.more-polaroid__frame--square-2x .more-polaroid__tape {
+  top: -14px;
+  left: 16px;
+  width: 117px;
+  height: 41px;
+}
+
 .more-polaroid__photo {
   margin: 14px 14px 0 14px;
   min-height: 190px;
