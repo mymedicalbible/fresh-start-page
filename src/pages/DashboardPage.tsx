@@ -2304,10 +2304,10 @@ export function DashboardPage () {
         )}
 
         <h2 className="scrap-heading scrap-heading--section">log today</h2>
-        <div className="scrap-log-grid">
+        <div className="scrap-log-stack">
           <LogTodayTile
             to={`/app/log?tab=pain&returnTo=${dashReturnTo}`}
-            className="scrap-log-tile scrap-log-tile--pink"
+            className="scrap-log-tile scrap-log-tile--pink scrap-log-tile--hero"
             kind="pain"
             title="Pain & symptoms"
             sub="Log pain — link a symptom log if it matched"
@@ -2315,32 +2315,29 @@ export function DashboardPage () {
           >
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
           </LogTodayTile>
-          <LogTodayTile
-            to={`/app/log?tab=questions&returnTo=${dashReturnTo}`}
-            className="scrap-log-tile scrap-log-tile--blue"
-            kind="questions"
-            title="Questions"
-            sub="Add for your doctor"
-            onLongPress={setLogArchiveSheet}
-          >
-            <span className="scrap-tape scrap-tape--sky" aria-hidden />
-          </LogTodayTile>
-          <LogTodayTile
-            to={`/app/visits?new=1&returnTo=${dashReturnTo}`}
-            className="scrap-log-tile scrap-log-tile--yellow"
-            kind="visit"
-            title="Visit log"
-            sub="Record a visit"
-            onLongPress={setLogArchiveSheet}
-          >
-            <span className="scrap-tape scrap-tape--butter" aria-hidden />
-          </LogTodayTile>
+          <div className="scrap-log-grid">
+            <LogTodayTile
+              to={`/app/log?tab=questions&returnTo=${dashReturnTo}`}
+              className="scrap-log-tile scrap-log-tile--blue"
+              kind="questions"
+              title="Questions"
+              sub="Add for your doctor"
+              onLongPress={setLogArchiveSheet}
+            >
+              <span className="scrap-tape scrap-tape--sky" aria-hidden />
+            </LogTodayTile>
+            <LogTodayTile
+              to={`/app/visits?new=1&returnTo=${dashReturnTo}`}
+              className="scrap-log-tile scrap-log-tile--yellow"
+              kind="visit"
+              title="Visit log"
+              sub="Record a visit"
+              onLongPress={setLogArchiveSheet}
+            >
+              <span className="scrap-tape scrap-tape--butter" aria-hidden />
+            </LogTodayTile>
+          </div>
         </div>
-        <p className="muted" style={{ textAlign: 'center', marginTop: 10, fontSize: '0.9rem' }}>
-          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} className="scrap-dash-footer-link">
-            Log symptoms only (no pain)
-          </Link>
-        </p>
 
         <section className="scrap-handoff">
           <span className="scrap-tape scrap-tape--brown" aria-hidden />

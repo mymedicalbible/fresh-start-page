@@ -2174,7 +2174,13 @@ button.scrap-appt-q:focus-visible {
   background: #fee2e2;
 }
 
-/* log today grid */
+/* log today: full-width pain row + pair row (questions | visits) */
+.scrap-log-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .scrap-log-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2198,6 +2204,22 @@ button.scrap-appt-q:focus-visible {
   touch-action: manipulation;
   cursor: pointer;
   overflow: hidden;
+}
+
+/* Full-width bar above questions + visits; title + sub centered */
+.scrap-log-tile.scrap-log-tile--hero {
+  width: 100%;
+  min-height: 92px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.scrap-log-tile.scrap-log-tile--hero .scrap-log-title,
+.scrap-log-tile.scrap-log-tile--hero .scrap-log-sub {
+  text-align: center;
+  align-self: center;
+  max-width: 36ch;
 }
 
 .scrap-log-tile:focus-visible {

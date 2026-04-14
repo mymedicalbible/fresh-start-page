@@ -689,9 +689,6 @@ export function QuickLogPage () {
             <ScrapSticker to={logTabHref('questions')} title="Questions" sub="Add for your doctor" tone="sky" navState={{ backTo: '/app' }} />
             <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" navState={{ backTo: '/app' }} />
           </div>
-          <p className="muted" style={{ textAlign: 'center', marginTop: 14, fontSize: '0.92rem' }}>
-            <Link to={logTabHref('symptoms')}>Log symptoms only (no pain)</Link>
-          </p>
         </div>
       )}
 
