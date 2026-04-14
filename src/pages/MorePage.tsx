@@ -5,15 +5,10 @@ type PolaroidNavCardProps = {
   to: string
   title: string
   caption: string
-  photoClass:
-    | 'more-polaroid__photo--account'
-    | 'more-polaroid__photo--diagnoses'
-    | 'more-polaroid__photo--transcripts'
+  photoClass: 'more-polaroid__photo--diagnoses' | 'more-polaroid__photo--transcripts'
   tapeClass: '' | 'more-polaroid__tape--rose'
   frameRotateClass: string
   ariaLabel: string
-  /** Entire polaroid frame is square (image area + caption fit inside). */
-  squarePhoto?: boolean
 }
 
 function PolaroidNavCard ({
@@ -24,56 +19,27 @@ function PolaroidNavCard ({
   tapeClass,
   frameRotateClass,
   ariaLabel,
-  squarePhoto = false,
 }: PolaroidNavCardProps) {
   return (
     <Link
       to={to}
       aria-label={ariaLabel}
-      className={`more-polaroid-link group relative block shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)] ${
-        squarePhoto
-          ? 'aspect-square w-[min(88vw,360px)]'
-          : 'w-[min(44vw,180px)]'
-      }`}
+      className="more-polaroid-link group relative block w-[min(44vw,180px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
     >
       <div
-        className={`more-polaroid__frame ${frameRotateClass} relative border border-black/[0.06] bg-white ${
-          squarePhoto
-            ? 'more-polaroid__frame--square-2x flex h-full min-h-0 flex-col overflow-hidden rounded-[4px] pt-5 px-5 pb-4 shadow-[0_16px_40px_rgba(45,38,42,0.18),0_4px_16px_rgba(0,0,0,0.07)]'
-            : 'rounded-[2px] shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]'
-        }`}
+        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]`}
       >
         <span
           className={`more-polaroid__tape ${tapeClass}`.trim()}
           aria-hidden
         />
         <div
-          className={`more-polaroid__photo ${photoClass} ${
-            squarePhoto
-              ? 'flex-1 min-h-0 !m-0 !min-h-0'
-              : 'h-[128px] min-h-[128px]'
-          }`}
+          className={`more-polaroid__photo ${photoClass} h-[128px] min-h-[128px]`}
         >
-          <span
-            className={`more-polaroid__title ${
-              squarePhoto ? '!text-[1.7rem]' : '!text-[1.2rem]'
-            }`}
-          >
-            {title}
-          </span>
+          <span className="more-polaroid__title !text-[1.2rem]">{title}</span>
         </div>
-        <div
-          className={`more-polaroid__caption-strip !min-h-0 ${
-            squarePhoto ? 'shrink-0 py-3 px-4' : 'py-2 px-3'
-          }`}
-        >
-          <span
-            className={`more-polaroid__caption ${
-              squarePhoto ? 'text-[1.4rem]' : 'text-[1rem]'
-            }`}
-          >
-            {caption}
-          </span>
+        <div className="more-polaroid__caption-strip py-2 px-3 !min-h-0">
+          <span className="more-polaroid__caption text-[1rem]">{caption}</span>
         </div>
       </div>
     </Link>
@@ -110,16 +76,13 @@ export function MorePage () {
             />
           </div>
           <div className="-translate-y-2">
-            <PolaroidNavCard
+            <Link
               to="/app/profile"
-              title="Account"
-              caption="profile & settings"
-              photoClass="more-polaroid__photo--account"
-              tapeClass=""
-              frameRotateClass="-rotate-[1deg]"
-              ariaLabel="Account — profile and settings"
-              squarePhoto
-            />
+              aria-label="Account — profile and settings"
+              className="more-account-pen-link group inline-block rounded-md px-3 py-2 outline-none transition-[filter,transform] duration-150 focus-visible:ring-2 focus-visible:ring-blue-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)] active:translate-y-px"
+            >
+              <span className="more-account-pen">Account</span>
+            </Link>
           </div>
         </div>
       </div>
