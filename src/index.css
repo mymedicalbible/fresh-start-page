@@ -2810,74 +2810,20 @@ button.scrap-appt-q:focus-visible {
 }
 
 .scrap-account-avatar .account-avatar-turtle {
-  position: relative;
-  width: 92px;
-  max-width: 92px;
+  width: 2px;
+  max-width: 2px;
   height: 78px;
   max-height: 78px;
-  display: block;
-  transform-origin: 55% 65%;
-  animation: accountTurtleFloat 2.4s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scrap-account-avatar .account-avatar-turtle-image {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  z-index: 2;
-}
-
-.scrap-account-avatar .account-avatar-turtle-leg {
-  position: absolute;
-  width: 24px;
-  height: 14px;
-  bottom: 11px;
-  border: 2px solid #2f7f3a;
-  border-radius: 999px 999px 999px 999px;
-  background:
-    radial-gradient(circle at 68% 45%, rgba(161, 221, 99, 0.95) 0 35%, rgba(112, 184, 73, 0.95) 36% 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  z-index: 1;
-}
-
-.scrap-account-avatar .account-avatar-turtle-leg--front {
-  left: 26px;
-  transform-origin: 80% 50%;
-  animation: accountTurtleFrontLeg 0.85s ease-in-out infinite;
-}
-
-.scrap-account-avatar .account-avatar-turtle-leg--back {
-  right: 17px;
-  bottom: 17px;
-  width: 22px;
-  transform-origin: 20% 50%;
-  animation: accountTurtleBackLeg 0.85s ease-in-out infinite;
-}
-
-@keyframes accountTurtleFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-2px) rotate(0.8deg); }
-}
-
-@keyframes accountTurtleFrontLeg {
-  0%, 100% { transform: rotate(15deg) translateY(0); }
-  50% { transform: rotate(-20deg) translateY(1px); }
-}
-
-@keyframes accountTurtleBackLeg {
-  0%, 100% { transform: rotate(-10deg) translateY(0); }
-  50% { transform: rotate(20deg) translateY(1px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scrap-account-avatar .account-avatar-turtle,
-  .scrap-account-avatar .account-avatar-turtle-leg--front,
-  .scrap-account-avatar .account-avatar-turtle-leg--back {
-    animation: none;
-  }
 }
 
 .scrap-account-display-name {

@@ -9,7 +9,6 @@ import { fetchGameState, gameTokensEnabled } from '../lib/gameTokens'
 import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
 import { isPlaceholderLottiePath, loadAccountPlushieDisplay, type AccountPlushieDisplayPref } from '../lib/dashPlushieDisplay'
-import { loadSimpleMascotVisible, saveSimpleMascotVisible } from '../lib/simpleMascotDisplay'
 import { AccountAvatarTurtle } from '../components/AccountAvatarTurtle'
 import {
   clearManualWeatherLocation,
@@ -120,7 +119,6 @@ export function ProfilePage () {
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
   const [activePlushieLottiePath, setActivePlushieLottiePath] = useState<string | null>(null)
-  const [simpleMascotVisible, setSimpleMascotVisible] = useState(() => loadSimpleMascotVisible())
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -186,12 +184,6 @@ export function ProfilePage () {
     const onAcc = () => setAccountPlushPref(loadAccountPlushieDisplay())
     window.addEventListener('mb-account-plushie-display-changed', onAcc)
     return () => window.removeEventListener('mb-account-plushie-display-changed', onAcc)
-  }, [])
-
-  useEffect(() => {
-    const onSimple = () => setSimpleMascotVisible(loadSimpleMascotVisible())
-    window.addEventListener('mb-simple-mascot-changed', onSimple)
-    return () => window.removeEventListener('mb-simple-mascot-changed', onSimple)
   }, [])
 
   useEffect(() => {
@@ -334,7 +326,7 @@ export function ProfilePage () {
           <div className="scrap-account-avatar" aria-hidden>
             {gameTokensEnabled() && ownedActive && pandaLottieData ? (
               <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
-            ) : !gameTokensEnabled() && simpleMascotVisible ? (
+            ) : !gameTokensEnabled() ? (
               <AccountAvatarTurtle className="scrap-account-avatar-turtle" />
             ) : (
               <span aria-hidden>🐼</span>
@@ -369,32 +361,6 @@ export function ProfilePage () {
                 {tokenBalance} / {nextPrice}
               </span>
             </div>
-          </div>
-        )}
-        {tokensOff && (
-          <p className="scrap-account-token-disabled">
-            Collectible plushies are turned off in this build (code kept for later).
-          </p>
-        )}
-        {!gameTokensEnabled() && (
-          <div className="scrap-account-notify-row" style={{ marginTop: 14 }}>
-            <div>
-              <div className="scrap-account-notify-title">home &amp; appointment mascot</div>
-              <div className="scrap-account-notify-sub">same animation on dashboard and here</div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={simpleMascotVisible}
-              className={`scrap-account-switch${simpleMascotVisible ? ' is-on' : ''}`}
-              onClick={() => {
-                const n = !simpleMascotVisible
-                setSimpleMascotVisible(n)
-                saveSimpleMascotVisible(n)
-              }}
-            >
-              {simpleMascotVisible ? 'on' : 'off'}
-            </button>
           </div>
         )}
       </section>
