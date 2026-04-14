@@ -1,8 +1,8 @@
 # Full project export (everything important)
 
-## One file — all code + SQL (always same path)
+## One file — all code + SQL (fixed path)
 
-From the project folder:
+From the project root:
 
 ```bash
 npm run export:txt
@@ -10,47 +10,42 @@ npm run export:txt
 
 This **overwrites** exactly:
 
-`exports/ALL_CODE_AND_SQL.txt`
+**`exports/ALL_CODE_AND_SQL.txt`**
 
-That single file contains ~all `.ts`, `.tsx`, `.css`, `.sql`, configs, etc. (see `scripts/export-project-one-file.mjs`).
+That single file concatenates essentially all typed source, SQL, configs, Markdown, YAML workflows, manifests, and related text assets. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
+
+The dump opens with **front matter** listing every `supabase/migrations/*.sql` file (apply in filename order), plus notes on Edge Functions and environment variables.
+
+**Excluded** (not embedded): `node_modules`, `dist`, `.git`, `exports` (avoids nesting prior dumps), `ExportedProject`, typical caches, `supabase/.temp/`, and non-text/binary blobs not in the allowlist.
 
 ---
 
-The **plushie-only** zip from earlier was incomplete for whole-repo backups. Use the zip script when you want an archive without the one-file dump.
+## Zip archive (optional)
 
-## Run this (Windows PowerShell)
-
-From the project root:
-
-```powershell
-.\scripts\export-full-project.ps1
+```bash
+npm run export
 ```
 
-## Output (this repo only — never `dist/` or your system temp)
+Creates a timestamped zip under `exports/` via [`scripts/export-codebase.mjs`](../scripts/export-codebase.mjs). Use this when you want a normal folder tree without the single mega-text file.
 
-- **File:** `exports\medical-bible-project-FULL-<timestamp>.zip`
-- **Example:** `exports\medical-bible-project-FULL-20260413-083429.zip`
+---
 
-Inside the zip you get the **entire repo tree** except:
+## Windows PowerShell (alternative full zip)
 
-| Excluded | Why |
-|----------|-----|
-| `node_modules` | Run `npm install` after unzip |
-| `.git` | Use `git clone` if you need history |
-| `dist` | Run `npm run build` to regenerate |
-| `supabase/.temp` | Supabase CLI cache only |
+If present in the repo, `scripts/export-full-project.ps1` can build a broader zip; prefer `npm run export` for consistency.
 
-## Proof of SQL coverage
+---
 
-Each archive includes **`EXPORT_MANIFEST.txt`** at the top level listing **every** file in `supabase/migrations/*.sql` (29 migrations as of this doc).
+## SQL coverage
+
+All migrations live under `supabase/migrations/`; the exact list and count appear at the top of **`exports/ALL_CODE_AND_SQL.txt`** each time you run `npm run export:txt`.
+
+---
 
 ## Restore
 
-1. Unzip anywhere.
+1. Clone or unzip the project.
 2. `npm install`
-3. `npm run build` (optional)
-4. Point Supabase CLI at `supabase/` if you use local DB work.
-
----
-
-The smaller script **`scripts/export-plushie-artifacts.ps1`** is still available for a **minimal** plushie-only bundle; the **full** export is **`export-full-project.ps1`**.
+3. Copy `.env.example` to `.env` and set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, etc.
+4. `npm run build` (optional)
+5. `npm run supabase:push` when pointed at your Supabase project (requires CLI + `SUPABASE_DB_PASSWORD`).

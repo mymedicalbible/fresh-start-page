@@ -34,6 +34,7 @@ const TEXT_EXT = new Set([
   '.md',
   '.json',
   '.mjs',
+  '.cjs',
   '.yml',
   '.yaml',
   '.html',
@@ -74,12 +75,20 @@ function buildFrontMatter (filesAbs) {
     /plushie|game_tokens|panda_popcorn|turtle|rotation_anchor|spotlight/i.test(r),
   )
   const lines = []
-  lines.push('FRONT MATTER — plushie / SQL index (read this first)\n')
+  lines.push('FRONT MATTER — SQL index + key topics (read this first)\n')
   lines.push(`${'─'.repeat(72)}\n`)
-  lines.push('Plushie docs (full detail embedded later in this file): docs/plushie-system-export.md\n')
-  lines.push('Full export how-to: docs/full-project-export.md\n')
-  lines.push('Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY; optional VITE_GAME_TOKENS_ENABLED=true (plush shop)\n')
-  lines.push('Routes: /app/plushies (shop), /app/plushies/mine (My Plushies)\n')
+  lines.push('Regenerate: npm run export:txt → exports/ALL_CODE_AND_SQL.txt — see docs/full-project-export.md\n')
+  lines.push('Plushie system (optional): docs/plushie-system-export.md (embedded later in this dump)\n')
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push('Supabase Edge Functions in this repo:\n')
+  lines.push('  push-reminders — web push reminders (cron uses x-cron-token header)\n')
+  lines.push('  generate-summary — optional AI handoff polish\n')
+  lines.push('  transcribe-visit — optional transcription flow\n')
+  lines.push(`${'─'.repeat(72)}\n`)
+  lines.push('Build-time (Vite): VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY; web push: VITE_WEB_PUSH_PUBLIC_KEY\n')
+  lines.push('Optional plush routes: VITE_GAME_TOKENS_ENABLED=true → /app/plushies, /app/plushies/mine\n')
+  lines.push('Scripts/CI: SUPABASE_DB_PASSWORD (db push), PUSH_REMINDER_CRON_TOKEN (npm run push:run),\n')
+  lines.push('  SUPABASE_SERVICE_ROLE_KEY (Playwright smoke setup only — never in frontend).\n')
   lines.push(`${'─'.repeat(72)}\n`)
   lines.push(`All Supabase migrations in this dump (${migrations.length} files, apply in filename order):\n`)
   for (const m of migrations) lines.push(`  ${m}\n`)
