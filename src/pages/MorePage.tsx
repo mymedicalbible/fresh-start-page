@@ -45,19 +45,12 @@ function PolaroidNavCard ({
               🧩
             </span>
           )}
-          <span className="more-polaroid__title !text-[0.95rem]">{title}</span>
+          <span className="more-polaroid__title !text-[1.25rem] !font-normal !leading-tight">
+            {title}
+          </span>
         </div>
         <div className="more-polaroid__caption-strip py-2 px-3 !min-h-0">
-          <span
-            className="more-polaroid__caption more-account-pen"
-            style={{
-              fontSize: '1rem',
-              lineHeight: 1.35,
-              color: 'rgba(74, 55, 40, 0.78)',
-            }}
-          >
-            {caption}
-          </span>
+          <span className="more-polaroid__caption more-account-pen">{caption}</span>
         </div>
       </div>
     </Link>
