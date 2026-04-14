@@ -2810,9 +2810,9 @@ button.scrap-appt-q:focus-visible {
 }
 
 .scrap-account-avatar .account-avatar-turtle {
-  width: 2px;
-  max-width: 2px;
-  height: 78px;
+  width: 92px;
+  max-width: 92px;
+  height: auto;
   max-height: 78px;
   display: flex;
   align-items: center;
