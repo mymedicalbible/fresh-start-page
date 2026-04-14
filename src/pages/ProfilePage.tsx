@@ -10,7 +10,7 @@ import { useGameStateRefresh } from '../lib/useGameStateRefresh'
 import { runExportDownload } from '../lib/fullDataExport'
 import { isPlaceholderLottiePath, loadAccountPlushieDisplay, type AccountPlushieDisplayPref } from '../lib/dashPlushieDisplay'
 import { loadSimpleMascotVisible, saveSimpleMascotVisible } from '../lib/simpleMascotDisplay'
-import { CuteSwimmingTurtle } from '../components/CuteSwimmingTurtle'
+import { AccountAvatarTurtle } from '../components/AccountAvatarTurtle'
 import {
   clearManualWeatherLocation,
   getManualWeatherLocation,
@@ -335,7 +335,7 @@ export function ProfilePage () {
             {gameTokensEnabled() && ownedActive && pandaLottieData ? (
               <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
             ) : !gameTokensEnabled() && simpleMascotVisible ? (
-              <CuteSwimmingTurtle className="scrap-account-avatar-turtle" />
+              <AccountAvatarTurtle className="scrap-account-avatar-turtle" />
             ) : (
               <span aria-hidden>🐼</span>
             )}
