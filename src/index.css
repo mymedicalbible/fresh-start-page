@@ -2012,14 +2012,17 @@ button.scrap-appt-q:focus-visible {
 /* ── THE NOTE ────────────────────────────────────────────── */
 .scrap-pending-sticker {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 132px;
   padding: 12px 11px 10px;
   border: none;
   border-radius: 1px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -2078,6 +2081,8 @@ button.scrap-appt-q:focus-visible {
   color: #2d3a28;
   line-height: 1.32;
   word-break: break-word;
+  text-align: center;
+  width: 100%;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -2092,16 +2097,21 @@ button.scrap-appt-q:focus-visible {
   font-style: italic;
   margin-top: 6px;
   line-height: 1.25;
+  text-align: center;
+  width: 100%;
 }
 
 /* "hold to dismiss" bottom hint */
 .scrap-pending-sticker__hold {
   position: absolute;
   bottom: 7px;
-  left: 9px;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 0.72rem;
   color: #3d4a38;
   letter-spacing: 0.02em;
+  text-align: center;
+  width: calc(100% - 18px);
 }
 
 /* ── "N more" pill (centered below the row) ──────────────── */
