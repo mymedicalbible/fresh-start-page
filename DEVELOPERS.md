@@ -381,6 +381,8 @@ supabase functions deploy generate-summary
 
 Code: `supabase/functions/generate-summary/index.ts`.
 
+`transcribe-visit` and `generate-summary` use **`verify_jwt = true`** in `supabase/config.toml` — only **signed-in** clients can invoke them (anonymous calls are rejected at the gateway).
+
 If you do not deploy the function, the app **still works** with the built-in narrative.
 
 ---
@@ -393,6 +395,8 @@ If you do not deploy the function, the app **still works** with the built-in nar
 | Type errors about missing `@types/*` | Corrupted or empty `node_modules` (e.g. cloud sync) | Delete broken folders under `node_modules/@types`, run `npm install` |
 | “Column not found” / schema cache | Migration not applied | Run latest SQL migrations on Supabase |
 | Edge Function invoke error | Not deployed, CORS, or missing secrets | Deploy function; set `ANTHROPIC_API_KEY`; check function logs |
+| `401` from `generate-summary` / `transcribe-visit` | Anonymous or expired session | Sign in; `verify_jwt` is enabled for both functions |
+| `401` from `push-reminders` | Missing/wrong cron secret | Set `PUSH_REMINDER_CRON_TOKEN` in Edge secrets; match `npm run push:run` / CI |
 | Pain/symptom data “missing” in summary | Date range | Summary aggregates ~90 days; opening paragraph emphasizes last 30 days where data exists |
 | Medication correlation empty | No change events | Add/adjust meds or use **Log dose change**; ensure migration `20250406100000_*` is applied |
 
@@ -459,7 +463,7 @@ package.json
 | `npm run dev` | Vite dev server |
 | `npm run build` | `tsc -b` + production bundle to `dist/` |
 | `npm run preview` | Serve `dist/` locally |
-| `npm run export:txt` | One **`.txt`** under `exports/` with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, etc. (skips `node_modules`, `dist`, `ExportedProject`, older `exports` dumps) |
+| `npm run export:txt` | Three **`exports/1.txt` … `3.txt`** files (split by file count) with **src**, **`supabase/migrations`**, **`supabase/functions`**, configs, CSS, etc. (skips `node_modules`, `dist`, `ExportedProject`, `exports/` itself) |
 | `npm run export` | **`git archive`** of tracked files as a **`.zip`** at repo root (requires Git) |
 | `npm run test:e2e` | Playwright tests |
 | `npm run assets:more-grass` | Rebuild **`public/more-grass-footer.png`** from **`public/more-grass-footer.source.png`** (edge flood-fill: near-white pixels connected to top/left/right edges → transparent). Run after replacing the source artwork. |
@@ -468,7 +472,7 @@ package.json
 
 ### Full codebase text export
 
-Use **`npm run export:txt`** when you want a single file to search, diff, or archive—especially to review **all SQL migrations** and app code together. Output path is printed when the script finishes (for example `exports/project-code-and-sql-2026-04-11-06-26-50.txt`).
+Use **`npm run export:txt`** when you want to search, diff, or archive the whole tree—especially to review **all SQL migrations** and app code together. It writes **`exports/1.txt`**, **`exports/2.txt`**, **`exports/3.txt`** (read in order; **`1.txt`** has the migration index). Paths are printed when the script finishes. Legacy **`ALL_CODE_AND_SQL.txt`** is removed if present.
 
 ---
 

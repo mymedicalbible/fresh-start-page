@@ -144,7 +144,7 @@ Return ONLY a JSON object with exactly these fields. No preamble, no markdown, n
       ok: false,
       message:
         detail ||
-        'Could not reach the extract service. Check ANTHROPIC_API_KEY on generate-summary and redeploy with verify_jwt disabled if needed.',
+        'Could not reach the extract service. Check ANTHROPIC_API_KEY on generate-summary (sign in; JWT required).',
     }
   }
 

@@ -1,6 +1,6 @@
 # Full project export (everything important)
 
-## One file — all code + SQL (fixed path)
+## Three files — all code + SQL (fixed paths)
 
 From the project root:
 
@@ -10,11 +10,13 @@ npm run export:txt
 
 This **overwrites** exactly:
 
-**`exports/ALL_CODE_AND_SQL.txt`**
+- **`exports/1.txt`** — title **1**, migration index / front matter, and the first third of embedded files (sorted by path)
+- **`exports/2.txt`** — title **2**, second third
+- **`exports/3.txt`** — title **3**, final third
 
-That single file concatenates essentially all typed source, SQL, configs, Markdown, YAML workflows, manifests, and related text assets. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
+Together they contain the same content as the old single-file export, split for size. See [`scripts/export-project-one-file.mjs`](../scripts/export-project-one-file.mjs) for include rules and exclusions.
 
-The dump opens with **front matter** listing every `supabase/migrations/*.sql` file (apply in filename order), plus notes on Edge Functions and environment variables.
+The dump in **`1.txt`** opens with **front matter** listing every `supabase/migrations/*.sql` file (apply in filename order), plus notes on Edge Functions and environment variables.
 
 **Excluded** (not embedded): `node_modules`, `dist`, `.git`, `exports` (avoids nesting prior dumps), `ExportedProject`, typical caches, `supabase/.temp/`, and non-text/binary blobs not in the allowlist.
 
@@ -26,7 +28,7 @@ The dump opens with **front matter** listing every `supabase/migrations/*.sql` f
 npm run export
 ```
 
-Creates a timestamped zip under `exports/` via [`scripts/export-codebase.mjs`](../scripts/export-codebase.mjs). Use this when you want a normal folder tree without the single mega-text file.
+Creates a timestamped zip under `exports/` via [`scripts/export-codebase.mjs`](../scripts/export-codebase.mjs). Use this when you want a normal folder tree without the mega-text files.
 
 ---
 
@@ -38,7 +40,7 @@ If present in the repo, `scripts/export-full-project.ps1` can build a broader zi
 
 ## SQL coverage
 
-All migrations live under `supabase/migrations/`; the exact list and count appear at the top of **`exports/ALL_CODE_AND_SQL.txt`** each time you run `npm run export:txt`.
+All migrations live under `supabase/migrations/`; the exact list and count appear at the top of **`exports/1.txt`** each time you run `npm run export:txt`.
 
 ---
 

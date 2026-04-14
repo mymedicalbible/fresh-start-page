@@ -230,15 +230,19 @@ serve(async (req) => {
 
     if (!supabaseUrl || !serviceRole) throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.')
     if (!vapidPublicKey || !vapidPrivateKey) throw new Error('Missing WEB_PUSH_VAPID_PUBLIC_KEY/WEB_PUSH_VAPID_PRIVATE_KEY.')
-    if (cronToken) {
-      const tokenHeader = (req.headers.get('x-cron-token') ?? '').trim()
-      const authBearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-      if (tokenHeader !== cronToken && authBearer !== cronToken) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
+    if (!cronToken) {
+      return new Response(
+        JSON.stringify({ error: 'Configure PUSH_REMINDER_CRON_TOKEN in Edge Function secrets.' }),
+        { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } },
+      )
+    }
+    const tokenHeader = (req.headers.get('x-cron-token') ?? '').trim()
+    const authBearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+    if (tokenHeader !== cronToken && authBearer !== cronToken) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)

@@ -1,2 +1,0 @@
-supabase functions deploy generate-summary
-supabase secrets set ANTHROPIC_API_KEY=your_key_here

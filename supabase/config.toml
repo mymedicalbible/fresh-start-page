@@ -4,12 +4,13 @@ project_id = "medical-tracker"
 [api]
 enabled = true
 
-# Lets logged-in users invoke even if session/JWT edge cases fail; function auth is AssemblyAI secret server-side.
+# Require a valid Supabase user JWT (gateway rejects anonymous calls before Edge code runs).
 [functions.transcribe-visit]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-summary]
-verify_jwt = false
+verify_jwt = true
 
+# Cron/script uses shared secret header, not end-user JWT.
 [functions.push-reminders]
 verify_jwt = false
