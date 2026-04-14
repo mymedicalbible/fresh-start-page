@@ -24,7 +24,7 @@ function PolaroidNavCard ({
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="more-polaroid-link group relative block w-[min(44vw,180px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
+      className="more-polaroid-link group relative block w-[min(44vw,200px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
     >
       <div
         className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]`}
@@ -34,12 +34,30 @@ function PolaroidNavCard ({
           aria-hidden
         />
         <div
-          className={`more-polaroid__photo ${photoClass} h-[128px] min-h-[128px]`}
+          className={`more-polaroid__photo ${photoClass} flex h-[128px] min-h-[128px] flex-col items-center justify-center gap-1`}
         >
-          <span className="more-polaroid__title !text-[1.2rem]">{title}</span>
+          {photoClass === 'more-polaroid__photo--transcripts' ? (
+            <span style={{ fontSize: '2rem', color: '#f5e6a3' }} aria-hidden>
+              📁
+            </span>
+          ) : (
+            <span style={{ fontSize: '2rem', color: '#6fcf97' }} aria-hidden>
+              🧩
+            </span>
+          )}
+          <span className="more-polaroid__title !text-[0.95rem]">{title}</span>
         </div>
         <div className="more-polaroid__caption-strip py-2 px-3 !min-h-0">
-          <span className="more-polaroid__caption text-[1rem]">{caption}</span>
+          <span
+            className="more-polaroid__caption more-account-pen"
+            style={{
+              fontSize: '1rem',
+              lineHeight: 1.35,
+              color: 'rgba(74, 55, 40, 0.78)',
+            }}
+          >
+            {caption}
+          </span>
         </div>
       </div>
     </Link>
