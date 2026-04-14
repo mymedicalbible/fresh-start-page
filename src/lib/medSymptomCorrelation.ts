@@ -38,9 +38,9 @@ function avgPain (painRows: Record<string, unknown>[], start: string, end: strin
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10
 }
 
-function countEpisodes (sympRows: Record<string, unknown>[], start: string, end: string): number {
+function countSymptomLogs (sympRows: Record<string, unknown>[], start: string, end: string): number {
   return sympRows.filter((r) => {
-    const dt = String(r.episode_date ?? '')
+    const dt = String(r.symptom_date ?? '')
     return dt >= start && dt <= end
   }).length
 }
@@ -61,14 +61,14 @@ function describeOutcome (preEp: number, postEp: number, prePain: number | null,
   const painWorse  = painDelta != null && painDelta >= 0.8
 
   // Mixed signals — describe each dimension explicitly rather than averaging to "unchanged"
-  if (epBetter && painWorse)  return 'episodes have been less frequent, but pain has been higher'
-  if (epWorse  && painBetter) return 'pain has improved, though episodes have been slightly more frequent'
-  if (epBetter || painBetter) return 'episodes and pain have been trending better since this change'
-  if (epWorse  || painWorse)  return 'episodes and/or pain have trended worse after this change'
-  return 'no clear change in episodes or pain yet'
+  if (epBetter && painWorse)  return 'symptoms have been less frequent, but pain has been higher'
+  if (epWorse  && painBetter) return 'pain has improved, though symptoms have been slightly more frequent'
+  if (epBetter || painBetter) return 'symptoms and pain have been trending better since this change'
+  if (epWorse  || painWorse)  return 'symptoms and/or pain have trended worse after this change'
+  return 'no clear change in symptoms or pain yet'
 }
 
-/** Same windows as describeOutcome, with episode % change and pain before/after averages. */
+/** Same windows as describeOutcome, with symptom-log % change and pain before/after averages. */
 function describeOutcomeQuantified (
   preEp: number,
   postEp: number,
@@ -83,14 +83,14 @@ function describeOutcomeQuantified (
   if (preEp === 0 && postEp === 0) {
     /* skip */
   } else if (preEp === 0 && postEp > 0) {
-    bits.push(`symptom episodes went from none in the prior ${windowDays}-day window to ${postEp} in the ${windowDays} days after the change`)
+    bits.push(`symptom logs went from none in the prior ${windowDays}-day window to ${postEp} in the ${windowDays} days after the change`)
   } else if (preEp > 0) {
     const pct = Math.round((epDelta / preEp) * 100)
     if (epDelta === 0) {
-      bits.push(`symptom episode count was similar (${preEp} episodes in each ${windowDays}-day window)`)
+      bits.push(`symptom log count was similar (${preEp} logs in each ${windowDays}-day window)`)
     } else {
       bits.push(
-        `symptom episodes ${epDelta > 0 ? 'increased' : 'decreased'} by about ${Math.abs(pct)}% (${preEp} → ${postEp} across comparable ${windowDays}-day windows)`,
+        `symptom logs ${epDelta > 0 ? 'increased' : 'decreased'} by about ${Math.abs(pct)}% (${preEp} → ${postEp} across comparable ${windowDays}-day windows)`,
       )
     }
   }
@@ -116,7 +116,7 @@ function describeOutcomeQuantified (
     painDelta != null &&
     ((epDelta <= -2 && painDelta >= 0.8) || (epDelta >= 2 && painDelta <= -0.8))
   let s = bits.join('; ')
-  if (mixed) s += ' (mixed pattern: episodes and pain moved in different directions)'
+  if (mixed) s += ' (mixed pattern: symptoms and pain moved in different directions)'
   return s + '.'
 }
 
@@ -219,7 +219,7 @@ function eventDedupeKey (ev: MedChangeEvent): string {
 export type CorrelationLine = { event: MedChangeEvent; line: string }
 
 export type BuildMedCorrelationOptions = {
-  /** Include episode % change and pain averages; use relative time (e.g. "about 1 week ago"). */
+  /** Include symptom-log % change and pain averages; use relative time (e.g. "about 1 week ago"). */
   quantified?: boolean
 }
 
@@ -276,14 +276,14 @@ export function buildMedSymptomCorrelationLines (
     const postStart = evt
     const postEnd   = addDaysIso(evt, windowDays)
 
-    const preEp   = countEpisodes(sympRows, preStart, preEnd)
-    const postEp  = countEpisodes(sympRows, postStart, postEnd)
+    const preEp   = countSymptomLogs(sympRows, preStart, preEnd)
+    const postEp  = countSymptomLogs(sympRows, postStart, postEnd)
     const prePain  = avgPain(painRows, preStart, preEnd)
     const postPain = avgPain(painRows, postStart, postEnd)
 
     let body: string
     if (preEp === 0 && postEp === 0 && prePain == null && postPain == null) {
-      body = 'No pain or episode logs in the surrounding window — keep logging to see a pattern.'
+      body = 'No pain or symptom logs in the surrounding window — keep logging to see a pattern.'
     } else if (quantified) {
       body = describeOutcomeQuantified(preEp, postEp, prePain, postPain, windowDays)
     } else {
@@ -304,7 +304,7 @@ export function formatCorrelationBlock (lines: CorrelationLine[]): string {
     return [
       'No recorded medication start, stop, or dose/frequency changes in the app for this window.',
       'To build this section: use the Medications page to add meds or use "Log dose change" / edits so the app can save history (requires the medication_change_events migration on your project).',
-      'Correlation also needs pain and episode logs around those dates to describe before/after patterns.',
+      'Correlation also needs pain and symptom logs around those dates to describe before/after patterns.',
     ].join(' ')
   }
   return lines.map((x) => `• ${x.line}`).join('\n')

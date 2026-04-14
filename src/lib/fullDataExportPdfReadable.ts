@@ -10,7 +10,7 @@ import type { ArchivedTranscript } from './transcriptArchive'
 export type ExportPayloadReadable = {
   supabase: {
     pain_entries: unknown[]
-    mcas_episodes: unknown[]
+    mcas_symptom_logs: unknown[]
     symptom_logs: unknown[]
     doctors: unknown[]
     doctor_visits: unknown[]
@@ -69,7 +69,7 @@ export function buildReadableExportPdfSections (payload: ExportPayloadReadable):
   const s = payload.supabase
   return [
     formatPainEntries(s.pain_entries as Record<string, unknown>[]),
-    formatEpisodes(s.mcas_episodes as Record<string, unknown>[]),
+    formatMcasSymptomLogs(s.mcas_symptom_logs as Record<string, unknown>[]),
     formatSymptomLogs(s.symptom_logs as Record<string, unknown>[]),
     formatDoctors(s.doctors as Record<string, unknown>[]),
     formatVisits(s.doctor_visits as Record<string, unknown>[]),
@@ -142,24 +142,24 @@ function formatPainEntries (rows: Record<string, unknown>[]): ReadableExportPdfS
   }
 }
 
-function formatEpisodes (rows: Record<string, unknown>[]): ReadableExportPdfSection {
+function formatMcasSymptomLogs (rows: Record<string, unknown>[]): ReadableExportPdfSection {
   const n = rows.length
-  const dates = rows.map((r) => str(r.episode_date)).filter(Boolean).sort()
+  const dates = rows.map((r) => str(r.symptom_date)).filter(Boolean).sort()
   const earliest = dates[0] ?? ''
   const latest = dates[dates.length - 1] ?? ''
 
   let paragraph = n === 0
-    ? 'No MCAS / symptom episodes are stored in this export.'
-    : `${n} symptom episode${n === 1 ? '' : 's'} are recorded`
+    ? 'No MCAS symptom logs are stored in this export.'
+    : `${n} symptom log${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} recorded`
   if (n > 0 && earliest && latest) {
     paragraph += earliest === latest ? ` on ${earliest}.` : ` from ${earliest} to ${latest}.`
   } else if (n > 0) paragraph += '.'
 
-  const sorted = [...rows].sort((a, b) => str(b.episode_date).localeCompare(str(a.episode_date)))
+  const sorted = [...rows].sort((a, b) => str(b.symptom_date).localeCompare(str(a.symptom_date)))
   const bullets: string[] = []
   for (let i = 0; i < Math.min(sorted.length, MAX_BULLETS); i++) {
     const r = row(sorted[i]!)
-    const d = fmtIsoDate(r.episode_date)
+    const d = fmtIsoDate(r.symptom_date)
     const sev = clip(r.severity as string | null, 36)
     const sym = clip(r.symptoms as string | null, 56)
     bullets.push(`${d}${sev ? ` · ${sev}` : ''}${sym ? ` · ${sym}` : ''}`)
@@ -167,7 +167,7 @@ function formatEpisodes (rows: Record<string, unknown>[]): ReadableExportPdfSect
   if (n > MAX_BULLETS) bullets.push(`… and ${n - MAX_BULLETS} more (see JSON export).`)
 
   return {
-    title: 'Symptom episodes (MCAS)',
+    title: 'Symptom logs (MCAS)',
     paragraph,
     bullets: bullets.length ? bullets : ['—'],
   }
@@ -177,7 +177,7 @@ function formatSymptomLogs (rows: Record<string, unknown>[]): ReadableExportPdfS
   const n = rows.length
   const paragraph = n === 0
     ? 'No quick symptom tracker snapshots are stored.'
-    : `${n} structured symptom snapshot${n === 1 ? '' : 's'} from the symptom tracker (separate from episode logs).`
+    : `${n} structured symptom snapshot${n === 1 ? '' : 's'} from the symptom tracker (separate from MCAS symptom logs).`
 
   const sorted = [...rows].sort((a, b) => str(b.logged_at).localeCompare(str(a.logged_at)))
   const bullets: string[] = []

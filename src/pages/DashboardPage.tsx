@@ -13,8 +13,8 @@ import {
   formatCorrelationBlock,
 } from '../lib/medSymptomCorrelation'
 import { useAuth } from '../contexts/AuthContext'
-import { EpisodeSummaryChart, PainSummaryChart } from '../components/summaryCharts'
-import { buildEpisodeChartSeries, buildPainChartSeries, type EpisodeChartPoint, type PainChartPoint } from '../lib/summaryChartData'
+import { PainSummaryChart, SymptomSummaryChart } from '../components/summaryCharts'
+import { buildPainChartSeries, buildSymptomChartSeries, type PainChartPoint, type SymptomChartPoint } from '../lib/summaryChartData'
 import { pushSummaryArchive } from '../lib/summaryArchive'
 import { priorityLabelColor, priorityTackFill } from '../lib/priorityQuickLog'
 import { PriorityTackIcon } from '../components/PriorityTackIcon'
@@ -131,7 +131,7 @@ type HealthSummary = {
   pendingTests: number
   openQuestions: number
   painChart: PainChartPoint[]
-  episodeChart: EpisodeChartPoint[]
+  symptomChart: SymptomChartPoint[]
 }
 
 function parseList (text: string | null): string[] {
@@ -193,10 +193,10 @@ const LOG_ARCHIVE_SHEET: Record<LogArchiveSheetKind, { title: string; descriptio
     cta: 'Open pain log',
   },
   symptoms: {
-    title: 'Episode log',
-    description: 'Browse and search your episode entries in Charts/Trends.',
+    title: 'Symptoms log',
+    description: 'Browse and search your symptom logs in Charts/Trends.',
     to: '/app/charts-trends?tab=symptoms',
-    cta: 'Open episode log',
+    cta: 'Open symptoms log',
   },
   questions: {
     title: 'Questions',
@@ -370,7 +370,7 @@ function SummaryModal ({
   scope,
   focus,
   painChartPdfRef,
-  episodeChartPdfRef,
+  symptomChartPdfRef,
   handoffPdfVisualRef,
   onFocusChange,
   onScopeChange,
@@ -384,7 +384,7 @@ function SummaryModal ({
   scope: 'full' | 'symptomsPainMeds'
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
-  episodeChartPdfRef: RefObject<HTMLDivElement>
+  symptomChartPdfRef: RefObject<HTMLDivElement>
   handoffPdfVisualRef: RefObject<HTMLDivElement>
   onFocusChange: (v: string) => void
   onScopeChange: (v: 'full' | 'symptomsPainMeds') => void
@@ -521,9 +521,9 @@ function SummaryModal ({
                   <PainSummaryChart data={summary.painChart} />
                 </div>
               )}
-              {summary.episodeChart.length > 0 && (
-                <div ref={episodeChartPdfRef} className="card" style={{ padding: 12 }}>
-                  <EpisodeSummaryChart data={summary.episodeChart} />
+              {summary.symptomChart.length > 0 && (
+                <div ref={symptomChartPdfRef} className="card" style={{ padding: 12 }}>
+                  <SymptomSummaryChart data={summary.symptomChart} />
                 </div>
               )}
 
@@ -532,7 +532,7 @@ function SummaryModal ({
               </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                <Link to="/app/charts-trends" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Pain &amp; episodes</Link>
+                <Link to="/app/charts-trends" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Pain &amp; symptoms</Link>
                 <Link to="/app/meds" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Meds</Link>
                 <Link to="/app/tests" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Tests</Link>
                 <Link to="/app/diagnoses" className="muted" style={{ fontSize: '0.8rem' }} onClick={onDone}>Diagnoses</Link>
@@ -703,7 +703,7 @@ export function DashboardPage () {
   const summaryFocusAtOpenRef = useRef('')
   /** DOM roots for PDF chart capture (Recharts inside these cards) */
   const painChartPdfRef = useRef<HTMLDivElement>(null)
-  const episodeChartPdfRef = useRef<HTMLDivElement>(null)
+  const symptomChartPdfRef = useRef<HTMLDivElement>(null)
   const handoffPdfVisualRef = useRef<HTMLDivElement>(null)
   const dashTranscriberRef = useRef<VisitTranscriberHandle>(null)
   const soloTranscriberRef = useRef<SoloTranscriberHandle>(null)
@@ -1320,11 +1320,11 @@ export function DashboardPage () {
         .gte('entry_date', since90Str)
         .order('entry_date', { ascending: false })
         .limit(120),
-      supabase.from('mcas_episodes')
-        .select('episode_date, episode_time, activity, symptoms, severity, relief, notes')
+      supabase.from('mcas_symptom_logs')
+        .select('symptom_date, symptom_time, activity, symptoms, severity, relief, notes')
         .eq('user_id', user.id)
-        .gte('episode_date', since90Str)
-        .order('episode_date', { ascending: false })
+        .gte('symptom_date', since90Str)
+        .order('symptom_date', { ascending: false })
         .limit(120),
       supabase.from('current_medications')
         .select('medication, dose, frequency, start_date, purpose, effectiveness, notes')
@@ -1482,7 +1482,7 @@ export function DashboardPage () {
       painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
       pendingTests, openQuestions: qList.length,
       painChart: buildPainChartSeries(painRows, 60),
-      episodeChart: buildEpisodeChartSeries(sympRows, 60),
+      symptomChart: buildSymptomChartSeries(sympRows, 60),
     })
     setSummaryLoading(false)
     if (gameTokensEnabled()) {
@@ -1512,11 +1512,11 @@ export function DashboardPage () {
       ? await captureElementAsPng(handoffPdfVisualRef.current)
       : null
     const pain = painChartPdfRef.current ? await captureElementAsPng(painChartPdfRef.current) : null
-    const episode = episodeChartPdfRef.current ? await captureElementAsPng(episodeChartPdfRef.current) : null
+    const symptomChartCap = symptomChartPdfRef.current ? await captureElementAsPng(symptomChartPdfRef.current) : null
     await downloadHealthSummaryPdf(handoffTextForPdf(summary), summary.generatedAt, {
       visual: visual ?? undefined,
       pain: pain ?? undefined,
-      episode: episode ?? undefined,
+      symptomChart: symptomChartCap ?? undefined,
     })
   }
 
@@ -1812,7 +1812,7 @@ export function DashboardPage () {
           scope={summaryScope}
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
-          episodeChartPdfRef={episodeChartPdfRef}
+          symptomChartPdfRef={symptomChartPdfRef}
           handoffPdfVisualRef={handoffPdfVisualRef}
           onFocusChange={setPatientFocus}
           onScopeChange={persistSummaryScope}
@@ -2309,8 +2309,8 @@ export function DashboardPage () {
             to={`/app/log?tab=pain&returnTo=${dashReturnTo}`}
             className="scrap-log-tile scrap-log-tile--pink"
             kind="pain"
-            title="Pain & episodes"
-            sub="Log pain — link an episode if it matched"
+            title="Pain & symptoms"
+            sub="Log pain — link a symptom log if it matched"
             onLongPress={setLogArchiveSheet}
           >
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
@@ -2338,7 +2338,7 @@ export function DashboardPage () {
         </div>
         <p className="muted" style={{ textAlign: 'center', marginTop: 10, fontSize: '0.9rem' }}>
           <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} className="scrap-dash-footer-link">
-            Log an episode only (no pain)
+            Log symptoms only (no pain)
           </Link>
         </p>
 

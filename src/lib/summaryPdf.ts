@@ -11,7 +11,7 @@ export type CapturedChart = {
 
 export type SummaryPdfCharts = {
   pain?: CapturedChart | null
-  episode?: CapturedChart | null
+  symptomChart?: CapturedChart | null
 }
 
 export type SummaryPdfOptions = SummaryPdfCharts & {
@@ -498,12 +498,12 @@ export async function downloadHealthSummaryPdf (
    */
   if (!visualOk) {
     const painOk = options?.pain && !(await isCaptureMostlyBlank(options.pain))
-    const epOk = options?.episode && !(await isCaptureMostlyBlank(options.episode))
-    if (painOk || epOk) {
+    const symOk = options?.symptomChart && !(await isCaptureMostlyBlank(options.symptomChart))
+    if (painOk || symOk) {
       addRawLines('Charts (from your logs)', 11, [17, 24, 39], 16)
       y += 8
       if (painOk) addChartImage(options.pain!)
-      if (epOk) addChartImage(options.episode!)
+      if (symOk) addChartImage(options.symptomChart!)
       y += 4
     }
   }

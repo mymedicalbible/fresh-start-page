@@ -1,5 +1,5 @@
 export type PainChartPoint = { label: string; sortKey: string; intensity: number; date: string }
-export type EpisodeChartPoint = { label: string; sortKey: string; score: number; date: string }
+export type SymptomChartPoint = { label: string; sortKey: string; score: number; date: string }
 
 function severityToScore (s: unknown): number {
   const t = String(s ?? '').toLowerCase()
@@ -41,16 +41,16 @@ export function buildPainChartSeries (painRows: Array<Record<string, unknown>>, 
   }))
 }
 
-export function buildEpisodeChartSeries (sympRows: Array<Record<string, unknown>>, days = 60): EpisodeChartPoint[] {
+export function buildSymptomChartSeries (sympRows: Array<Record<string, unknown>>, days = 60): SymptomChartPoint[] {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
   const cutoffStr = cutoff.toISOString().slice(0, 10)
 
   const rows = sympRows
-    .filter((r) => String(r.episode_date ?? '') >= cutoffStr)
+    .filter((r) => String(r.symptom_date ?? '') >= cutoffStr)
     .map((r) => ({
-      date: String(r.episode_date ?? ''),
-      time: String(r.episode_time ?? ''),
+      date: String(r.symptom_date ?? ''),
+      time: String(r.symptom_time ?? ''),
       score: severityToScore(r.severity),
     }))
     .filter((r) => r.date)

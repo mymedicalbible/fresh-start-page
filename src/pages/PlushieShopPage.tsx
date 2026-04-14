@@ -213,7 +213,7 @@ export function PlushieShopPage () {
           <li>
             <strong>1 token</strong>
             {' '}
-            for each completed quick log: questions, pain, episodes, or diagnosis.
+            for each completed quick log: questions, pain, symptoms, or diagnosis.
           </li>
           <li>
             <strong>2 tokens</strong>

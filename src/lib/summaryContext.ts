@@ -64,10 +64,10 @@ function formatPainLine (r: Record<string, unknown>) {
   return `• ${parts.join(' · ')}`
 }
 
-function formatEpisodeLine (r: Record<string, unknown>) {
+function formatSymptomLogLine (r: Record<string, unknown>) {
   const parts = [
-    r.episode_date as string,
-    r.episode_time ? String(r.episode_time) : null,
+    r.symptom_date as string,
+    r.symptom_time ? String(r.symptom_time) : null,
     r.severity ? String(r.severity) : null,
     r.symptoms ? String(r.symptoms) : null,
     r.activity ? `ctx: ${r.activity}` : null,
@@ -106,10 +106,10 @@ function pickPainExemplars (rows: Record<string, unknown>[], max = 4): Record<st
   return out.slice(0, max)
 }
 
-function pickEpisodeExemplars (rows: Record<string, unknown>[], max = 4): Record<string, unknown>[] {
+function pickSymptomLogExemplars (rows: Record<string, unknown>[], max = 4): Record<string, unknown>[] {
   if (rows.length === 0) return []
   const severityRank = (s: string) => ({ Severe: 3, Moderate: 2, Mild: 1 }[s] ?? 0)
-  const key = (r: Record<string, unknown>) => `${r.episode_date}-${r.symptoms}`
+  const key = (r: Record<string, unknown>) => `${r.symptom_date}-${r.symptoms}`
   const seen = new Set<string>()
   const out: Record<string, unknown>[] = []
   const ranked = [...rows].sort((a, b) =>
@@ -146,8 +146,8 @@ export function buildCompactPatientData (input: SummaryInput): string {
 
   const painRecent = painRows.filter((r) => String(r.entry_date) >= start14)
   const painPrior = painRows.filter((r) => String(r.entry_date) < start14 && String(r.entry_date) >= start90)
-  const symRecent = sympRows.filter((r) => String(r.episode_date) >= start14)
-  const symPrior = sympRows.filter((r) => String(r.episode_date) < start14 && String(r.episode_date) >= start90)
+  const symRecent = sympRows.filter((r) => String(r.symptom_date) >= start14)
+  const symPrior = sympRows.filter((r) => String(r.symptom_date) < start14 && String(r.symptom_date) >= start90)
 
   const avgR = painAvg(painRecent)
   const avgP = painAvg(painPrior)
@@ -165,20 +165,20 @@ export function buildCompactPatientData (input: SummaryInput): string {
     if (topP.length && !painRecent.length) trendLine += `. Top locations (prior): ${topP.map((x) => `${x.area}×${x.count}`).join(', ')}`
   }
 
-  let symTrend = 'Symptom/MCAS episodes: '
+  let symTrend = 'Symptom/MCAS logs: '
   if (sympRows.length === 0) symTrend += 'none in ~90d.'
   else {
     symTrend += `${sympRows.length} in ~90d; last 14d: ${symRecent.length} vs prior window: ${symPrior.length}.`
   }
 
   const painEx = pickPainExemplars(painRows, 4)
-  const epEx = pickEpisodeExemplars(sympRows, 4)
+  const symEx = pickSymptomLogExemplars(sympRows, 4)
 
   const painExText = painEx.length ? painEx.map(formatPainLine).join('\n') : '(No exemplar pain lines.)'
-  const epExText = epEx.length ? epEx.map(formatEpisodeLine).join('\n') : '(No exemplar episode lines.)'
+  const symExText = symEx.length ? symEx.map(formatSymptomLogLine).join('\n') : '(No exemplar symptom log lines.)'
 
   const excerptPain = painRows.slice(0, 5).map(formatPainLine).join('\n') || '(none)'
-  const excerptEp = sympRows.slice(0, 5).map(formatEpisodeLine).join('\n') || '(none)'
+  const excerptSym = sympRows.slice(0, 5).map(formatSymptomLogLine).join('\n') || '(none)'
 
   const medText = medList.length
     ? medList.map((m) => {
@@ -247,8 +247,8 @@ export function buildCompactPatientData (input: SummaryInput): string {
     '=== REPRESENTATIVE PAIN ENTRIES (illustrate patterns; do not copy every line to output) ===',
     painExText,
     '',
-    '=== REPRESENTATIVE SYMPTOM / EPISODE ENTRIES ===',
-    epExText,
+    '=== REPRESENTATIVE SYMPTOM LOG ENTRIES ===',
+    symExText,
     '',
     '=== MEDICATIONS (complete list from app) ===',
     medText,
@@ -278,7 +278,7 @@ export function buildCompactPatientData (input: SummaryInput): string {
     'Pain (max 5 lines):',
     excerptPain,
     '',
-    'Episodes (max 5 lines):',
-    excerptEp,
+    'Symptoms (max 5 lines):',
+    excerptSym,
   ].join('\n')
 }

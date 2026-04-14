@@ -29,8 +29,8 @@ type PainEntryWithWeather = PainRow & { weather_snapshot: unknown }
 
 type SymptomRow = {
   id: string
-  episode_date: string
-  episode_time: string | null
+  symptom_date: string
+  symptom_time: string | null
   activity: string | null
   symptoms: string | null
   severity: string | null
@@ -81,7 +81,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   const { user } = useAuth()
   const location = useLocation()
   const [pain, setPain] = useState<PainRow[]>([])
-  const [symptomEpisodes, setSymptomEpisodes] = useState<SymptomRow[]>([])
+  const [symptomLogs, setSymptomLogs] = useState<SymptomRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState<DayRange>('120')
   const [popup, setPopup] = useState<HourPopup>(null)
@@ -110,10 +110,10 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
         .eq('user_id', user.id).order('entry_date', { ascending: true })
       if (since) pq = pq.gte('entry_date', since)
 
-      let sq = supabase.from('mcas_episodes')
-        .select('id, episode_date, episode_time, activity, symptoms, severity')
-        .eq('user_id', user.id).order('episode_date', { ascending: true })
-      if (since) sq = sq.gte('episode_date', since)
+      let sq = supabase.from('mcas_symptom_logs')
+        .select('id, symptom_date, symptom_time, activity, symptoms, severity')
+        .eq('user_id', user.id).order('symptom_date', { ascending: true })
+      if (since) sq = sq.gte('symptom_date', since)
 
       const pwq = supabase
         .from('pain_entries')
@@ -127,7 +127,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
       if (p.error) throw new Error(p.error.message)
       if (s.error) throw new Error(s.error.message)
       setPain((p.data ?? []) as PainRow[])
-      setSymptomEpisodes((s.data ?? []) as SymptomRow[])
+      setSymptomLogs((s.data ?? []) as SymptomRow[])
       if (!pw.error) {
         setPainWithWeather((pw.data ?? []) as PainEntryWithWeather[])
       } else {
@@ -173,7 +173,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   // Top symptoms by frequency (replaces MCAS triggers)
   const topSymptoms = useMemo(() => {
     const map = new Map<string, number>()
-    for (const row of symptomEpisodes) {
+    for (const row of symptomLogs) {
       for (const s of parseSymptomTokens(row.symptoms)) {
         map.set(s, (map.get(s) ?? 0) + 1)
       }
@@ -181,7 +181,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
     return [...map.entries()]
       .map(([symptom, n]) => ({ symptom, n }))
       .sort((a, b) => b.n - a.n).slice(0, 10)
-  }, [symptomEpisodes])
+  }, [symptomLogs])
 
   // Pain by hour
   const painByHour = useMemo(() => {
@@ -203,8 +203,8 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
   const symptomsByHour = useMemo(() => {
     const map = new Map<number, { count: number; entries: SymptomRow[] }>()
     for (let i = 0; i < 24; i++) map.set(i, { count: 0, entries: [] })
-    for (const row of symptomEpisodes) {
-      const h = hourFromTime(row.episode_time)
+    for (const row of symptomLogs) {
+      const h = hourFromTime(row.symptom_time)
       if (h !== null) {
         const cur = map.get(h)!
         cur.count += 1
@@ -213,7 +213,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
       }
     }
     return [...map.entries()].map(([hour, data]) => ({ hour, ...data }))
-  }, [symptomEpisodes])
+  }, [symptomLogs])
 
   const maxPainHour = Math.max(...painByHour.map((h) => h.count), 1)
   const maxSympHour = Math.max(...symptomsByHour.map((h) => h.count), 1)
@@ -240,8 +240,8 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
     setPopup({
       type: 'symptoms', hour,
       items: entries.map((e) => ({
-        label: e.symptoms ?? 'No episode features listed',
-        sub: `${e.episode_date}${e.severity ? ` · ${e.severity}` : ''}${e.activity ? ` · ${e.activity}` : ''}`,
+        label: e.symptoms ?? 'No symptom features listed',
+        sub: `${e.symptom_date}${e.severity ? ` · ${e.severity}` : ''}${e.activity ? ` · ${e.activity}` : ''}`,
       })),
     })
   }
@@ -341,7 +341,7 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>
-                {popup.type === 'pain' ? '🩹 Pain' : '🩺 Episodes'} at {formatHour(popup.hour)}
+                {popup.type === 'pain' ? '🩹 Pain' : '🩺 Symptoms'} at {formatHour(popup.hour)}
               </h3>
               <button type="button" className="btn btn-ghost" onClick={() => setPopup(null)}>✕</button>
             </div>
@@ -464,12 +464,12 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
             <button type="button" onClick={() => setExpandSymptoms(v => !v)}
               style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
               <h2 style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <span>Most common episode features</span>
+                <span>Most common symptom features</span>
                 <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>{expandSymptoms ? '▲' : '▼'}</span>
               </h2>
             </button>
             {topSymptoms.length === 0
-              ? <p className="muted">No episodes logged yet.</p>
+              ? <p className="muted">No symptoms logged yet.</p>
               : (
                 <div style={{ display: 'grid', gap: 10 }}>
                   {visibleSymptoms.map((s) => (
@@ -522,9 +522,9 @@ export function AnalyticsPage ({ embedded = false }: AnalyticsPageProps = {}) {
 
           {/* SYMPTOMS TIME HEATMAP — replaces MCAS by time */}
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Episodes by time of day</h2>
+            <h2 style={{ marginTop: 0 }}>Symptoms by time of day</h2>
             {!hasSympHourData
-              ? <p className="muted">No timed episode entries yet.</p>
+              ? <p className="muted">No timed symptom logs yet.</p>
               : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
                   {symptomsByHour.map(({ hour, count, entries }) => (

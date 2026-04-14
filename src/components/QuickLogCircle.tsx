@@ -42,7 +42,7 @@ export function IconPain () {
   )
 }
 
-export function IconEpisode () {
+export function IconSymptoms () {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden>
       <path d="M12 3c-1.5 3-5 5-5 9a5 5 0 0 0 10 0c0-4-3.5-6-5-9z" />

@@ -94,7 +94,7 @@ export function ProfilePage () {
   const email = user?.email ?? ''
 
   const [painCount, setPainCount] = useState<number | null>(null)
-  const [episodeCount, setEpisodeCount] = useState<number | null>(null)
+  const [symptomLogCount, setSymptomLogCount] = useState<number | null>(null)
   const [visitCount, setVisitCount] = useState<number | null>(null)
 
   const [tokenBalance, setTokenBalance] = useState<number | null>(null)
@@ -126,11 +126,11 @@ export function ProfilePage () {
     if (!user) return
     const [p, e, v] = await Promise.all([
       supabase.from('pain_entries').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-      supabase.from('mcas_episodes').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('mcas_symptom_logs').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('doctor_visits').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     ])
     setPainCount(p.count ?? 0)
-    setEpisodeCount(e.count ?? 0)
+    setSymptomLogCount(e.count ?? 0)
     setVisitCount(v.count ?? 0)
   }, [user])
 
@@ -411,8 +411,8 @@ export function ProfilePage () {
             <span>pain logs</span>
           </div>
           <div className="scrap-account-stat scrap-account-stat--mint scrap-account-tilt--b">
-            <strong>{episodeCount === null ? '…' : episodeCount}</strong>
-            <span>episodes</span>
+            <strong>{symptomLogCount === null ? '…' : symptomLogCount}</strong>
+            <span>symptom logs</span>
           </div>
           <div className="scrap-account-stat scrap-account-stat--butter scrap-account-tilt--c">
             <strong>{visitCount === null ? '…' : visitCount}</strong>

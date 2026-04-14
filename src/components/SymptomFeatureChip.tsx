@@ -1,6 +1,6 @@
 import { useLongPress } from '../lib/useLongPress'
 
-export function EpisodeFeatureChip ({
+export function SymptomFeatureChip ({
   label,
   showRemove,
   onReveal,

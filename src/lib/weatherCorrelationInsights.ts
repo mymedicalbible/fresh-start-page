@@ -165,7 +165,7 @@ export function buildWeatherCorrelationInsights (
   if (symPressureNonEmpty.length >= 3) {
     const avg = Math.round(mean(symPressureNonEmpty.map((x) => x.count)) * 10) / 10
     lines.push(
-      `At similar pressure to this forecast, your average symptom count on episode logs was ${avg} (${symPressureNonEmpty.length} logs).`,
+      `At similar pressure to this forecast, your average symptom count on symptom logs was ${avg} (${symPressureNonEmpty.length} logs).`,
     )
   }
 
@@ -178,7 +178,7 @@ export function buildWeatherCorrelationInsights (
         curBucket === 'low' ? 5 : curBucket === 'mod' ? 25 : 60,
       )
       lines.push(
-        `When grass pollen was ${label} (like this forecast), your average symptom count on episode logs was ${avg} (${symPollenNonEmpty.length} logs).`,
+        `When grass pollen was ${label} (like this forecast), your average symptom count on symptom logs was ${avg} (${symPollenNonEmpty.length} logs).`,
       )
     }
   }
@@ -189,7 +189,7 @@ export function buildWeatherCorrelationInsights (
     )
   } else if (lines.length === 0) {
     lines.push(
-      'Log pain or episodes with weather enabled a few times to see how you line up with conditions like this forecast.',
+      'Log pain or symptoms with weather enabled a few times to see how you line up with conditions like this forecast.',
     )
   }
 

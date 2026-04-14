@@ -1,6 +1,6 @@
 # Medical Bible (Medical Tracker)
 
-**Medical Bible** is a personal health journal you use in the **browser** (phone, tablet, or desktop). It helps you capture **pain**, **symptom episodes**, **doctor visits**, **medications**, **tests and orders**, **diagnoses**, **questions for clinicians**, and **appointments**—then find them again by time or by doctor, spot patterns in **charts**, and build a **clinical handoff narrative** (optionally polished with AI) that you can **save as a PDF**.
+**Medical Bible** is a personal health journal you use in the **browser** (phone, tablet, or desktop). It helps you capture **pain**, **symptoms** (structured MCAS-style logs), **doctor visits**, **medications**, **tests and orders**, **diagnoses**, **questions for clinicians**, and **appointments**—then find them again by time or by doctor, spot patterns in **charts**, and build a **clinical handoff narrative** (optionally polished with AI) that you can **save as a PDF**.
 
 The running name in code is `medical-tracker-web`; data lives in **Supabase** (your own project). This app **does not** diagnose, prescribe, or replace care from a licensed professional. **You** decide what to log and what to share.
 
@@ -13,22 +13,22 @@ The running name in code is `medical-tracker-web`; data lives in **Supabase** (y
 - **Appointments** — Banner for upcoming, in-progress, or most recent visit; optional **browser notifications** when you enable them (behavior depends on the device and browser).
 - **Plushie strip (when game tokens are enabled)** — If your project has the token economy enabled (`VITE_GAME_TOKENS_ENABLED` is not `false`), the appointment banner can show **this week’s rotation plush** as a **Lottie** beside the strip (no caption under it). The weekly art matches the shop hero for the current rotation whether or not you’ve purchased that plush yet; **profile** plushies and token line are separate. Optional **browser-stored** settings (when exposed in your build) can hide the strip or show a specific unlocked plush instead of the weekly default.
 - **Pending visits** — Visits you logged as not yet finished; jump back into the visit flow from sticky notes below the banner.
-- **Log today** — Shortcuts to **Pain**, **Episodes** (symptom episodes), **Questions**, and **Visit log** (starts the visit wizard).
+- **Log today** — Shortcuts to **Pain**, **Symptoms** (symptom logs), **Questions**, and **Visit log** (starts the visit wizard).
 - **Doctor handoff summary** — Opens a panel that builds a **first-person narrative** from your saved data. You can generate **short** or **thorough** wording, optionally run **AI** enhancement when the backend is configured, **copy** text, **download PDF**, and archive generations **on this device**.
 - **Your records** — Sticker shortcuts: **Doctors**, **Medications**, **Tests & orders**. Use **Archives** in the bottom nav for **Visits**, **Questions**, **Transcripts**, and **Diagnoses**; use **More** for **Account** and **Plushies**.
 - **Profile** — Open **Account** from **More** or follow links from the dashboard when shown.
 
 ### Quick log — `/app/log`
 
-Fast paths to log **pain** and **symptom episodes**; add **questions for your doctor**. Drafts can be **saved for later** if you leave mid-entry.
+Fast paths to log **pain** and **symptoms**; add **questions for your doctor**. Drafts can be **saved for later** if you leave mid-entry.
 
 ### Records — `/app/charts-trends`, `/app/records` (`/app/flares` redirects here)
 
-Searchable history with tabs: **Pain**, **Episodes**, **Summaries** (device-local handoff archive), **Analytics** (embedded charts).
+Searchable history with tabs: **Pain**, **Symptoms**, **Summaries** (device-local handoff archive), **Analytics** (embedded charts).
 
 ### Analytics — `/app/analytics`
 
-**Pain over time**, **top pain areas**, **episode features**, **time-of-day** views. For awareness and conversations with your care team—not self-diagnosis.
+**Pain over time**, **top pain areas**, **symptom features**, **time-of-day** views. For awareness and conversations with your care team—not self-diagnosis.
 
 ### Visits — `/app/visits`
 

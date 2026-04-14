@@ -38,7 +38,7 @@ Use exactly these numbered section headings (same wording), each on its own line
 FEW-SHOT STYLE (fictional — match tone only; do not copy diagnoses or treatments):
 
 1. PATIENT SNAPSHOT
-Ms. Doe is tracking suspected POTS and hEDS with rheumatology and cardiology involvement. She is on propranolol 20 mg TID and MTX 15 mg weekly with PRN NSAID. Pain has been moderate overall with several high-intensity days; MCAS-type episodes cluster after exertion. She has one pending orthostatic workup and wants to discuss morning symptoms with her team.
+Ms. Doe is tracking suspected POTS and hEDS with rheumatology and cardiology involvement. She is on propranolol 20 mg TID and MTX 15 mg weekly with PRN NSAID. Pain has been moderate overall with several high-intensity days; MCAS-type symptoms cluster after exertion. She has one pending orthostatic workup and wants to discuss morning symptoms with her team.
 
 2. ACTIVE CONCERNS (ADDRESS TODAY)
 Recent flare frequency is up compared with the prior month; orthostatic symptoms remain limiting on days she logged. CBC/CMP from last week is still listed as pending in the app.
@@ -50,7 +50,7 @@ Recent flare frequency is up compared with the prior month; orthostatic symptoms
 Rheumatology noted MTX; repeat labs mentioned. Cardiology follow-up noted.
 
 5. MEDICATION CHANGES AND SYMPTOM CORRELATION
-After propranolol titration (per app log), episode counts in the following window differed from the prior window — correlation only, not causation.
+After propranolol titration (per app log), symptom log counts in the following window differed from the prior window — correlation only, not causation.
 
 6. MY QUESTIONS FOR YOU
 She wants to review morning stiffness duration with rheumatology and timing of cardiology follow-up for orthostasis.

@@ -1,7 +1,7 @@
 import {
   Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import type { EpisodeChartPoint, PainChartPoint } from '../lib/summaryChartData'
+import type { PainChartPoint, SymptomChartPoint } from '../lib/summaryChartData'
 
 const PAIN_LINE = '#a78bfa'
 const PAIN_FILL = '#e9d5ff'
@@ -21,7 +21,7 @@ function PainDot (props: DotProps) {
   return <circle cx={cx} cy={cy} r={4} fill={PAIN_LINE} />
 }
 
-function EpisodeDot (props: { cx?: number; cy?: number }) {
+function SymptomDot (props: { cx?: number; cy?: number }) {
   const { cx, cy } = props
   if (cx == null || cy == null) return null
   return <circle cx={cx} cy={cy} r={5} fill={EP_LINE} />
@@ -68,11 +68,11 @@ export function PainSummaryChart ({ data, title = 'Pain intensity' }: { data: Pa
   )
 }
 
-export function EpisodeSummaryChart ({ data, title = 'Episode activity' }: { data: EpisodeChartPoint[]; title?: string }) {
+export function SymptomSummaryChart ({ data, title = 'Symptom activity' }: { data: SymptomChartPoint[]; title?: string }) {
   if (data.length === 0) {
     return (
       <div className="muted" style={{ fontSize: '0.82rem', padding: '12px 0' }}>
-        No episode logs in this window.
+        No symptom logs in this window.
       </div>
     )
   }
@@ -98,7 +98,7 @@ export function EpisodeSummaryChart ({ data, title = 'Episode activity' }: { dat
               dataKey="score"
               stroke={EP_LINE}
               strokeWidth={2.5}
-              dot={(p: { cx?: number; cy?: number }) => <EpisodeDot {...p} />}
+              dot={(p: { cx?: number; cy?: number }) => <SymptomDot {...p} />}
               activeDot={{ r: 6 }}
               isAnimationActive={false}
             />

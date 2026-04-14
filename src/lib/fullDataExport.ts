@@ -43,7 +43,7 @@ export type FullExportPayload = {
   }
   supabase: {
     pain_entries: unknown[]
-    mcas_episodes: unknown[]
+    mcas_symptom_logs: unknown[]
     symptom_logs: unknown[]
     doctors: unknown[]
     doctor_visits: unknown[]
@@ -176,9 +176,9 @@ export async function buildFullExportPayload (userId: string): Promise<FullExpor
     safeSelect('pain_entries', async () =>
       await supabase.from('pain_entries').select('*').eq('user_id', userId)
         .order('entry_date', { ascending: false }).limit(10000)),
-    safeSelect('mcas_episodes', async () =>
-      await supabase.from('mcas_episodes').select('*').eq('user_id', userId)
-        .order('episode_date', { ascending: false }).limit(10000)),
+    safeSelect('mcas_symptom_logs', async () =>
+      await supabase.from('mcas_symptom_logs').select('*').eq('user_id', userId)
+        .order('symptom_date', { ascending: false }).limit(10000)),
     safeSelect('symptom_logs', async () =>
       await supabase.from('symptom_logs').select('*').eq('user_id', userId)
         .order('created_at', { ascending: false }).limit(10000)),
@@ -219,7 +219,7 @@ export async function buildFullExportPayload (userId: string): Promise<FullExpor
 
   for (const [label, res] of Object.entries({
     pain_entries: painAll,
-    mcas_episodes: sympAll,
+    mcas_symptom_logs: sympAll,
     symptom_logs: symptomLogs,
     doctors,
     doctor_visits: visitsAll,
@@ -246,7 +246,7 @@ export async function buildFullExportPayload (userId: string): Promise<FullExpor
     .filter((r) => String(r.entry_date ?? '') >= since90Str)
     .slice(0, 120)
   const sympRows = sympRowsAll
-    .filter((r) => String(r.episode_date ?? '') >= since90Str)
+    .filter((r) => String(r.symptom_date ?? '') >= since90Str)
     .slice(0, 120)
 
   const testRows = (testsAll.rows as Record<string, unknown>[]).slice(0, 40)
@@ -338,7 +338,7 @@ export async function buildFullExportPayload (userId: string): Promise<FullExpor
     },
     supabase: {
       pain_entries: painAll.rows,
-      mcas_episodes: sympAll.rows,
+      mcas_symptom_logs: sympAll.rows,
       symptom_logs: symptomLogs.rows,
       doctors: doctors.rows,
       doctor_visits: visitsAll.rows,

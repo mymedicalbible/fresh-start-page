@@ -7,7 +7,7 @@ import { deleteSummaryArchiveItem, loadSummaryArchive, type ArchivedHandoffSumma
 import { stripLineBulletsFromText } from '../lib/stripLineBullets'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { AnalyticsPage } from './AnalyticsPage'
-import { EpisodeFeatureChip } from '../components/EpisodeFeatureChip'
+import { SymptomFeatureChip } from '../components/SymptomFeatureChip'
 
 type Tab = 'pain' | 'symptoms' | 'summaries' | 'charts'
 
@@ -19,7 +19,7 @@ type PainRow = {
 }
 
 type SymptomRow = {
-  id: string; episode_date: string; episode_time: string | null
+  id: string; symptom_date: string; symptom_time: string | null
   activity: string | null; symptoms: string | null
   severity: string | null; relief: string | null; notes: string | null
 }
@@ -58,10 +58,10 @@ export function RecordsPage () {
           .order('entry_date', { ascending: false })
           .order('entry_time', { ascending: false, nullsFirst: false })
           .limit(100),
-        supabase.from('mcas_episodes')
-          .select('id, episode_date, episode_time, activity, symptoms, severity, relief, notes')
+        supabase.from('mcas_symptom_logs')
+          .select('id, symptom_date, symptom_time, activity, symptoms, severity, relief, notes')
           .eq('user_id', user!.id)
-          .order('episode_date', { ascending: false }).limit(100),
+          .order('symptom_date', { ascending: false }).limit(100),
       ])
       if (p.error && s.error) setError(`${p.error.message} · ${s.error.message}`)
       else if (p.error) setError(p.error.message)
@@ -90,17 +90,17 @@ export function RecordsPage () {
     }
   }, [q, pain, symptoms])
 
-  async function removeFeature (episodeId: string, sym: string) {
-    const key = `${episodeId}::${sym}`
+  async function removeFeature (symptomLogId: string, sym: string) {
+    const key = `${symptomLogId}::${sym}`
     setRemovingFeature(key)
-    const episode = symptoms.find((r) => r.id === episodeId)
-    if (!episode) { setRemovingFeature(null); return }
-    const updated = (episode.symptoms ?? '')
+    const row = symptoms.find((r) => r.id === symptomLogId)
+    if (!row) { setRemovingFeature(null); return }
+    const updated = (row.symptoms ?? '')
       .split(',').map((s) => s.trim()).filter((s) => s && s !== sym).join(', ') || null
-    const { error: e } = await supabase.from('mcas_episodes').update({ symptoms: updated }).eq('id', episodeId)
+    const { error: e } = await supabase.from('mcas_symptom_logs').update({ symptoms: updated }).eq('id', symptomLogId)
     setRemovingFeature(null)
     if (e) { setError(e.message); return }
-    setSymptoms((prev) => prev.map((r) => r.id === episodeId ? { ...r, symptoms: updated } : r))
+    setSymptoms((prev) => prev.map((r) => r.id === symptomLogId ? { ...r, symptoms: updated } : r))
   }
 
   function removeArchivedSummary (id: string) {
@@ -113,7 +113,7 @@ export function RecordsPage () {
 
   const tabLabels: [Tab, string][] = [
     ['pain', 'Pain'],
-    ['symptoms', 'Episodes'],
+    ['symptoms', 'Symptoms'],
     ['summaries', 'Summaries'],
     ['charts', 'Analytics'],
   ]
@@ -173,12 +173,12 @@ export function RecordsPage () {
       {/* SYMPTOMS */}
       {tab === 'symptoms' && (
         <div className="card">
-          <h3>Episode log</h3>
-          {filtered.symptoms.length === 0 ? <p className="muted">No episode entries yet.</p> : null}
+          <h3>Symptoms log</h3>
+          {filtered.symptoms.length === 0 ? <p className="muted">No symptom logs yet.</p> : null}
           {filtered.symptoms.map((r) => (
             <div key={r.id} className="list-item">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <strong>{r.episode_date}{r.episode_time ? ` · ${r.episode_time}` : ''}</strong>
+                <strong>{r.symptom_date}{r.symptom_time ? ` · ${r.symptom_time}` : ''}</strong>
                 <span className="muted">{r.severity ? `${r.severity}` : ''}</span>
               </div>
               {r.symptoms && (
@@ -187,7 +187,7 @@ export function RecordsPage () {
                     {r.symptoms.split(',').map(s => s.trim()).filter(Boolean).map((sym) => {
                       const key = `${r.id}::${sym}`
                       return (
-                        <EpisodeFeatureChip
+                        <SymptomFeatureChip
                           key={key}
                           label={sym}
                           showRemove={featureRevealKey === key}

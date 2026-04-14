@@ -987,7 +987,7 @@ textarea { min-height: 88px; resize: vertical; }
 .summary-output { white-space: pre-wrap; font-size: 0.92rem; line-height: 1.6; }
 
 /* Same class name as Tailwind’s `list-item` display utility — without this, `display: list-item`
-   wins and every row gets a default disc marker on the left (pain/episode archives, etc.). */
+   wins and every row gets a default disc marker on the left (pain/symptom archives, etc.). */
 div.list-item {
   display: block;
   list-style: none;
@@ -1171,7 +1171,7 @@ div.list-item.unread { background: var(--sky-surface); }
   margin-top: 5px;
 }
 .recent-dot--pain { background: var(--blush-dark); }
-.recent-dot--episode { background: var(--mint-dark); }
+.recent-dot--symptoms { background: var(--mint-dark); }
 .recent-dot--visit { background: var(--sky-dark); }
 
 /* ============================================================

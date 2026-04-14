@@ -147,11 +147,11 @@ function formatHour12 (h: number): string {
   return `${hr}${suf}`
 }
 
-/** Best 3-hour window with most episode times (needs several times logged). */
-function inferPeakEpisodeTimeWindow (symp30: Record<string, unknown>[]): string | null {
+/** Best 3-hour window with most logged symptom times (needs several times logged). */
+function inferPeakSymptomTimeWindow (symp30: Record<string, unknown>[]): string | null {
   const hours: number[] = []
   for (const r of symp30) {
-    const h = parseLooseTimeToHour(String(r.episode_time ?? ''))
+    const h = parseLooseTimeToHour(String(r.symptom_time ?? ''))
     if (h != null) hours.push(h)
   }
   if (hours.length < 4) return null
@@ -234,8 +234,8 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
   const since14 = addDaysIso(d.todayIso, -14)
 
   const pain30 = d.painRows.filter((r) => String(r.entry_date ?? '') >= since30)
-  const symp30 = d.sympRows.filter((r) => String(r.episode_date ?? '') >= since30)
-  const symp14 = d.sympRows.filter((r) => String(r.episode_date ?? '') >= since14)
+  const symp30 = d.sympRows.filter((r) => String(r.symptom_date ?? '') >= since30)
+  const symp14 = d.sympRows.filter((r) => String(r.symptom_date ?? '') >= since14)
 
   const intensities = pain30.map((r) => r.intensity).filter((x): x is number => typeof x === 'number')
   const avgPain = intensities.length
@@ -284,23 +284,23 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
   }
 
   parts.push('')
-  parts.push('SYMPTOM EPISODES (LAST 30 DAYS)')
+  parts.push('SYMPTOMS (LAST 30 DAYS)')
   if (symp30.length === 0) {
-    parts.push('  • No symptom episodes in this window.')
+    parts.push('  • No symptom logs in this window.')
   } else {
-    parts.push(`  • ${plural(symp30.length, 'episode')} logged`)
+    parts.push(`  • ${plural(symp30.length, 'symptom log')} logged`)
     if (symp30.length > 0 && symp14.length * 2 >= symp30.length) {
       parts.push('  • Most were logged in the last 2 weeks')
     }
     if (sympTop.length > 0) {
-      parts.push('  • Most common episode symptoms:')
+      parts.push('  • Most common symptoms:')
       for (const s of sympTop.slice(0, 8)) {
         parts.push(`    • ${s}`)
       }
     }
-    const peak = inferPeakEpisodeTimeWindow(symp30)
+    const peak = inferPeakSymptomTimeWindow(symp30)
     if (peak) {
-      parts.push(`  • The worst episodes (by time of day logged) tend to occur ${peak}`)
+      parts.push(`  • The strongest symptom logs (by time of day) tend to cluster ${peak}`)
     }
     const withRelief = symp30.filter((r) => String(r.relief ?? '').trim().length > 0).length
     const zeroRelief = symp30.length - withRelief
@@ -309,17 +309,17 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
       return /benadryl|diphenhydramine|antihistamine/i.test(rel) || /rest|sleep|lying/i.test(rel)
     }).length
     if (helpedCount > 0) {
-      parts.push(`  • What helped: antihistamines and rest (worked in about ${helpedCount} of ${symp30.length} episodes)`)
+      parts.push(`  • What helped: antihistamines and rest (worked in about ${helpedCount} of ${symp30.length} symptom logs)`)
     }
     if (symp30.length > 0) {
-      parts.push(`  • Zero relief was logged for ${zeroRelief} of ${symp30.length} episodes`)
+      parts.push(`  • Zero relief was logged for ${zeroRelief} of ${symp30.length} symptom logs`)
     }
   }
 
   parts.push('')
-  parts.push('HOW MY PAIN AND EPISODES RELATE TO EACH OTHER')
+  parts.push('HOW MY PAIN AND SYMPTOMS RELATE TO EACH OTHER')
   const painDays = new Set(pain30.map((r) => String(r.entry_date ?? '')))
-  const epDays = new Set(symp30.map((r) => String(r.episode_date ?? '')))
+  const epDays = new Set(symp30.map((r) => String(r.symptom_date ?? '')))
   const flareDays = new Set(
     pain30
       .filter((r) => typeof r.intensity === 'number' && (r.intensity as number) >= 7)
@@ -330,11 +330,11 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
     if (epDays.has(day)) flareEpOverlap++
   }
   if (pain30.length > 0 && symp30.length > 0) {
-    parts.push(`  • Pain flares (7+/10) happened during the same calendar window as episodes on ${flareEpOverlap} day${flareEpOverlap !== 1 ? 's' : ''} — the app cannot yet show if they were at the exact same times of day.`)
+    parts.push(`  • Pain flares (7+/10) happened during the same calendar window as symptom logs on ${flareEpOverlap} day${flareEpOverlap !== 1 ? 's' : ''} — the app cannot yet show if they were at the exact same times of day.`)
   } else if (symp30.length > 0) {
-    parts.push('  • Add pain logs to compare timing with episodes.')
+    parts.push('  • Add pain logs to compare timing with symptoms.')
   } else if (pain30.length > 0) {
-    parts.push('  • Add symptom episodes to compare timing with pain.')
+    parts.push('  • Add symptom logs to compare timing with pain.')
   }
 
   let epDaysNoPain = 0
@@ -342,7 +342,7 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
     if (!painDays.has(day)) epDaysNoPain++
   }
   if (symp30.length > 0) {
-    parts.push(`  • Not all episodes included a pain entry on the same day (${epDaysNoPain} episode day${epDaysNoPain !== 1 ? 's' : ''} had no pain log that day).`)
+    parts.push(`  • Not all symptom logs included a pain entry on the same day (${epDaysNoPain} symptom day${epDaysNoPain !== 1 ? 's' : ''} had no pain log that day).`)
   }
 
   let painDaysNoEp = 0
@@ -350,7 +350,7 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
     if (!epDays.has(day)) painDaysNoEp++
   }
   if (pain30.length > 0) {
-    parts.push(`  • Not all pain was on an episode day (${painDaysNoEp} pain-log day${painDaysNoEp !== 1 ? 's' : ''} had no episode that day).`)
+    parts.push(`  • Not all pain was on a symptom day (${painDaysNoEp} pain-log day${painDaysNoEp !== 1 ? 's' : ''} had no symptom log that day).`)
   }
 
   parts.push('')
@@ -383,7 +383,7 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
     askCount++
   }
   if (pain30.length > 0 && symp30.length > 0) {
-    parts.push('  • When my episodes get worse, does my pain usually follow? Or are they independent from each other?')
+    parts.push('  • When my symptoms get worse, does my pain usually follow? Or are they independent from each other?')
     askCount++
   }
   for (const q of d.qList.slice(0, 10)) {
@@ -433,14 +433,14 @@ function buildPatientStoryNarrative (d: HandoffNarrativeInput): string {
   return parts.join('\n')
 }
 
-/** Meds, pain, and symptom episodes only — quantified before/after windows per med change. */
+/** Meds, pain, and symptom logs only — quantified before/after windows per med change. */
 function buildSymptomsPainMedsNarrative (d: HandoffNarrativeInput): string {
   const since30 = addDaysIso(d.todayIso, -30)
   const since14 = addDaysIso(d.todayIso, -14)
 
   const pain30 = d.painRows.filter((r) => String(r.entry_date ?? '') >= since30)
-  const symp30 = d.sympRows.filter((r) => String(r.episode_date ?? '') >= since30)
-  const symp14 = d.sympRows.filter((r) => String(r.episode_date ?? '') >= since14)
+  const symp30 = d.sympRows.filter((r) => String(r.symptom_date ?? '') >= since30)
+  const symp14 = d.sympRows.filter((r) => String(r.symptom_date ?? '') >= since14)
 
   const intensities = pain30.map((r) => r.intensity).filter((x): x is number => typeof x === 'number')
   const avgPain = intensities.length
@@ -473,7 +473,7 @@ function buildSymptomsPainMedsNarrative (d: HandoffNarrativeInput): string {
   }
 
   parts.push('')
-  parts.push('MEDICATION CHANGES VS PAIN AND EPISODES')
+  parts.push('MEDICATION CHANGES VS PAIN AND SYMPTOMS')
   if (d.medChangeEventsLoadError) {
     parts.push(`  • Unable to load change history: ${d.medChangeEventsLoadError}`)
     parts.push('  • Run migration 20250406200000_med_change_events_rpc.sql in Supabase SQL Editor to fix this.')
@@ -481,7 +481,7 @@ function buildSymptomsPainMedsNarrative (d: HandoffNarrativeInput): string {
     const corrLines = buildMedSymptomCorrelationLines(d.medChangeEvents, d.painRows, d.sympRows, 21, { quantified: true })
     if (corrLines.length === 0) {
       parts.push('  • No medication start, stop, or dose changes recorded in the app for this window.')
-      parts.push('  • Log pain and episodes around medication changes to see before/after numbers.')
+      parts.push('  • Log pain and symptoms around medication changes to see before/after numbers.')
     } else {
       for (const cl of corrLines) {
         parts.push(`  • ${cl.line}`)
@@ -489,7 +489,7 @@ function buildSymptomsPainMedsNarrative (d: HandoffNarrativeInput): string {
     }
   }
 
-  appendPainEpisodeTrends30(parts, pain30, symp30, symp14, avgPain, flares, areas, painTypes, sympTop)
+  appendPainSymptomTrends30(parts, pain30, symp30, symp14, avgPain, flares, areas, painTypes, sympTop)
 
   return parts.join('\n')
 }
@@ -504,7 +504,7 @@ function buildInterconnectionSnapshot (
 ): string {
   const sentences: string[] = []
   sentences.push(
-    'This summary focuses on how pain intensity, symptom episodes, and medication timing relate in your logged data (patterns are descriptive, not proof of cause and effect).',
+    'This summary focuses on how pain intensity, symptoms, and medication timing relate in your logged data (patterns are descriptive, not proof of cause and effect).',
   )
   if (pain30.length > 0 && avgPain != null) {
     let painSent = `Over the past 30 days, ${plural(pain30.length, 'pain entry')} logged with an average intensity of ${avgPain}/10`
@@ -513,20 +513,20 @@ function buildInterconnectionSnapshot (
     sentences.push(painSent + '.')
   }
   if (symp30.length > 0) {
-    let epSent = `${plural(symp30.length, 'symptom episode')} recorded in the last 30 days`
+    let epSent = `${plural(symp30.length, 'symptom log')} recorded in the last 30 days`
     if (sympTop.length > 0) epSent += `, most frequently involving ${listSentence(sympTop)}`
     sentences.push(epSent + '.')
   }
   if (pain30.length === 0 && symp30.length === 0) {
-    sentences.push('Add pain and symptom episode logs to see before/after patterns around medication changes.')
+    sentences.push('Add pain and symptom logs to see before/after patterns around medication changes.')
   }
   sentences.push(
-    'The section below compares episode counts and average pain in windows before and after each medication change recorded in the app.',
+    'The section below compares symptom log counts and average pain in windows before and after each medication change recorded in the app.',
   )
   return sentences.join('\n')
 }
 
-function appendPainEpisodeTrends30 (
+function appendPainSymptomTrends30 (
   parts: string[],
   pain30: Record<string, unknown>[],
   symp30: Record<string, unknown>[],
@@ -538,9 +538,9 @@ function appendPainEpisodeTrends30 (
   sympTop: string[],
 ): void {
   parts.push('')
-  parts.push('PAIN & EPISODE TRENDS  (last 30 days)')
+  parts.push('PAIN & SYMPTOM TRENDS  (last 30 days)')
   if (pain30.length === 0 && symp30.length === 0) {
-    parts.push('  • No pain or episode logs in this window.')
+    parts.push('  • No pain or symptom logs in this window.')
     return
   }
   if (pain30.length > 0) {
@@ -550,13 +550,13 @@ function appendPainEpisodeTrends30 (
     if (painTypes.length) parts.push(`  • Pain character: ${listSentence(painTypes)}`)
   }
   if (symp30.length > 0) {
-    parts.push(`  • ${plural(symp30.length, 'symptom episode')} (${plural(symp14.length, 'episode')} in the last 2 weeks)`)
+    parts.push(`  • ${plural(symp30.length, 'symptom log')} (${plural(symp14.length, 'symptom log')} in the last 2 weeks)`)
     if (sympTop.length) parts.push(`  • Most common features: ${listSentence(sympTop)}`)
     const reliefTokens = symp30.flatMap((r) => typeof r.relief === 'string' ? [r.relief] : [])
     const antihistamine = reliefTokens.filter((t) => /benadryl|diphenhydramine|antihistamine/i.test(t)).length
     const rest = reliefTokens.filter((t) => /rest|sleep|lying/i.test(t)).length
     if (antihistamine + rest > 0) {
-      parts.push(`  • Relief noted from ${[antihistamine > 0 ? 'antihistamines' : '', rest > 0 ? 'rest' : ''].filter(Boolean).join(' and ')} in ${pct(antihistamine + rest, symp30.length)} of episodes`)
+      parts.push(`  • Relief noted from ${[antihistamine > 0 ? 'antihistamines' : '', rest > 0 ? 'rest' : ''].filter(Boolean).join(' and ')} in ${pct(antihistamine + rest, symp30.length)} of symptom logs`)
     }
   }
 }

@@ -24,7 +24,7 @@ import {
 } from '../lib/parse'
 import { parseAppReturnPath, safeAppReturnPath } from '../lib/safeReturnPath'
 import { normDoctorKey } from '../lib/doctorNameNorm'
-import { EpisodeFeatureChip } from '../components/EpisodeFeatureChip'
+import { SymptomFeatureChip } from '../components/SymptomFeatureChip'
 
 type PickerDoctorQuestionRow = {
   id: string
@@ -130,9 +130,9 @@ export function QuickLogPage () {
   const [answerSaving, setAnswerSaving] = useState(false)
   const [incompleteKind, setIncompleteKind] = useState<null | 'pain' | 'symptoms' | 'questions'>(null)
 
-  /** After pain row is saved, offer linking a symptom episode on the same screen. */
+  /** After pain row is saved, offer linking a symptom log on the same screen. */
   const [painSaveFollowUp, setPainSaveFollowUp] = useState<null | { painEntryId: string }>(null)
-  const [linkedEpisodeOpen, setLinkedEpisodeOpen] = useState(false)
+  const [linkedSymptomLogOpen, setLinkedSymptomLogOpen] = useState(false)
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
     setScreen(d.screen)
@@ -198,11 +198,11 @@ export function QuickLogPage () {
       if (docData) setDoctors(docData)
 
       // Load past symptoms to build suggestions
-      const { data: symData } = await supabase.from('mcas_episodes')
+      const { data: symData } = await supabase.from('mcas_symptom_logs')
         .select('symptoms')
         .eq('user_id', user!.id)
         .not('symptoms', 'is', null)
-        .order('episode_date', { ascending: false })
+        .order('symptom_date', { ascending: false })
         .limit(60)
 
       if (symData) {
@@ -251,7 +251,7 @@ export function QuickLogPage () {
   useEffect(() => {
     if (screen !== 'pain') {
       setPainSaveFollowUp(null)
-      setLinkedEpisodeOpen(false)
+      setLinkedSymptomLogOpen(false)
     }
   }, [screen])
 
@@ -384,7 +384,7 @@ export function QuickLogPage () {
 
   function finishPainLogSolo () {
     setPainSaveFollowUp(null)
-    setLinkedEpisodeOpen(false)
+    setLinkedSymptomLogOpen(false)
     clearQuickLogDraft()
     setPainStep(1)
     try {
@@ -415,25 +415,25 @@ export function QuickLogPage () {
       return
     }
     setPainSaveFollowUp({ painEntryId: inserted.id })
-    setLinkedEpisodeOpen(false)
+    setLinkedSymptomLogOpen(false)
   }
 
-  function beginLinkedEpisodeFromPain () {
-    setLinkedEpisodeOpen(true)
+  function beginLinkedSymptomLogFromPain () {
+    setLinkedSymptomLogOpen(true)
     setSelectedSymptoms([])
     setNewSymptomText('')
     setForm((f) => ({ ...f, activity: '', relief: '' }))
     setSymptomRemoveReveal(null)
   }
 
-  async function handleSaveLinkedEpisode () {
+  async function handleSaveLinkedSymptomLog () {
     if (!user || !painSaveFollowUp) return
     setBusy(true)
     setError(null)
-    const { data: ep, error: e1 } = await supabase.from('mcas_episodes').insert({
+    const { data: ep, error: e1 } = await supabase.from('mcas_symptom_logs').insert({
       user_id: user.id,
-      episode_date: form.date,
-      episode_time: form.time || null,
+      symptom_date: form.date,
+      symptom_time: form.time || null,
       trigger: '',
       activity: form.activity || null,
       symptoms: selectedSymptoms.join(', '),
@@ -448,12 +448,12 @@ export function QuickLogPage () {
     }
     if (!ep?.id) {
       setBusy(false)
-      setError('Episode saved but could not link — check your data.')
+      setError('Symptom log saved but could not link — check your data.')
       return
     }
     const { error: e2 } = await supabase
       .from('pain_entries')
-      .update({ linked_episode_id: ep.id })
+      .update({ linked_symptom_log_id: ep.id })
       .eq('id', painSaveFollowUp.painEntryId)
       .eq('user_id', user.id)
     setBusy(false)
@@ -462,31 +462,31 @@ export function QuickLogPage () {
       return
     }
     setPainSaveFollowUp(null)
-    setLinkedEpisodeOpen(false)
+    setLinkedSymptomLogOpen(false)
     clearQuickLogDraft()
     setPainStep(1)
     try {
       sessionStorage.setItem('mb-analytics-refresh', '1')
     } catch { /* ignore */ }
-    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain & episode saved' })
+    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain & symptom log saved' })
   }
 
-  function requestSaveLinkedEpisode () {
+  function requestSaveLinkedSymptomLog () {
     if (symptomsLogLooksIncomplete()) {
       setIncompleteKind('symptoms')
       return
     }
-    void handleSaveLinkedEpisode()
+    void handleSaveLinkedSymptomLog()
   }
 
   async function handleSaveSymptoms () {
     if (!user) return
     setBusy(true)
     setError(null)
-    const { error: e } = await supabase.from('mcas_episodes').insert({
+    const { error: e } = await supabase.from('mcas_symptom_logs').insert({
       user_id: user.id,
-      episode_date: form.date,
-      episode_time: form.time || null,
+      symptom_date: form.date,
+      symptom_time: form.time || null,
       trigger: '',  // kept for schema compat, not used
       activity: form.activity || null,
       symptoms: selectedSymptoms.join(', '),
@@ -499,7 +499,7 @@ export function QuickLogPage () {
     try {
       sessionStorage.setItem('mb-analytics-refresh', '1')
     } catch { /* ignore */ }
-    setPostSave({ archive: '/app/charts-trends?tab=symptoms', title: 'Episode archive' })
+    setPostSave({ archive: '/app/charts-trends?tab=symptoms', title: 'Symptoms archive' })
   }
 
   async function handleSaveQuestion () {
@@ -595,10 +595,10 @@ export function QuickLogPage () {
       )}
       {saveDialogKind === 'symptoms' && (
         <SaveLogOptionsDialog
-          title="Save episode"
+          title="Save symptom log"
           onSaveComplete={() => {
             setSaveDialogKind(null)
-            if (painSaveFollowUp) requestSaveLinkedEpisode()
+            if (painSaveFollowUp) requestSaveLinkedSymptomLog()
             else requestSaveSymptoms()
           }}
           onSaveForLater={() => {
@@ -660,7 +660,7 @@ export function QuickLogPage () {
             setIncompleteKind(null)
             if (k === 'pain') void handleSavePain()
             else if (k === 'symptoms') {
-              if (painSaveFollowUp) void handleSaveLinkedEpisode()
+              if (painSaveFollowUp) void handleSaveLinkedSymptomLog()
               else void handleSaveSymptoms()
             }
             else if (k === 'questions') void handleSaveQuestion()
@@ -681,8 +681,8 @@ export function QuickLogPage () {
           <div className="scrap-sticker-grid">
             <ScrapSticker
               to={logTabHref('pain')}
-              title="Pain & episodes"
-              sub="One flow — add a linked episode if it matched"
+              title="Pain & symptoms"
+              sub="One flow — add a linked symptom log if it matched"
               tone="pink"
               navState={{ backTo: '/app' }}
             />
@@ -690,7 +690,7 @@ export function QuickLogPage () {
             <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" navState={{ backTo: '/app' }} />
           </div>
           <p className="muted" style={{ textAlign: 'center', marginTop: 14, fontSize: '0.92rem' }}>
-            <Link to={logTabHref('symptoms')}>Log an episode only (no pain)</Link>
+            <Link to={logTabHref('symptoms')}>Log symptoms only (no pain)</Link>
           </p>
         </div>
       )}
@@ -718,7 +718,7 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* PAIN — 3-step wheel + optional linked episode (same screen) */}
+      {/* PAIN — 3-step wheel + optional linked symptom log (same screen) */}
       {screen === 'pain' && (
         <>
         <div className="card shadow" style={{ borderRadius: '24px', opacity: painSaveFollowUp ? 0.88 : 1 }}>
@@ -811,13 +811,13 @@ export function QuickLogPage () {
               background: 'linear-gradient(180deg, #f6fff9 0%, #fff 100%)',
             }}
           >
-            {!linkedEpisodeOpen ? (
+            {!linkedSymptomLogOpen ? (
               <div style={{ padding: '4px 2px' }}>
                 <p style={{ marginTop: 0, marginBottom: 12, fontWeight: 600, color: 'var(--mint-ink, #1a4d2e)' }}>
-                  Were you also having a symptom episode at the same time?
+                  Were you also having those symptoms at the same time?
                 </p>
                 <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 14, lineHeight: 1.45 }}>
-                  Same date &amp; time as this pain log. If yes, you can add a short episode record — it stays linked so reports know they happened together.
+                  Same date &amp; time as this pain log. If yes, you can add a short symptom log — it stays linked so reports know they happened together.
                 </p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button
@@ -832,15 +832,15 @@ export function QuickLogPage () {
                     type="button"
                     className="btn btn-primary"
                     style={{ flex: '1 1 140px' }}
-                    onClick={beginLinkedEpisodeFromPain}
+                    onClick={beginLinkedSymptomLogFromPain}
                   >
-                    Yes — add episode
+                    Yes — add symptom log
                   </button>
                 </div>
               </div>
             ) : (
               <div style={{ padding: '4px 2px' }}>
-                <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 600 }}>Episode (same time as this pain)</p>
+                <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 600 }}>Symptoms (same time as this pain)</p>
                 <p className="muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
                   {form.date} · {form.time || '—'}
                 </p>
@@ -855,12 +855,12 @@ export function QuickLogPage () {
                 </div>
 
                 <div className="form-group">
-                  <label>Episode features</label>
+                  <label>Symptom features</label>
                   {selectedSymptoms.length > 0 && (
                     <div style={{ marginBottom: 10 }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {selectedSymptoms.map((sym) => (
-                          <EpisodeFeatureChip
+                          <SymptomFeatureChip
                             key={sym}
                             label={sym}
                             showRemove={symptomRemoveReveal === sym}
@@ -935,7 +935,7 @@ export function QuickLogPage () {
                     className="btn btn-ghost"
                     style={{ fontSize: '0.82rem' }}
                     onClick={() => {
-                      setLinkedEpisodeOpen(false)
+                      setLinkedSymptomLogOpen(false)
                     }}
                   >
                     Back
@@ -947,7 +947,7 @@ export function QuickLogPage () {
                     onClick={() => setSaveDialogKind('symptoms')}
                     disabled={busy}
                   >
-                    {busy ? 'Saving…' : 'Save episode'}
+                    {busy ? 'Saving…' : 'Save symptom log'}
                   </button>
                 </div>
               </div>
@@ -960,7 +960,7 @@ export function QuickLogPage () {
       {/* SYMPTOMS — replaces MCAS */}
       {screen === 'symptoms' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
-          <h3 style={{ marginTop: 0 }}>Log an episode</h3>
+          <h3 style={{ marginTop: 0 }}>Log symptoms</h3>
 
           {/* Date + time */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -980,12 +980,12 @@ export function QuickLogPage () {
 
           {/* Symptom picker */}
           <div className="form-group">
-            <label>Episode features</label>
+            <label>Symptom features</label>
             {selectedSymptoms.length > 0 && (
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {selectedSymptoms.map((sym) => (
-                    <EpisodeFeatureChip
+                    <SymptomFeatureChip
                       key={sym}
                       label={sym}
                       showRemove={symptomRemoveReveal === sym}
