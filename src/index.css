@@ -415,16 +415,6 @@ button, input, select, textarea { font: inherit; }
   text-align: center;
 }
 
-/* More hub: polaroid captions use same pen font as Account (beats .more-polaroid__caption scrap font) */
-.more-polaroid__caption.more-account-pen {
-  font-family: 'Nothing You Could Do', cursive;
-  font-weight: 400;
-  font-size: clamp(0.98rem, 2.8vw, 1.15rem);
-  line-height: 1.45;
-  color: rgba(74, 55, 40, 0.82);
-  text-align: center;
-}
-
 /* Flicker sparkles (SVG burst + keyframes — not Lucide icons) */
 @keyframes sparkle-flicker {
   0%,

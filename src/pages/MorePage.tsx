@@ -4,7 +4,6 @@ import { BackButton } from '../components/BackButton'
 type PolaroidNavCardProps = {
   to: string
   title: string
-  caption: string
   photoClass: 'more-polaroid__photo--diagnoses' | 'more-polaroid__photo--transcripts'
   tapeClass: '' | 'more-polaroid__tape--rose'
   frameRotateClass: string
@@ -14,7 +13,6 @@ type PolaroidNavCardProps = {
 function PolaroidNavCard ({
   to,
   title,
-  caption,
   photoClass,
   tapeClass,
   frameRotateClass,
@@ -45,12 +43,9 @@ function PolaroidNavCard ({
               🧩
             </span>
           )}
-          <span className="more-polaroid__title !text-[1.25rem] !font-normal !leading-tight">
+          <span className="more-polaroid__title !text-[1.375rem] !font-normal !leading-tight">
             {title}
           </span>
-        </div>
-        <div className="more-polaroid__caption-strip py-2 px-3 !min-h-0">
-          <span className="more-polaroid__caption more-account-pen">{caption}</span>
         </div>
       </div>
     </Link>
@@ -70,20 +65,18 @@ export function MorePage () {
             <PolaroidNavCard
               to="/app/transcripts"
               title="Transcripts"
-              caption="visit recordings"
               photoClass="more-polaroid__photo--transcripts"
               tapeClass=""
               frameRotateClass="-rotate-[2deg]"
-              ariaLabel="Transcripts — visit recordings"
+              ariaLabel="Transcripts"
             />
             <PolaroidNavCard
               to="/app/diagnoses"
               title="Diagnoses"
-              caption="your list"
               photoClass="more-polaroid__photo--diagnoses"
               tapeClass=""
               frameRotateClass="rotate-[2deg]"
-              ariaLabel="Diagnoses — your list"
+              ariaLabel="Diagnoses"
             />
           </div>
           <div className="-translate-y-2 mt-[2em]">
