@@ -312,34 +312,27 @@ button, input, select, textarea { font: inherit; }
 }
 
 .more-account-pen-link:hover .more-account-pen {
-  filter: brightness(0.97);
+  color: rgba(26, 26, 46, 0.88);
 }
 
 .more-account-pen {
   display: inline-block;
-  font-family: var(--font-scrap);
-  font-size: clamp(3rem, 13vw, 4.75rem);
-  font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: 0.03em;
-  /* Ballpoint blue, as if the paper fibers are indented and ink sat in the groove */
-  color: #1a4f9c;
-  transform: rotate(-1.25deg);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  transition: color 0.15s ease;
+  font-size: clamp(1.35rem, 4.2vw, 1.85rem);
+  line-height: 1.2;
+  letter-spacing: 0.008em;
+  /* Near-black ink, slightly cool; not fully opaque like marker */
+  color: rgba(26, 26, 46, 0.82);
+  transform: rotate(-0.9deg);
   -webkit-font-smoothing: antialiased;
-  /* Deboss: paper lit along top edge of groove, shadow inside bottom; soft ink depth */
+  /* Light deboss on paper — neutral shadows, no marker weight */
   text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.72),
-    0 -1px 1px rgba(0, 0, 0, 0.14),
-    1px 2px 2px rgba(0, 35, 85, 0.22),
-    0 2px 4px rgba(0, 45, 110, 0.12),
-    0 0 0.5px rgba(12, 55, 120, 0.35);
-}
-
-@supports (-webkit-text-stroke: 0.35px rgba(20, 70, 140, 0.12)) {
-  .more-account-pen {
-    -webkit-text-stroke: 0.35px rgba(20, 70, 140, 0.12);
-    paint-order: stroke fill;
-  }
+    0 1px 0 rgba(255, 255, 255, 0.55),
+    0 -1px 1px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(26, 26, 46, 0.08);
 }
 
 .more-polaroid__photo {

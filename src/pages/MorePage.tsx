@@ -75,11 +75,11 @@ export function MorePage () {
               ariaLabel="Diagnoses — your list"
             />
           </div>
-          <div className="-translate-y-2">
+          <div className="-translate-y-2 mt-[2em]">
             <Link
               to="/app/profile"
               aria-label="Account — profile and settings"
-              className="more-account-pen-link group inline-block rounded-md px-3 py-2 outline-none transition-[filter,transform] duration-150 focus-visible:ring-2 focus-visible:ring-blue-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)] active:translate-y-px"
+              className="more-account-pen-link group inline-block rounded-md px-3 py-2 outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-[rgba(45,45,58,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)] active:translate-y-px"
             >
               <span className="more-account-pen">Account</span>
             </Link>
