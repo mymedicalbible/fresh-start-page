@@ -12,6 +12,8 @@ type PolaroidNavCardProps = {
   tapeClass: '' | 'more-polaroid__tape--rose'
   frameRotateClass: string
   ariaLabel: string
+  /** Square photo opening (classic square polaroid look). */
+  squarePhoto?: boolean
 }
 
 function PolaroidNavCard ({
@@ -22,6 +24,7 @@ function PolaroidNavCard ({
   tapeClass,
   frameRotateClass,
   ariaLabel,
+  squarePhoto = false,
 }: PolaroidNavCardProps) {
   return (
     <Link
@@ -37,7 +40,11 @@ function PolaroidNavCard ({
           aria-hidden
         />
         <div
-          className={`more-polaroid__photo ${photoClass} h-[100px] min-h-[100px]`}
+          className={`more-polaroid__photo ${photoClass} ${
+            squarePhoto
+              ? 'aspect-square h-auto min-h-0'
+              : 'h-[100px] min-h-[100px]'
+          }`}
         >
           <span className="more-polaroid__title !text-[0.85rem]">{title}</span>
         </div>
@@ -60,13 +67,13 @@ export function MorePage () {
         <div className="flex flex-col items-center gap-6">
           <div className="flex flex-row gap-6">
             <PolaroidNavCard
-              to="/app/profile"
-              title="Account"
-              caption="profile & settings"
-              photoClass="more-polaroid__photo--account"
+              to="/app/transcripts"
+              title="Transcripts"
+              caption="visit recordings"
+              photoClass="more-polaroid__photo--transcripts"
               tapeClass=""
               frameRotateClass="-rotate-[2deg]"
-              ariaLabel="Account — profile and settings"
+              ariaLabel="Transcripts — visit recordings"
             />
             <PolaroidNavCard
               to="/app/diagnoses"
@@ -80,13 +87,14 @@ export function MorePage () {
           </div>
           <div className="-translate-y-2">
             <PolaroidNavCard
-              to="/app/transcripts"
-              title="Transcripts"
-              caption="visit recordings"
-              photoClass="more-polaroid__photo--transcripts"
+              to="/app/profile"
+              title="Account"
+              caption="profile & settings"
+              photoClass="more-polaroid__photo--account"
               tapeClass=""
               frameRotateClass="-rotate-[1deg]"
-              ariaLabel="Transcripts — visit recordings"
+              ariaLabel="Account — profile and settings"
+              squarePhoto
             />
           </div>
         </div>
