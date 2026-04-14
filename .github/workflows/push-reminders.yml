@@ -1,0 +1,23 @@
+# Calls the `push-reminders` Edge Function on a timer (same as `npm run push:run`).
+# Add repository secrets: VITE_SUPABASE_URL, PUSH_REMINDER_CRON_TOKEN (match your Supabase Edge secrets / local .env).
+name: Push reminder cron
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Invoke push-reminders
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          PUSH_REMINDER_CRON_TOKEN: ${{ secrets.PUSH_REMINDER_CRON_TOKEN }}
+        run: npm run push:run
