@@ -1,17 +1,17 @@
 import { Link } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
-import { PlushiesSparkles } from '../components/more'
-import { gameTokensEnabled } from '../lib/gameTokens'
 
 type PolaroidNavCardProps = {
   to: string
   title: string
   caption: string
-  photoClass: 'more-polaroid__photo--account' | 'more-polaroid__photo--plushies'
+  photoClass:
+    | 'more-polaroid__photo--account'
+    | 'more-polaroid__photo--diagnoses'
+    | 'more-polaroid__photo--transcripts'
   tapeClass: '' | 'more-polaroid__tape--rose'
   frameRotateClass: string
   ariaLabel: string
-  sparkles?: boolean
 }
 
 function PolaroidNavCard ({
@@ -22,27 +22,27 @@ function PolaroidNavCard ({
   tapeClass,
   frameRotateClass,
   ariaLabel,
-  sparkles = false,
 }: PolaroidNavCardProps) {
   return (
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="more-polaroid-link group relative block w-[min(92vw,300px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
+      className="more-polaroid-link group relative block w-[min(44vw,180px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
     >
       <div
-        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_14px_32px_rgba(45,38,42,0.22),0_4px_12px_rgba(0,0,0,0.08)] transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_rgba(45,38,42,0.26),0_6px_14px_rgba(0,0,0,0.1)] group-active:translate-y-0`}
+        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]`}
       >
         <span
           className={`more-polaroid__tape ${tapeClass}`.trim()}
           aria-hidden
         />
-        <div className={`more-polaroid__photo ${photoClass}`}>
-          {sparkles ? <PlushiesSparkles compact /> : null}
-          <span className="more-polaroid__title">{title}</span>
+        <div
+          className={`more-polaroid__photo ${photoClass} h-[100px] min-h-[100px]`}
+        >
+          <span className="more-polaroid__title !text-[0.85rem]">{title}</span>
         </div>
-        <div className="more-polaroid__caption-strip">
-          <span className="more-polaroid__caption">{caption}</span>
+        <div className="more-polaroid__caption-strip py-2 px-3 !min-h-0">
+          <span className="more-polaroid__caption text-[0.7rem]">{caption}</span>
         </div>
       </div>
     </Link>
@@ -56,39 +56,41 @@ export function MorePage () {
         <BackButton fallbackTo="/app" />
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-4 py-8 sm:flex-row sm:gap-16 md:gap-20 sm:py-10">
-        <div className="-translate-y-2 sm:-translate-y-3 md:-translate-y-4">
-          <PolaroidNavCard
-            to="/app/profile"
-            title="Account"
-            caption="profile & settings"
-            photoClass="more-polaroid__photo--account"
-            tapeClass=""
-            frameRotateClass="-rotate-[2.5deg]"
-            ariaLabel="Account — profile and settings"
-          />
+      <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 py-8 sm:py-10">
+        <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-row gap-6">
+            <PolaroidNavCard
+              to="/app/profile"
+              title="Account"
+              caption="profile & settings"
+              photoClass="more-polaroid__photo--account"
+              tapeClass=""
+              frameRotateClass="-rotate-[2deg]"
+              ariaLabel="Account — profile and settings"
+            />
+            <PolaroidNavCard
+              to="/app/diagnoses"
+              title="Diagnoses"
+              caption="your list"
+              photoClass="more-polaroid__photo--diagnoses"
+              tapeClass=""
+              frameRotateClass="rotate-[2deg]"
+              ariaLabel="Diagnoses — your list"
+            />
+          </div>
+          <div className="-translate-y-2">
+            <PolaroidNavCard
+              to="/app/transcripts"
+              title="Transcripts"
+              caption="visit recordings"
+              photoClass="more-polaroid__photo--transcripts"
+              tapeClass=""
+              frameRotateClass="-rotate-[1deg]"
+              ariaLabel="Transcripts — visit recordings"
+            />
+          </div>
         </div>
-        {gameTokensEnabled() && (
-          <PolaroidNavCard
-            to="/app/plushies"
-            title="Plushies"
-            caption="shop & collect"
-            photoClass="more-polaroid__photo--plushies"
-            tapeClass="more-polaroid__tape--rose"
-            frameRotateClass="rotate-[2.5deg]"
-            ariaLabel="Plushies — shop and collect"
-            sparkles
-          />
-        )}
       </div>
-
-      {gameTokensEnabled() && (
-        <p className="mx-auto mt-2 max-w-md px-4 text-center text-sm text-black/55">
-          <Link to="/app/plushies/mine" className="text-rose-700/90 underline decoration-rose-300/80 underline-offset-2 hover:text-rose-800">
-            My plushies &amp; dashboard display
-          </Link>
-        </p>
-      )}
     </div>
   )
 }

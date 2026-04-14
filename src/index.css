@@ -330,6 +330,27 @@ button, input, select, textarea { font: inherit; }
     linear-gradient(135deg, #fbcfe8 0%, #fce7f3 35%, #fef9c3 68%, #fef08a 100%);
 }
 
+.more-polaroid__photo--diagnoses {
+  background:
+    radial-gradient(ellipse 72% 52% at 16% 26%, rgba(255, 255, 255, 0.52) 0%, transparent 50%),
+    radial-gradient(ellipse 62% 46% at 84% 74%, rgba(251, 207, 232, 0.42) 0%, transparent 54%),
+    repeating-linear-gradient(
+      -18deg,
+      transparent 0px,
+      transparent 5px,
+      rgba(255, 255, 255, 0.07) 5px,
+      rgba(255, 255, 255, 0.07) 6px
+    ),
+    linear-gradient(142deg, #fff1f2 0%, #fce7f3 32%, #fbcfe8 58%, #fda4af 88%, #f9a8d4 100%);
+}
+
+.more-polaroid__photo--transcripts {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 28%, rgba(255, 255, 255, 0.48) 0%, transparent 52%),
+    radial-gradient(ellipse 58% 44% at 82% 70%, rgba(196, 181, 253, 0.38) 0%, transparent 55%),
+    linear-gradient(138deg, #f5f3ff 0%, #ede9fe 38%, #ddd6fe 68%, #c4b5fd 96%);
+}
+
 .more-polaroid__title {
   position: relative;
   z-index: 2;
@@ -347,6 +368,14 @@ button, input, select, textarea { font: inherit; }
 
 .more-polaroid__photo--plushies .more-polaroid__title {
   color: rgba(120, 40, 75, 0.88);
+}
+
+.more-polaroid__photo--diagnoses .more-polaroid__title {
+  color: rgba(110, 42, 72, 0.9);
+}
+
+.more-polaroid__photo--transcripts .more-polaroid__title {
+  color: rgba(52, 48, 110, 0.9);
 }
 
 .more-polaroid__caption-strip {
