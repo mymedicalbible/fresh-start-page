@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { BackButton } from '../components/BackButton'
+import { formatTime12h } from '../lib/formatTime12h'
 
 type AppointmentRow = {
   id: string
@@ -150,7 +151,7 @@ export function AppointmentsPage () {
               {r.specialty ?? '—'}
             </div>
             <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
-              {r.appointment_date}{r.appointment_time ? ` · ${r.appointment_time}` : ''}
+              {r.appointment_date}{r.appointment_time ? ` · ${formatTime12h(r.appointment_time)}` : ''}
             </div>
           </div>
         ))}

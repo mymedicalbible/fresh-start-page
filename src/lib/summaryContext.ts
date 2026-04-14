@@ -9,6 +9,7 @@ import {
   formatMedChangeEventLine,
   sortMedChangeEvents,
 } from './medSymptomCorrelation'
+import { formatTime12h } from './formatTime12h'
 
 export type SymptomLogRow = {
   logged_at: string
@@ -53,7 +54,7 @@ function painAvg (rows: Record<string, unknown>[]): number | null {
 function formatPainLine (r: Record<string, unknown>) {
   const parts = [
     r.entry_date as string,
-    r.entry_time ? String(r.entry_time) : null,
+    r.entry_time ? formatTime12h(String(r.entry_time)) : null,
     typeof r.intensity === 'number' ? `${r.intensity}/10` : null,
     r.location ? String(r.location) : null,
   ].filter(Boolean)
@@ -67,7 +68,7 @@ function formatPainLine (r: Record<string, unknown>) {
 function formatSymptomLogLine (r: Record<string, unknown>) {
   const parts = [
     r.symptom_date as string,
-    r.symptom_time ? String(r.symptom_time) : null,
+    r.symptom_time ? formatTime12h(String(r.symptom_time)) : null,
     r.severity ? String(r.severity) : null,
     r.symptoms ? String(r.symptoms) : null,
     r.activity ? `ctx: ${r.activity}` : null,

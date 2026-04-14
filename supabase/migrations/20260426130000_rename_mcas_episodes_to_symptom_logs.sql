@@ -55,16 +55,15 @@ begin
     execute 'alter table public.pain_entries rename column linked_episode_id to linked_symptom_log_id';
   end if;
 
-  if not exists (
+  execute 'alter table public.pain_entries add column if not exists linked_symptom_log_id uuid';
+  execute 'alter table public.mcas_symptom_logs add column if not exists linked_pain_entry_id uuid';
+
+  if exists (
     select 1 from information_schema.columns
     where table_schema = 'public'
       and table_name = 'pain_entries'
       and column_name = 'linked_symptom_log_id'
-  ) then
-    execute 'alter table public.pain_entries add column linked_symptom_log_id uuid';
-  end if;
-
-  if not exists (
+  ) and not exists (
     select 1 from pg_constraint where conname = 'pain_entries_linked_symptom_log_id_fkey'
   ) then
     execute $fk$
@@ -82,6 +81,16 @@ begin
     comment on column public.mcas_symptom_logs.linked_pain_entry_id is
       'Set when this symptom log was saved together with a pain entry.'
   $c2$;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'mcas_symptom_logs_linked_pain_entry_id_fkey'
+  ) then
+    execute $fk2$
+      alter table public.mcas_symptom_logs
+        add constraint mcas_symptom_logs_linked_pain_entry_id_fkey
+        foreign key (linked_pain_entry_id) references public.pain_entries (id) on delete set null
+    $fk2$;
+  end if;
 
   -- ─── 5) Rename indexes for clarity ───────────────────────────────────────
   if exists (

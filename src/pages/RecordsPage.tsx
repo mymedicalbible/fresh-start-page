@@ -8,6 +8,7 @@ import { stripLineBulletsFromText } from '../lib/stripLineBullets'
 import { downloadHealthSummaryPdf } from '../lib/summaryPdf'
 import { AnalyticsPage } from './AnalyticsPage'
 import { SymptomFeatureChip } from '../components/SymptomFeatureChip'
+import { formatTime12h } from '../lib/formatTime12h'
 
 type Tab = 'pain' | 'symptoms' | 'summaries' | 'charts'
 
@@ -156,7 +157,7 @@ export function RecordsPage () {
           {filtered.pain.map((r) => (
             <div key={r.id} className="list-item">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <strong>{r.entry_date}{r.entry_time ? ` · ${r.entry_time}` : ''}</strong>
+                <strong>{r.entry_date}{r.entry_time ? ` · ${formatTime12h(r.entry_time)}` : ''}</strong>
                 <span className="muted">Intensity: {r.intensity ?? '—'}</span>
               </div>
               <div className="muted" style={{ marginTop: 6 }}>
@@ -178,7 +179,7 @@ export function RecordsPage () {
           {filtered.symptoms.map((r) => (
             <div key={r.id} className="list-item">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <strong>{r.symptom_date}{r.symptom_time ? ` · ${r.symptom_time}` : ''}</strong>
+                <strong>{r.symptom_date}{r.symptom_time ? ` · ${formatTime12h(r.symptom_time)}` : ''}</strong>
                 <span className="muted">{r.severity ? `${r.severity}` : ''}</span>
               </div>
               {r.symptoms && (

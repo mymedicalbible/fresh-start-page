@@ -54,6 +54,7 @@ import {
   correlationLookbackMinLoggedAtIso,
 } from '../lib/historicalWeather'
 import { stripLineBullet } from '../lib/stripLineBullets'
+import { formatTime12h } from '../lib/formatTime12h'
 
 type UpcomingAppt = {
   id: string
@@ -2093,7 +2094,7 @@ export function DashboardPage () {
                     <div className="muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
                       {ap.specialty?.trim() ? `${ap.specialty.trim()} · ` : ''}
                       {format(new Date(`${ap.appointment_date}T12:00:00`), 'EEEE, MMM d')}
-                      {ap.appointment_time ? ` · ${String(ap.appointment_time).slice(0, 5)}` : ''}
+                      {ap.appointment_time ? ` · ${formatTime12h(String(ap.appointment_time))}` : ''}
                     </div>
                   </li>
                 ))}
@@ -2239,7 +2240,7 @@ export function DashboardPage () {
               <div className="scrap-upcoming-hero-when">
                 {format(new Date(`${upcoming[0].appointment_date}T12:00:00`), 'EEEE, MMM d')}
                 {upcoming[0].appointment_time
-                  ? ` at ${String(upcoming[0].appointment_time).slice(0, 5)}`
+                  ? ` at ${formatTime12h(String(upcoming[0].appointment_time))}`
                   : ''}
                 {(() => {
                   const docName = upcoming[0].doctor?.trim()

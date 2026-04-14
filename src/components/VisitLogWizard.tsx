@@ -37,7 +37,7 @@ import { DiagnosisDetailFields } from './DiagnosisDetailFields'
 import { splitDoseFrequencyFromCombined } from '../lib/medDoseParse'
 import { gameTokensEnabled, grantTranscriptVisitTokens } from '../lib/gameTokens'
 import { buildClinicalNotesSupplement } from '../lib/transcriptVisitFormat'
-import { formatVisitDateLong } from '../lib/formatTime12h'
+import { formatTime12h, formatVisitDateLong } from '../lib/formatTime12h'
 
 type DoctorRow = { id: string; name: string; specialty: string | null }
 
@@ -1348,7 +1348,7 @@ export const VisitLogWizard = forwardRef<VisitLogWizardRef, Props>(function Visi
                 </div>
                 {nextApptTime && nextApptEndTime && (
                   <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '4px 0 0' }}>
-                    {nextApptTime.slice(0, 5)} – {nextApptEndTime.slice(0, 5)}
+                    {formatTime12h(nextApptTime)} - {formatTime12h(nextApptEndTime)}
                   </p>
                 )}
               </div>
