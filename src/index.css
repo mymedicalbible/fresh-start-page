@@ -415,6 +415,16 @@ button, input, select, textarea { font: inherit; }
   text-align: center;
 }
 
+/* More hub (MorePage): polaroids without caption strip — bottom white “chin”, no text clipping */
+.scrap-more-page--hub .more-polaroid__frame {
+  padding-bottom: 14px;
+}
+
+.scrap-more-page--hub .more-polaroid__photo {
+  min-height: 0;
+  overflow: visible;
+}
+
 /* Flicker sparkles (SVG burst + keyframes — not Lucide icons) */
 @keyframes sparkle-flicker {
   0%,

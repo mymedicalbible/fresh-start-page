@@ -22,17 +22,17 @@ function PolaroidNavCard ({
     <Link
       to={to}
       aria-label={ariaLabel}
-      className="more-polaroid-link group relative block w-[min(44vw,200px)] shrink-0 outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
+      className="more-polaroid-link group relative block w-[min(44vw,200px)] shrink-0 overflow-visible outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-rose-300/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--more-hub-paper)]"
     >
       <div
-        className={`more-polaroid__frame ${frameRotateClass} relative rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]`}
+        className={`more-polaroid__frame ${frameRotateClass} relative overflow-visible rounded-[2px] border border-black/[0.06] bg-white shadow-[0_8px_20px_rgba(45,38,42,0.18),0_2px_8px_rgba(0,0,0,0.07)]`}
       >
         <span
           className={`more-polaroid__tape ${tapeClass}`.trim()}
           aria-hidden
         />
         <div
-          className={`more-polaroid__photo ${photoClass} flex h-[128px] min-h-[128px] flex-col items-center justify-center gap-1`}
+          className={`more-polaroid__photo ${photoClass} flex min-h-[148px] flex-col items-center justify-center gap-1 py-2`}
         >
           {photoClass === 'more-polaroid__photo--transcripts' ? (
             <span style={{ fontSize: '2rem', color: '#f5e6a3' }} aria-hidden>
@@ -61,7 +61,7 @@ export function MorePage () {
 
       <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 py-8 sm:py-10">
         <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-row gap-6">
+          <div className="flex flex-row gap-6 overflow-visible pb-1">
             <PolaroidNavCard
               to="/app/transcripts"
               title="Transcripts"
