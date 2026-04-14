@@ -6,6 +6,14 @@ import { DoctorNoteModalProvider } from './contexts/DoctorNoteModalContext'
 import App from './App'
 import './index.css'
 
+if ('serviceWorker' in navigator) {
+  void window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {
+      // non-fatal: app works without push
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

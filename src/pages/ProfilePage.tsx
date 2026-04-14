@@ -28,6 +28,12 @@ import {
   loadImageFromUrl,
   renderCroppedAvatarBlob,
 } from '../lib/avatarImage'
+import {
+  canUseWebPush,
+  disablePushSubscription,
+  registerPushSubscription,
+  syncPushPrefs,
+} from '../lib/pushNotifications'
 
 function PandaLottieLoop ({
   data,
@@ -52,6 +58,7 @@ function PandaLottieLoop ({
 const NOTIFY_KEYS = {
   appt: 'mb-profile-notify-appt',
   log: 'mb-profile-notify-log',
+  logTime: 'mb-profile-notify-log-time',
 } as const
 
 function readNotify (key: string, defaultOn: boolean): boolean {
@@ -67,6 +74,23 @@ function readNotify (key: string, defaultOn: boolean): boolean {
 function writeNotify (key: string, on: boolean) {
   try {
     localStorage.setItem(key, on ? '1' : '0')
+  } catch { /* ignore */ }
+}
+
+function readNotifyTime (defaultTime: string): string {
+  try {
+    const raw = localStorage.getItem(NOTIFY_KEYS.logTime)
+    if (!raw) return defaultTime
+    const ok = /^([01]\d|2[0-3]):([0-5]\d)$/.test(raw.trim())
+    return ok ? raw.trim() : defaultTime
+  } catch {
+    return defaultTime
+  }
+}
+
+function writeNotifyTime (value: string) {
+  try {
+    localStorage.setItem(NOTIFY_KEYS.logTime, value)
   } catch { /* ignore */ }
 }
 
@@ -115,6 +139,11 @@ export function ProfilePage () {
 
   const [notifyAppt, setNotifyAppt] = useState(() => readNotify(NOTIFY_KEYS.appt, true))
   const [notifyLog, setNotifyLog] = useState(() => readNotify(NOTIFY_KEYS.log, true))
+  const [notifyLogTime, setNotifyLogTime] = useState(() => readNotifyTime('20:00'))
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushSupported, setPushSupported] = useState(() => canUseWebPush())
+  const [pushPermission, setPushPermission] = useState<string>(() => (typeof Notification !== 'undefined' ? Notification.permission : 'default'))
+  const [pushBusy, setPushBusy] = useState(false)
 
   const [weatherLocMode, setWeatherLocMode] = useState<WeatherLocationMode>(() => getWeatherLocationMode())
   const [manualWeather, setManualWeather] = useState<ManualWeatherLocation | null>(() => getManualWeatherLocation())
@@ -237,6 +266,39 @@ export function ProfilePage () {
     setProfileAvatarUrl(signed.signedUrl)
   }, [user])
 
+  const buildPushPrefs = useCallback(() => ({
+    notificationsEnabled: pushEnabled,
+    appointmentRemindersEnabled: notifyAppt,
+    dailyNudgeEnabled: notifyLog,
+    dailyNudgeTimeLocal: notifyLog ? notifyLogTime : null,
+  }), [pushEnabled, notifyAppt, notifyLog, notifyLogTime])
+
+  const loadPushState = useCallback(async () => {
+    if (!user || !canUseWebPush()) return
+    setPushSupported(true)
+    setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const sub = await registration.pushManager.getSubscription()
+      setPushEnabled(!!sub)
+      if (!sub) return
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('notifications_enabled, appointment_reminders_enabled, daily_nudge_enabled, daily_nudge_time_local')
+        .eq('endpoint', sub.endpoint)
+        .maybeSingle()
+      if (data) {
+        setNotifyAppt(!!data.appointment_reminders_enabled)
+        setNotifyLog(!!data.daily_nudge_enabled)
+        if (typeof data.daily_nudge_time_local === 'string' && data.daily_nudge_time_local.slice(0, 5)) {
+          setNotifyLogTime(data.daily_nudge_time_local.slice(0, 5))
+        }
+      }
+    } catch {
+      setPushEnabled(false)
+    }
+  }, [user])
+
   useGameStateRefresh(!!user && gameTokensEnabled(), () => {
     void loadGameAndPlushies()
   })
@@ -245,7 +307,27 @@ export function ProfilePage () {
     void loadStats()
     void loadGameAndPlushies()
     void loadProfileAvatar()
-  }, [loadStats, loadGameAndPlushies, loadProfileAvatar, profilePath])
+    void loadPushState()
+  }, [loadStats, loadGameAndPlushies, loadProfileAvatar, loadPushState, profilePath])
+
+  useEffect(() => {
+    writeNotify(NOTIFY_KEYS.appt, notifyAppt)
+  }, [notifyAppt])
+
+  useEffect(() => {
+    writeNotify(NOTIFY_KEYS.log, notifyLog)
+  }, [notifyLog])
+
+  useEffect(() => {
+    writeNotifyTime(notifyLogTime)
+  }, [notifyLogTime])
+
+  useEffect(() => {
+    if (!pushEnabled || !user || !pushSupported) return
+    void syncPushPrefs(buildPushPrefs()).catch(() => {
+      // keep UI responsive; banner noise would be annoying for passive sync
+    })
+  }, [pushEnabled, user, pushSupported, buildPushPrefs])
 
   useEffect(() => {
     const onAcc = () => setAccountPlushPref(loadAccountPlushieDisplay())
@@ -372,6 +454,47 @@ export function ProfilePage () {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [avatarCropOpen, closeCropModal])
+
+  async function onEnablePushNotifications () {
+    if (!user || pushBusy) return
+    if (!pushSupported) {
+      setAccountBanner('Web push is not supported in this browser.')
+      return
+    }
+    setPushBusy(true)
+    setAccountBanner(null)
+    try {
+      const prefs = {
+        notificationsEnabled: true,
+        appointmentRemindersEnabled: notifyAppt,
+        dailyNudgeEnabled: notifyLog,
+        dailyNudgeTimeLocal: notifyLog ? notifyLogTime : null,
+      }
+      await registerPushSubscription(prefs)
+      setPushEnabled(true)
+      setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+      setAccountBanner('Push notifications enabled on this device.')
+    } catch (e) {
+      setAccountBanner(e instanceof Error ? e.message : 'Could not enable push notifications.')
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  async function onDisablePushNotifications () {
+    if (pushBusy) return
+    setPushBusy(true)
+    setAccountBanner(null)
+    try {
+      await disablePushSubscription()
+      setPushEnabled(false)
+      setAccountBanner('Push notifications disabled on this device.')
+    } catch (e) {
+      setAccountBanner(e instanceof Error ? e.message : 'Could not disable push notifications.')
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   async function onChangePassword () {
     setAccountBanner(null)
@@ -786,10 +909,39 @@ export function ProfilePage () {
         </h2>
         <div className="scrap-account-paper scrap-account-paper--notify">
           <span className="scrap-account-tape scrap-account-tape--lavender" aria-hidden />
+          <div className="scrap-account-notify-push-row">
+            <div>
+              <div className="scrap-account-notify-title">push notifications</div>
+              <div className="scrap-account-notify-sub">
+                {pushSupported
+                  ? `permission: ${pushPermission}`
+                  : 'not supported in this browser'}
+              </div>
+            </div>
+            {pushEnabled ? (
+              <button
+                type="button"
+                className="scrap-account-notify-manage"
+                onClick={() => void onDisablePushNotifications()}
+                disabled={pushBusy}
+              >
+                {pushBusy ? 'working…' : 'disable'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="scrap-account-notify-manage"
+                onClick={() => void onEnablePushNotifications()}
+                disabled={pushBusy || !pushSupported}
+              >
+                {pushBusy ? 'working…' : 'enable'}
+              </button>
+            )}
+          </div>
           <div className="scrap-account-notify-row">
             <div>
-              <div className="scrap-account-notify-title">appointment reminders</div>
-              <div className="scrap-account-notify-sub">1 hour before</div>
+              <div className="scrap-account-notify-title">question / visit log reminders</div>
+              <div className="scrap-account-notify-sub">1 hour before and 1 hour after appointments</div>
             </div>
             <button
               type="button"
@@ -799,7 +951,6 @@ export function ProfilePage () {
               onClick={() => {
                 const n = !notifyAppt
                 setNotifyAppt(n)
-                writeNotify(NOTIFY_KEYS.appt, n)
               }}
             >
               {notifyAppt ? 'on' : 'off'}
@@ -808,7 +959,7 @@ export function ProfilePage () {
           <div className="scrap-account-notify-row">
             <div>
               <div className="scrap-account-notify-title">daily log nudge</div>
-              <div className="scrap-account-notify-sub">if no entry by 8pm</div>
+              <div className="scrap-account-notify-sub">sends at your chosen time</div>
             </div>
             <button
               type="button"
@@ -818,11 +969,21 @@ export function ProfilePage () {
               onClick={() => {
                 const n = !notifyLog
                 setNotifyLog(n)
-                writeNotify(NOTIFY_KEYS.log, n)
               }}
             >
               {notifyLog ? 'on' : 'off'}
             </button>
+          </div>
+          <div className="scrap-account-notify-time-row">
+            <label htmlFor="mb-daily-nudge-time" className="scrap-account-notify-time-label">daily nudge time</label>
+            <input
+              id="mb-daily-nudge-time"
+              type="time"
+              className="scrap-account-notify-time-input"
+              value={notifyLogTime}
+              onChange={(e) => setNotifyLogTime(e.target.value)}
+              disabled={!notifyLog}
+            />
           </div>
           <p className="scrap-account-notify-footnote">These toggles are saved on this device only.</p>
         </div>

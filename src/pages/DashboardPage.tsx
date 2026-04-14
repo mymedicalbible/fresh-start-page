@@ -79,44 +79,6 @@ function isDoctorVisitPendingStatus (status: string | null | undefined) {
   return String(status ?? 'complete').trim().toLowerCase() === 'pending'
 }
 
-/** One timeout per upcoming row; cleared before reschedule so Strict Mode / double-clicks cannot stack duplicate reminders. */
-const apptQuestionNotifyTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
-function clearScheduledApptQuestionNotifications () {
-  for (const t of apptQuestionNotifyTimers.values()) clearTimeout(t)
-  apptQuestionNotifyTimers.clear()
-}
-
-function scheduleApptNotifications (appts: UpcomingAppt[], pendingQMap: Record<string, number>) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return
-  clearScheduledApptQuestionNotifications()
-  const now = Date.now()
-  for (const appt of appts) {
-    const q = pendingQMap[appt.doctor ?? ''] ?? 0
-    if (q === 0) continue
-    const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time ?? '09:00'}`)
-    const notifyAt = apptDateTime.getTime() + 60 * 60 * 1000
-    const delay = notifyAt - now
-    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-      const tid = setTimeout(() => {
-        apptQuestionNotifyTimers.delete(appt.id)
-        const doctorParam = appt.doctor ? encodeURIComponent(appt.doctor) : ''
-        const deepLink = `/app/questions?tab=open${doctorParam ? `&doctor=${doctorParam}` : ''}`
-        const n = new Notification('Medical Bible — Review your questions', {
-          body: `Appointment with ${appt.doctor ?? 'your doctor'} just finished. ${q} unanswered question${q !== 1 ? 's' : ''}.`,
-          icon: '/icon-192.png',
-          tag: `appt-q-${appt.id}`,
-        })
-        n.onclick = () => {
-          window.focus()
-          window.location.href = deepLink
-        }
-      }, delay)
-      apptQuestionNotifyTimers.set(appt.id, tid)
-    }
-  }
-}
-
 type HealthSummary = {
   generatedAt: string
   narrativeFallback: string
@@ -1121,10 +1083,6 @@ export function DashboardPage () {
   }
 
   useEffect(() => {
-    return () => { clearScheduledApptQuestionNotifications() }
-  }, [])
-
-  useEffect(() => {
     if (searchParams.get('handoff') !== '1') return
     setSummaryOpen(true)
     setSearchParams({}, { replace: true })
@@ -1201,7 +1159,6 @@ export function DashboardPage () {
             if (row.doctor) qMap[row.doctor] = (qMap[row.doctor] ?? 0) + 1
           }
           setApptPendingQ(qMap)
-          scheduleApptNotifications(enrichedAll, qMap)
         } else {
           setUpcomingAllFull([])
           const { data: pastData, error: pastErr } = await supabase
@@ -2201,24 +2158,6 @@ export function DashboardPage () {
             )}
             <div className="scrap-appt-banner-main">
               <div className="scrap-sticky-label scrap-sticky-label--appt-under-tape">{bannerLabel}</div>
-              {apptBannerSource === 'upcoming' && upcoming.length > 0 && 'Notification' in window && Notification.permission === 'default' && (
-                <button
-                  type="button"
-                  className="btn btn-ghost scrap-reminders-prompt"
-                  onClick={() => {
-                    void Notification.requestPermission().then((p) => {
-                      if (p === 'granted') {
-                        scheduleApptNotifications(
-                          upcomingAllFull.length ? upcomingAllFull : upcoming,
-                          apptPendingQ,
-                        )
-                      }
-                    })
-                  }}
-                >
-                  Enable visit reminders
-                </button>
-              )}
               {apptBannerSource === 'none' && (
                 <p className="scrap-body scrap-body--muted">No upcoming appointments.</p>
               )}

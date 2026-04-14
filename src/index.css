@@ -3272,6 +3272,62 @@ button.scrap-appt-q:focus-visible {
   color: #14532d;
 }
 
+.scrap-account-notify-push-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid rgba(74, 55, 40, 0.1);
+}
+
+.scrap-account-notify-manage {
+  flex-shrink: 0;
+  min-width: 82px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(74, 55, 40, 0.22);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--scrap-ink);
+  font-family: var(--font-scrap);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scrap-account-notify-manage:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.scrap-account-notify-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 8px;
+}
+
+.scrap-account-notify-time-label {
+  font-family: var(--font-scrap);
+  font-size: 1rem;
+  color: var(--scrap-muted);
+}
+
+.scrap-account-notify-time-input {
+  border: 1.5px solid rgba(74, 55, 40, 0.18);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-family: var(--font-scrap);
+  font-size: 0.95rem;
+  color: var(--scrap-ink);
+  background: #fffdf8;
+}
+
+.scrap-account-notify-time-input:disabled {
+  opacity: 0.55;
+}
+
 .scrap-account-notify-footnote {
   font-family: var(--font-scrap);
   font-size: 0.72rem;

@@ -12,7 +12,8 @@
     "assets:more-grass": "node scripts/more-grass-make-transparent.mjs",
     "test:e2e": "node scripts/ensure-playwright-smoke-user.mjs && playwright test",
     "test:e2e:only": "playwright test",
-    "supabase:push": "node scripts/supabase-db-push.mjs"
+    "supabase:push": "node scripts/supabase-db-push.mjs",
+    "push:run": "node scripts/run-push-reminders.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
