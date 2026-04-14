@@ -312,27 +312,17 @@ button, input, select, textarea { font: inherit; }
 }
 
 .more-account-pen-link:hover .more-account-pen {
-  color: rgba(26, 26, 46, 0.88);
+  color: rgba(28, 28, 46, 0.9);
 }
 
 .more-account-pen {
   display: inline-block;
-  font-family: var(--font-serif);
-  font-style: italic;
+  font-family: 'Nothing You Could Do', cursive;
   font-weight: 400;
   transition: color 0.15s ease;
-  font-size: clamp(1.35rem, 4.2vw, 1.85rem);
-  line-height: 1.2;
-  letter-spacing: 0.008em;
-  /* Near-black ink, slightly cool; not fully opaque like marker */
-  color: rgba(26, 26, 46, 0.82);
-  transform: rotate(-0.9deg);
-  -webkit-font-smoothing: antialiased;
-  /* Light deboss on paper — neutral shadows, no marker weight */
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.55),
-    0 -1px 1px rgba(0, 0, 0, 0.06),
-    0 1px 2px rgba(26, 26, 46, 0.08);
+  font-size: clamp(1.05rem, 4.5vw, 1.65rem);
+  line-height: 1.8;
+  color: rgba(28, 28, 46, 0.82);
 }
 
 .more-polaroid__photo {
