@@ -41,8 +41,6 @@ import {
   resolveDashboardPlushieLottiePath,
   slugFromDashboardLottiePath,
 } from '../lib/dashPlushieDisplay'
-import { loadSimpleMascotVisible } from '../lib/simpleMascotDisplay'
-import { CuteSwimmingTurtle } from '../components/CuteSwimmingTurtle'
 import { DashboardWeather } from '../components/DashboardWeather'
 import { PlushieTokenVictoryModal } from '../components/PlushieTokenVictoryModal'
 import {
@@ -760,7 +758,6 @@ export function DashboardPage () {
   } | null>(null)
   const [dashPlushieLottie, setDashPlushieLottie] = useState<object | null>(null)
   const [dashPlushPref, setDashPlushPref] = useState(loadDashPlushieDisplay)
-  const [simpleMascotVisible, setSimpleMascotVisible] = useState(() => loadSimpleMascotVisible())
   const [dashPlushCatalog, setDashPlushCatalog] = useState<Map<string, { lottie_path: string; slug?: string }>>(() => new Map())
   const [dashPlushUnlocked, setDashPlushUnlocked] = useState<Set<string>>(() => new Set())
   const [plushieAffordOpen, setPlushieAffordOpen] = useState(false)
@@ -851,12 +848,6 @@ export function DashboardPage () {
     return () => window.removeEventListener('mb-dash-plushie-display-changed', onPref)
   }, [])
 
-  useEffect(() => {
-    const onSimple = () => setSimpleMascotVisible(loadSimpleMascotVisible())
-    window.addEventListener('mb-simple-mascot-changed', onSimple)
-    return () => window.removeEventListener('mb-simple-mascot-changed', onSimple)
-  }, [])
-
   const refreshDashPlushMeta = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
     const [cat, un] = await Promise.all([
@@ -892,26 +883,17 @@ export function DashboardPage () {
 
   /** Stable slug for the plush in the appt-card mascot slot (CSS `data-dash-plush-slug`). */
   const dashSlotSlug = useMemo((): string | null => {
-    if (gameTokensEnabled()) {
-      if (!resolvedDashPlushLottiePath || !dashGame) return null
-      if (dashPlushPref.mode === 'weekly') {
-        return dashGame.active_plushie?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
-      }
-      if (dashPlushPref.mode === 'plushie') {
-        const row = dashPlushCatalog.get(dashPlushPref.plushieId)
-        return row?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
-      }
-      return slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    if (!gameTokensEnabled()) return null
+    if (!resolvedDashPlushLottiePath || !dashGame) return null
+    if (dashPlushPref.mode === 'weekly') {
+      return dashGame.active_plushie?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
     }
-    if (simpleMascotVisible) return 'svg-swimming-turtle'
-    return null
-  }, [
-    resolvedDashPlushLottiePath,
-    dashGame,
-    dashPlushPref,
-    dashPlushCatalog,
-    simpleMascotVisible,
-  ])
+    if (dashPlushPref.mode === 'plushie') {
+      const row = dashPlushCatalog.get(dashPlushPref.plushieId)
+      return row?.slug ?? slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+    }
+    return slugFromDashboardLottiePath(resolvedDashPlushLottiePath)
+  }, [resolvedDashPlushLottiePath, dashGame, dashPlushPref, dashPlushCatalog])
 
   const refreshDashGameQuiet = useCallback(async () => {
     if (!user?.id || !gameTokensEnabled()) return
@@ -2184,12 +2166,8 @@ export function DashboardPage () {
               else bannerLabel = 'UPCOMING'
             }
           }
-          const showPlushieMastColumn = gameTokensEnabled()
-            ? !!resolvedDashPlushLottiePath
-            : simpleMascotVisible
-          const showMascotGraphic = gameTokensEnabled()
-            ? !!dashPlushieLottie
-            : simpleMascotVisible
+          const showPlushieMastColumn = !!(gameTokensEnabled() && resolvedDashPlushLottiePath)
+          const showMascotGraphic = !!(gameTokensEnabled() && dashPlushieLottie)
           return (
         <section
           className="scrap-sticky scrap-sticky--upcoming"
@@ -2211,14 +2189,10 @@ export function DashboardPage () {
                       className={`scrap-dash-plushie scrap-dash-plushie--slot${plushieDashCelebrate ? ' scrap-dash-plushie--enter' : ''}`}
                       data-dash-plush-slug={dashSlotSlug ?? undefined}
                     >
-                      {gameTokensEnabled() && dashPlushieLottie ? (
-                        <DashPlushieLottie
-                          data={dashPlushieLottie}
-                          className="scrap-dash-plushie-lottie"
-                        />
-                      ) : (
-                        <CuteSwimmingTurtle className="scrap-dash-plushie-svg" />
-                      )}
+                      <DashPlushieLottie
+                        data={dashPlushieLottie}
+                        className="scrap-dash-plushie-lottie"
+                      />
                     </div>
                   </div>
                 )}
@@ -2335,21 +2309,11 @@ export function DashboardPage () {
             to={`/app/log?tab=pain&returnTo=${dashReturnTo}`}
             className="scrap-log-tile scrap-log-tile--pink"
             kind="pain"
-            title="Pain"
-            sub="Log a pain entry"
+            title="Pain & episodes"
+            sub="Log pain — link an episode if it matched"
             onLongPress={setLogArchiveSheet}
           >
             <span className="scrap-tape scrap-tape--pink" aria-hidden />
-          </LogTodayTile>
-          <LogTodayTile
-            to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`}
-            className="scrap-log-tile scrap-log-tile--green"
-            kind="symptoms"
-            title="Episodes"
-            sub="Log an episode"
-            onLongPress={setLogArchiveSheet}
-          >
-            <span className="scrap-tape scrap-tape--mint" aria-hidden />
           </LogTodayTile>
           <LogTodayTile
             to={`/app/log?tab=questions&returnTo=${dashReturnTo}`}
@@ -2372,6 +2336,11 @@ export function DashboardPage () {
             <span className="scrap-tape scrap-tape--butter" aria-hidden />
           </LogTodayTile>
         </div>
+        <p className="muted" style={{ textAlign: 'center', marginTop: 10, fontSize: '0.9rem' }}>
+          <Link to={`/app/log?tab=symptoms&returnTo=${dashReturnTo}`} className="scrap-dash-footer-link">
+            Log an episode only (no pain)
+          </Link>
+        </p>
 
         <section className="scrap-handoff">
           <span className="scrap-tape scrap-tape--brown" aria-hidden />

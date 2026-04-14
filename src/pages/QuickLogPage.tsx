@@ -130,6 +130,10 @@ export function QuickLogPage () {
   const [answerSaving, setAnswerSaving] = useState(false)
   const [incompleteKind, setIncompleteKind] = useState<null | 'pain' | 'symptoms' | 'questions'>(null)
 
+  /** After pain row is saved, offer linking a symptom episode on the same screen. */
+  const [painSaveFollowUp, setPainSaveFollowUp] = useState<null | { painEntryId: string }>(null)
+  const [linkedEpisodeOpen, setLinkedEpisodeOpen] = useState(false)
+
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
     setScreen(d.screen)
     setPainStep(d.painStep)
@@ -243,6 +247,13 @@ export function QuickLogPage () {
     else if (t === 'visit' || t === 'pain' || t === 'questions') setScreen(t)
     else setScreen('hub')
   }, [searchParams])
+
+  useEffect(() => {
+    if (screen !== 'pain') {
+      setPainSaveFollowUp(null)
+      setLinkedEpisodeOpen(false)
+    }
+  }, [screen])
 
   const loadPickerDoctorQuestions = useCallback(async () => {
     if (!user || screen !== 'questions' || !form.doctor.trim()) {
@@ -371,12 +382,23 @@ export function QuickLogPage () {
     void handleSaveQuestion()
   }
 
+  function finishPainLogSolo () {
+    setPainSaveFollowUp(null)
+    setLinkedEpisodeOpen(false)
+    clearQuickLogDraft()
+    setPainStep(1)
+    try {
+      sessionStorage.setItem('mb-analytics-refresh', '1')
+    } catch { /* ignore */ }
+    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain log archive' })
+  }
+
   async function handleSavePain () {
     if (!user) return
     setBusy(true)
     setError(null)
     const weatherSnapshot = await fetchWeatherSnapshot()
-    const { error: e } = await supabase.from('pain_entries').insert({
+    const { data: inserted, error: e } = await supabase.from('pain_entries').insert({
       user_id: user.id,
       entry_date: form.date,
       entry_time: form.time || null,
@@ -385,14 +407,76 @@ export function QuickLogPage () {
       pain_type: painTypePicks.join(', '),
       notes: form.notes || null,
       weather_snapshot: weatherSnapshot,
-    })
+    }).select('id').single()
     setBusy(false)
     if (e) { setError(e.message); return }
+    if (!inserted?.id) {
+      setError('Pain log saved but could not read id — try again.')
+      return
+    }
+    setPainSaveFollowUp({ painEntryId: inserted.id })
+    setLinkedEpisodeOpen(false)
+  }
+
+  function beginLinkedEpisodeFromPain () {
+    setLinkedEpisodeOpen(true)
+    setSelectedSymptoms([])
+    setNewSymptomText('')
+    setForm((f) => ({ ...f, activity: '', relief: '' }))
+    setSymptomRemoveReveal(null)
+  }
+
+  async function handleSaveLinkedEpisode () {
+    if (!user || !painSaveFollowUp) return
+    setBusy(true)
+    setError(null)
+    const { data: ep, error: e1 } = await supabase.from('mcas_episodes').insert({
+      user_id: user.id,
+      episode_date: form.date,
+      episode_time: form.time || null,
+      trigger: '',
+      activity: form.activity || null,
+      symptoms: selectedSymptoms.join(', '),
+      severity: form.severity,
+      relief: form.relief || null,
+      linked_pain_entry_id: painSaveFollowUp.painEntryId,
+    }).select('id').single()
+    if (e1) {
+      setBusy(false)
+      setError(e1.message)
+      return
+    }
+    if (!ep?.id) {
+      setBusy(false)
+      setError('Episode saved but could not link — check your data.')
+      return
+    }
+    const { error: e2 } = await supabase
+      .from('pain_entries')
+      .update({ linked_episode_id: ep.id })
+      .eq('id', painSaveFollowUp.painEntryId)
+      .eq('user_id', user.id)
+    setBusy(false)
+    if (e2) {
+      setError(e2.message)
+      return
+    }
+    setPainSaveFollowUp(null)
+    setLinkedEpisodeOpen(false)
     clearQuickLogDraft()
+    setPainStep(1)
     try {
       sessionStorage.setItem('mb-analytics-refresh', '1')
     } catch { /* ignore */ }
-    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain log archive' })
+    setPostSave({ archive: '/app/charts-trends?tab=pain', title: 'Pain & episode saved' })
+  }
+
+  function requestSaveLinkedEpisode () {
+    if (symptomsLogLooksIncomplete()) {
+      setIncompleteKind('symptoms')
+      return
+    }
+    void handleSaveLinkedEpisode()
   }
 
   async function handleSaveSymptoms () {
@@ -514,7 +598,8 @@ export function QuickLogPage () {
           title="Save episode"
           onSaveComplete={() => {
             setSaveDialogKind(null)
-            requestSaveSymptoms()
+            if (painSaveFollowUp) requestSaveLinkedEpisode()
+            else requestSaveSymptoms()
           }}
           onSaveForLater={() => {
             setSaveDialogKind(null)
@@ -574,7 +659,10 @@ export function QuickLogPage () {
             const k = incompleteKind
             setIncompleteKind(null)
             if (k === 'pain') void handleSavePain()
-            else if (k === 'symptoms') void handleSaveSymptoms()
+            else if (k === 'symptoms') {
+              if (painSaveFollowUp) void handleSaveLinkedEpisode()
+              else void handleSaveSymptoms()
+            }
             else if (k === 'questions') void handleSaveQuestion()
           }}
           onCancel={() => setIncompleteKind(null)}
@@ -591,11 +679,19 @@ export function QuickLogPage () {
         <div>
           <BackButton fallbackTo="/app" />
           <div className="scrap-sticker-grid">
-            <ScrapSticker to={logTabHref('pain')} title="Pain" sub="Log a pain entry" tone="pink" navState={{ backTo: '/app' }} />
-            <ScrapSticker to={logTabHref('symptoms')} title="Episodes" sub="Log an episode" tone="mint" navState={{ backTo: '/app' }} />
+            <ScrapSticker
+              to={logTabHref('pain')}
+              title="Pain & episodes"
+              sub="One flow — add a linked episode if it matched"
+              tone="pink"
+              navState={{ backTo: '/app' }}
+            />
             <ScrapSticker to={logTabHref('questions')} title="Questions" sub="Add for your doctor" tone="sky" navState={{ backTo: '/app' }} />
             <ScrapSticker to={visitLogHref()} title="Visit log" sub="Record a visit" tone="cream" navState={{ backTo: '/app' }} />
           </div>
+          <p className="muted" style={{ textAlign: 'center', marginTop: 14, fontSize: '0.92rem' }}>
+            <Link to={logTabHref('symptoms')}>Log an episode only (no pain)</Link>
+          </p>
         </div>
       )}
 
@@ -622,9 +718,10 @@ export function QuickLogPage () {
         </div>
       )}
 
-      {/* PAIN — 3-step wheel */}
+      {/* PAIN — 3-step wheel + optional linked episode (same screen) */}
       {screen === 'pain' && (
-        <div className="card shadow" style={{ borderRadius: '24px' }}>
+        <>
+        <div className="card shadow" style={{ borderRadius: '24px', opacity: painSaveFollowUp ? 0.88 : 1 }}>
           {painStep === 1 && (
             <div className="fade-in" style={{ textAlign: 'center' }}>
               <p className="muted" style={{ marginTop: 0 }}>INTENSITY</p>
@@ -695,14 +792,169 @@ export function QuickLogPage () {
               </div>
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => setSaveDialogKind('pain')} disabled={busy}>
-                  {busy ? 'Saving…' : 'Save'}
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()} disabled={!!painSaveFollowUp}>Cancel</button>
+                <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => setSaveDialogKind('pain')} disabled={busy || !!painSaveFollowUp}>
+                  {busy ? 'Saving…' : painSaveFollowUp ? 'Saved' : 'Save'}
                 </button>
               </div>
             </div>
           )}
         </div>
+
+        {painSaveFollowUp && (
+          <div
+            className="card shadow fade-in"
+            style={{
+              borderRadius: '18px',
+              marginTop: 14,
+              border: '2px solid rgba(45, 138, 78, 0.35)',
+              background: 'linear-gradient(180deg, #f6fff9 0%, #fff 100%)',
+            }}
+          >
+            {!linkedEpisodeOpen ? (
+              <div style={{ padding: '4px 2px' }}>
+                <p style={{ marginTop: 0, marginBottom: 12, fontWeight: 600, color: 'var(--mint-ink, #1a4d2e)' }}>
+                  Were you also having a symptom episode at the same time?
+                </p>
+                <p className="muted" style={{ fontSize: '0.88rem', marginBottom: 14, lineHeight: 1.45 }}>
+                  Same date &amp; time as this pain log. If yes, you can add a short episode record — it stays linked so reports know they happened together.
+                </p>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ flex: '1 1 120px' }}
+                    onClick={finishPainLogSolo}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ flex: '1 1 140px' }}
+                    onClick={beginLinkedEpisodeFromPain}
+                  >
+                    Yes — add episode
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '4px 2px' }}>
+                <p style={{ marginTop: 0, marginBottom: 10, fontWeight: 600 }}>Episode (same time as this pain)</p>
+                <p className="muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+                  {form.date} · {form.time || '—'}
+                </p>
+
+                <div className="form-group">
+                  <label>What were you doing in the last 4 hours?</label>
+                  <input
+                    value={form.activity}
+                    onChange={(e) => setForm({ ...form, activity: e.target.value })}
+                    placeholder="e.g. Eating, exercising, sleeping, working…"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Episode features</label>
+                  {selectedSymptoms.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {selectedSymptoms.map((sym) => (
+                          <EpisodeFeatureChip
+                            key={sym}
+                            label={sym}
+                            showRemove={symptomRemoveReveal === sym}
+                            onReveal={() => setSymptomRemoveReveal(sym)}
+                            onRemove={() => {
+                              setSelectedSymptoms((prev) => prev.filter((s) => s !== sym))
+                              setSymptomRemoveReveal(null)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {pastSymptoms.filter((s) => !selectedSymptoms.includes(s)).length > 0 && (
+                    <div className="pill-grid" style={{ marginBottom: 10 }}>
+                      {pastSymptoms.filter((s) => !selectedSymptoms.includes(s)).map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          className="pill"
+                          onClick={() => toggleSymptom(sym)}
+                          style={{ fontSize: '0.78rem' }}
+                        >
+                          {sym}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      value={newSymptomText}
+                      onChange={(e) => setNewSymptomText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addCustomSymptom()}
+                      placeholder="Type a feature and tap Add…"
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className="btn btn-secondary" style={{ flexShrink: 0, fontSize: '0.82rem', padding: '8px 12px' }} onClick={addCustomSymptom}>
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Severity</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {['Mild', 'Moderate', 'Severe'].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`btn ${form.severity === s ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1, fontSize: '0.85rem' }}
+                        onClick={() => setForm({ ...form, severity: s })}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Relief (optional)</label>
+                  <input
+                    value={form.relief}
+                    onChange={(e) => setForm({ ...form, relief: e.target.value })}
+                    placeholder="What helped?"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.82rem' }}
+                    onClick={() => {
+                      setLinkedEpisodeOpen(false)
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ flex: '1 1 180px' }}
+                    onClick={() => setSaveDialogKind('symptoms')}
+                    disabled={busy}
+                  >
+                    {busy ? 'Saving…' : 'Save episode'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        </>
       )}
 
       {/* SYMPTOMS — replaces MCAS */}
