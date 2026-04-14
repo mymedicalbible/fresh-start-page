@@ -2358,8 +2358,6 @@ export function DashboardPage () {
           <ScrapSticker to="/app/doctors" title="Doctors" sub="Profiles & visits" tone="mint" />
           <ScrapSticker to="/app/meds" title="Medications" sub="What you take" tone="sky" />
           <ScrapSticker to="/app/tests" title="Tests & orders" sub="Results & pending" tone="cream" />
-          <ScrapSticker to="/app/diagnoses" title="Diagnoses" sub="Your list" tone="pink" />
-          <ScrapSticker to="/app/transcripts" title="Transcripts" sub="Visit recordings" tone="lavender" />
         </div>
 
         <p className="scrap-dash-account-line">
