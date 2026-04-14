@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Lottie from 'lottie-react'
 import type { User } from '@supabase/supabase-js'
 import { useAuth } from '../contexts/AuthContext'
@@ -119,6 +119,9 @@ export function ProfilePage () {
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [pandaLottieData, setPandaLottieData] = useState<object | null>(null)
   const [activePlushieLottiePath, setActivePlushieLottiePath] = useState<string | null>(null)
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) return
@@ -171,6 +174,30 @@ export function ProfilePage () {
     setActivePlushieLottiePath(state.active_plushie?.lottie_path ?? null)
   }, [user])
 
+  const loadProfileAvatar = useCallback(async () => {
+    if (!user) return
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('avatar_path')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (error) return
+    const rawPath = (data?.avatar_path ?? '').trim()
+    if (!rawPath) {
+      setProfileAvatarUrl(null)
+      return
+    }
+    const { data: signed, error: signErr } = await supabase
+      .storage
+      .from('profile-icons')
+      .createSignedUrl(rawPath, 60 * 60)
+    if (signErr || !signed?.signedUrl) {
+      setProfileAvatarUrl(null)
+      return
+    }
+    setProfileAvatarUrl(signed.signedUrl)
+  }, [user])
+
   useGameStateRefresh(!!user && gameTokensEnabled(), () => {
     void loadGameAndPlushies()
   })
@@ -178,7 +205,8 @@ export function ProfilePage () {
   useEffect(() => {
     void loadStats()
     void loadGameAndPlushies()
-  }, [loadStats, loadGameAndPlushies, profilePath])
+    void loadProfileAvatar()
+  }, [loadStats, loadGameAndPlushies, loadProfileAvatar, profilePath])
 
   useEffect(() => {
     const onAcc = () => setAccountPlushPref(loadAccountPlushieDisplay())
@@ -298,6 +326,81 @@ export function ProfilePage () {
     else setAccountBanner('If your project requires it, check both inboxes to confirm the new email.')
   }
 
+  async function onPickAvatarFile (file: File | null) {
+    if (!user || !file || avatarUploading) return
+    const fileType = file.type.toLowerCase()
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(fileType)) {
+      setAccountBanner('Use JPG, PNG, or WEBP for profile photo.')
+      return
+    }
+    const maxBytes = 2 * 1024 * 1024
+    if (file.size > maxBytes) {
+      setAccountBanner('Profile photo must be 2MB or smaller.')
+      return
+    }
+    const ext = fileType === 'image/png'
+      ? 'png'
+      : fileType === 'image/webp'
+        ? 'webp'
+        : 'jpg'
+    const objectPath = `${user.id}/avatar.${ext}`
+    setAvatarUploading(true)
+    setAccountBanner(null)
+    try {
+      const { error: upErr } = await supabase
+        .storage
+        .from('profile-icons')
+        .upload(objectPath, file, { upsert: true, contentType: fileType, cacheControl: '3600' })
+      if (upErr) {
+        setAccountBanner(upErr.message)
+        return
+      }
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ avatar_path: objectPath, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (profileErr) {
+        setAccountBanner(profileErr.message)
+        return
+      }
+      await loadProfileAvatar()
+      setAccountBanner('Profile photo updated.')
+    } finally {
+      setAvatarUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function onRemoveProfilePhoto () {
+    if (!user || avatarUploading) return
+    setAvatarUploading(true)
+    setAccountBanner(null)
+    try {
+      const { data: files } = await supabase
+        .storage
+        .from('profile-icons')
+        .list(user.id, { limit: 50 })
+      const removePaths = (files ?? []).map((f) => `${user.id}/${f.name}`)
+      if (removePaths.length > 0) {
+        await supabase.storage.from('profile-icons').remove(removePaths)
+      }
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ avatar_path: null, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (profileErr) {
+        setAccountBanner(profileErr.message)
+        return
+      }
+      setProfileAvatarUrl(null)
+      setAccountBanner('Profile photo removed.')
+    } finally {
+      setAvatarUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   if (!user) return null
 
   const nameLower = displayNameFromUser(user).toLowerCase()
@@ -324,7 +427,9 @@ export function ProfilePage () {
       <section className="scrap-account-paper scrap-account-paper--hero">
         <div className="scrap-account-profile-row">
           <div className="scrap-account-avatar" aria-hidden>
-            {gameTokensEnabled() && ownedActive && pandaLottieData ? (
+            {profileAvatarUrl ? (
+              <img src={profileAvatarUrl} alt="" className="scrap-account-avatar-photo" />
+            ) : gameTokensEnabled() && ownedActive && pandaLottieData ? (
               <PandaLottieLoop data={pandaLottieData} className="scrap-account-avatar-lottie" />
             ) : !gameTokensEnabled() ? (
               <AccountAvatarTurtle className="scrap-account-avatar-turtle" />
@@ -604,6 +709,39 @@ export function ProfilePage () {
         </h2>
         <div className="scrap-account-paper scrap-account-paper--actions">
           <span className="scrap-account-tape scrap-account-tape--tan" aria-hidden />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="scrap-account-avatar-file-input"
+            onChange={(e) => void onPickAvatarFile(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            className="scrap-account-action-row scrap-account-action-row--btn"
+            disabled={avatarUploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div>
+              <div className="scrap-account-action-title">upload profile photo</div>
+              <div className="scrap-account-action-sub">
+                {avatarUploading ? 'uploading…' : 'JPG, PNG, WEBP up to 2MB'}
+              </div>
+            </div>
+            <span aria-hidden className="scrap-account-chevron">›</span>
+          </button>
+          <button
+            type="button"
+            className="scrap-account-action-row scrap-account-action-row--btn"
+            disabled={avatarUploading || !profileAvatarUrl}
+            onClick={() => void onRemoveProfilePhoto()}
+          >
+            <div>
+              <div className="scrap-account-action-title">remove profile photo</div>
+              <div className="scrap-account-action-sub">use turtle icon again</div>
+            </div>
+            <span aria-hidden className="scrap-account-chevron">›</span>
+          </button>
           <button
             type="button"
             className="scrap-account-action-row scrap-account-action-row--btn"

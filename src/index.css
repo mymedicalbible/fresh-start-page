@@ -2801,6 +2801,13 @@ button.scrap-appt-q:focus-visible {
   display: block;
 }
 
+.scrap-account-avatar .scrap-account-avatar-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .scrap-account-avatar .scrap-account-avatar-turtle {
   display: flex;
   align-items: center;
@@ -3298,6 +3305,18 @@ button.scrap-appt-q:focus-visible {
 
 .scrap-account-action-row--btn {
   border-radius: 0;
+}
+
+.scrap-account-avatar-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .scrap-account-action-row:disabled {
