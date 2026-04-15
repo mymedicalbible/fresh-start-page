@@ -32,6 +32,7 @@ import {
   canUseWebPush,
   disablePushSubscription,
   registerPushSubscription,
+  sendTestPushNotification,
   syncPushPrefs,
 } from '../lib/pushNotifications'
 
@@ -491,6 +492,20 @@ export function ProfilePage () {
       setAccountBanner('Push notifications disabled on this device.')
     } catch (e) {
       setAccountBanner(e instanceof Error ? e.message : 'Could not disable push notifications.')
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  async function onSendTestPushNotification () {
+    if (!user || pushBusy || !pushEnabled) return
+    setPushBusy(true)
+    setAccountBanner(null)
+    try {
+      await sendTestPushNotification()
+      setAccountBanner('Test notification sent. If you do not see it, check browser/site + OS notification settings.')
+    } catch (e) {
+      setAccountBanner(e instanceof Error ? e.message : 'Could not send test notification.')
     } finally {
       setPushBusy(false)
     }
@@ -985,7 +1000,19 @@ export function ProfilePage () {
               disabled={!notifyLog}
             />
           </div>
-          <p className="scrap-account-notify-footnote">These toggles are saved on this device only.</p>
+          {pushEnabled && (
+            <div className="scrap-account-notify-time-row">
+              <button
+                type="button"
+                className="scrap-account-notify-manage"
+                onClick={() => void onSendTestPushNotification()}
+                disabled={pushBusy}
+              >
+                {pushBusy ? 'working…' : 'send test notification now'}
+              </button>
+            </div>
+          )}
+          <p className="scrap-account-notify-footnote">These push settings apply to this device subscription; this browser also remembers your last-used toggle state locally.</p>
         </div>
       </section>
 

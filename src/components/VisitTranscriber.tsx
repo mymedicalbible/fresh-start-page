@@ -7,6 +7,7 @@ import { formatExtractedClinicalSummary } from '../lib/transcriptVisitFormat'
 import { downloadTranscriptPdf } from '../lib/transcriptPdf'
 import { diagnosisStatusLabel } from '../lib/diagnosisStatusOptions'
 import { AppConfirmDialog } from './AppConfirmDialog'
+import { useAuth } from '../contexts/AuthContext'
 
 type Props = {
   doctorName: string
@@ -28,6 +29,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
   knownDiagnoses,
   onExtracted,
 }, ref) {
+  const { user } = useAuth()
   const [_recording, setRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [status, setStatus] = useState<'idle' | 'connecting' | 'recording' | 'processing' | 'done' | 'error'>('idle')
@@ -54,7 +56,7 @@ export const VisitTranscriber = forwardRef<VisitTranscriberHandle, Props>(functi
       transcript: transcript.trim(),
       extracted: ext,
       extractedSummary: ext ? formatExtractedClinicalSummary(ext) : undefined,
-    })
+    }, user?.id)
   }
 
   function finishArchiveChoice (save: boolean) {

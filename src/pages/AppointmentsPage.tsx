@@ -17,6 +17,14 @@ function todayISO () {
   return new Date().toISOString().slice(0, 10)
 }
 
+function appointmentStartMs (row: AppointmentRow): number {
+  const rawTime = row.appointment_time?.trim()
+  const time = rawTime
+    ? (rawTime.length <= 5 ? `${rawTime}:00` : rawTime)
+    : '12:00:00'
+  return new Date(`${row.appointment_date}T${time}`).getTime()
+}
+
 export function AppointmentsPage () {
   const { user } = useAuth()
   const [rows, setRows] = useState<AppointmentRow[]>([])
@@ -46,10 +54,17 @@ export function AppointmentsPage () {
 
   const { upcoming, past } = useMemo(() => {
     const t = todayISO()
+    const nowMs = Date.now()
     const up: AppointmentRow[] = []
     const pa: AppointmentRow[] = []
     for (const r of rows) {
-      if (r.appointment_date >= t) up.push(r)
+      const hasTime = !!(r.appointment_time && r.appointment_time.trim())
+      if (!hasTime) {
+        if (r.appointment_date >= t) up.push(r)
+        else pa.push(r)
+        continue
+      }
+      if (appointmentStartMs(r) >= nowMs) up.push(r)
       else pa.push(r)
     }
     return { upcoming: up, past: pa.reverse() }

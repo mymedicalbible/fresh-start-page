@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { BackButton } from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -27,7 +27,6 @@ type SymptomRow = {
 
 function tabFromParams (sp: URLSearchParams): Tab {
   const t = sp.get('tab')
-  if (t === 'transcripts') return 'charts'
   if (t === 'pain' || t === 'symptoms' || t === 'summaries' || t === 'charts') return t
   return 'pain'
 }
@@ -36,6 +35,10 @@ export function RecordsPage () {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = tabFromParams(searchParams)
+
+  if (searchParams.get('tab') === 'transcripts') {
+    return <Navigate to="/app/transcripts" replace />
+  }
 
   const [q, setQ] = useState('')
   const [pain, setPain] = useState<PainRow[]>([])
@@ -77,9 +80,9 @@ export function RecordsPage () {
 
   useEffect(() => {
     if (tab === 'summaries') {
-      setSummaries(loadSummaryArchive())
+      setSummaries(loadSummaryArchive(user?.id))
     }
-  }, [tab])
+  }, [tab, user?.id])
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -105,8 +108,8 @@ export function RecordsPage () {
   }
 
   function removeArchivedSummary (id: string) {
-    deleteSummaryArchiveItem(id)
-    setSummaries(loadSummaryArchive())
+    deleteSummaryArchiveItem(id, user?.id)
+    setSummaries(loadSummaryArchive(user?.id))
     if (expandedSummaryId === id) setExpandedSummaryId(null)
   }
 

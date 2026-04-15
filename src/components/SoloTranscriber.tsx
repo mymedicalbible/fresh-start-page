@@ -61,7 +61,7 @@ export const SoloTranscriber = forwardRef<SoloTranscriberHandle, Props>(function
       transcript: transcript.trim(),
       extractedSolo: ext,
       extractedSummary: ext ? formatSoloExtractSummary(ext) : undefined,
-    })
+    }, user?.id)
   }
 
   function finishArchiveChoice (save: boolean) {

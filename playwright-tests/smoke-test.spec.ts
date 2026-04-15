@@ -78,6 +78,6 @@ test.describe('Medical Bible — authenticated smoke', () => {
   test('should load analytics (charts) without error title', async ({ page }) => {
     await page.goto('/app/analytics')
     await expect(page).not.toHaveTitle(/error/i)
-    await expect(page.getByRole('heading', { name: /charts.? &.? trends/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^analytics$/i })).toBeVisible()
   })
 })

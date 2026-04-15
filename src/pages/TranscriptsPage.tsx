@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
 import { BackButton } from '../components/BackButton'
+import { useAuth } from '../contexts/AuthContext'
 import { deleteTranscriptArchiveItem, loadTranscriptArchive, type ArchivedTranscript } from '../lib/transcriptArchive'
 import { stripLineBulletsFromText } from '../lib/stripLineBullets'
 
 export function TranscriptsPage () {
+  const { user } = useAuth()
   const [transcripts, setTranscripts] = useState<ArchivedTranscript[]>([])
   const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null)
 
   useEffect(() => {
-    setTranscripts(loadTranscriptArchive())
-  }, [])
+    setTranscripts(loadTranscriptArchive(user?.id))
+  }, [user?.id])
 
   function removeArchivedTranscript (id: string) {
-    deleteTranscriptArchiveItem(id)
-    setTranscripts(loadTranscriptArchive())
+    deleteTranscriptArchiveItem(id, user?.id)
+    setTranscripts(loadTranscriptArchive(user?.id))
     if (expandedTranscriptId === id) setExpandedTranscriptId(null)
   }
 

@@ -1439,7 +1439,7 @@ export function DashboardPage () {
         generatedLabel: generatedAt,
         text: handoffText,
         sourceAi: false,
-      })
+      }, user.id)
     }
 
       setSummary({

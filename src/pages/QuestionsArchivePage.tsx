@@ -226,7 +226,7 @@ const normDoctor = (s: string) => s.trim().toLowerCase().replace(/^dr\.?\s+/i, '
             {doctorFilter ? 'Show all doctors' : `Filter: ${urlDoctor}`}
           </button>
           <Link
-            to={`/app/visits?tab=all&returnTo=${questionsReturnTo}`}
+            to={`/app/visits?returnTo=${questionsReturnTo}`}
             className="btn btn-secondary"
             style={{ fontSize: '0.78rem' }}
           >

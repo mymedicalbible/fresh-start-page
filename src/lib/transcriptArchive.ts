@@ -9,6 +9,7 @@ export type ArchivedTranscriptKind = 'visit' | 'solo'
 export type ArchivedTranscript = {
   id: string
   savedAtIso: string
+  userId?: string
   doctorName: string
   visitDate: string
   transcript: string
@@ -25,43 +26,51 @@ function uid (): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-export function loadTranscriptArchive (): ArchivedTranscript[] {
+function scopedStorageKey (userId?: string): string {
+  return userId?.trim() ? `${STORAGE_KEY}:${userId.trim()}` : STORAGE_KEY
+}
+
+export function loadTranscriptArchive (userId?: string): ArchivedTranscript[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(scopedStorageKey(userId))
     if (!raw) return []
     const parsed = JSON.parse(raw) as ArchivedTranscript[]
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry) => !userId || entry.userId === userId)
   } catch {
     return []
   }
 }
 
 export function pushTranscriptArchive (
-  entry: Omit<ArchivedTranscript, 'id' | 'savedAtIso'>
+  entry: Omit<ArchivedTranscript, 'id' | 'savedAtIso'>,
+  userId?: string,
 ): ArchivedTranscript {
   const full: ArchivedTranscript = {
     id: uid(),
     savedAtIso: new Date().toISOString(),
     ...entry,
+    userId: userId ?? entry.userId,
   }
-  const prev = loadTranscriptArchive()
+  const prev = loadTranscriptArchive(userId)
   const next = [full, ...prev].slice(0, MAX_ITEMS)
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    localStorage.setItem(scopedStorageKey(userId), JSON.stringify(next))
   } catch { /* quota */ }
   return full
 }
 
-export function deleteTranscriptArchiveItem (id: string) {
-  const prev = loadTranscriptArchive()
+export function deleteTranscriptArchiveItem (id: string, userId?: string) {
+  const prev = loadTranscriptArchive(userId)
   const next = prev.filter((x) => x.id !== id)
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    localStorage.setItem(scopedStorageKey(userId), JSON.stringify(next))
   } catch { /* ignore */ }
 }
 
-export function clearTranscriptArchive () {
+export function clearTranscriptArchive (userId?: string) {
   try {
+    localStorage.removeItem(scopedStorageKey(userId))
     localStorage.removeItem(STORAGE_KEY)
   } catch { /* ignore */ }
 }

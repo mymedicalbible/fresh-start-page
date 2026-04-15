@@ -4,6 +4,7 @@ const MAX_ITEMS = 40
 export type ArchivedHandoffSummary = {
   id: string
   savedAtIso: string
+  userId?: string
   /** User-facing date line */
   generatedLabel: string
   text: string
@@ -16,41 +17,51 @@ function uid (): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-export function loadSummaryArchive (): ArchivedHandoffSummary[] {
+function scopedStorageKey (userId?: string): string {
+  return userId?.trim() ? `${STORAGE_KEY}:${userId.trim()}` : STORAGE_KEY
+}
+
+export function loadSummaryArchive (userId?: string): ArchivedHandoffSummary[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(scopedStorageKey(userId))
     if (!raw) return []
     const parsed = JSON.parse(raw) as ArchivedHandoffSummary[]
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry) => !userId || entry.userId === userId)
   } catch {
     return []
   }
 }
 
-export function pushSummaryArchive (entry: Omit<ArchivedHandoffSummary, 'id' | 'savedAtIso'>): ArchivedHandoffSummary {
+export function pushSummaryArchive (
+  entry: Omit<ArchivedHandoffSummary, 'id' | 'savedAtIso'>,
+  userId?: string,
+): ArchivedHandoffSummary {
   const full: ArchivedHandoffSummary = {
     id: uid(),
     savedAtIso: new Date().toISOString(),
     ...entry,
+    userId: userId ?? entry.userId,
   }
-  const prev = loadSummaryArchive()
+  const prev = loadSummaryArchive(userId)
   const next = [full, ...prev].slice(0, MAX_ITEMS)
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    localStorage.setItem(scopedStorageKey(userId), JSON.stringify(next))
   } catch { /* quota */ }
   return full
 }
 
-export function deleteSummaryArchiveItem (id: string) {
-  const prev = loadSummaryArchive()
+export function deleteSummaryArchiveItem (id: string, userId?: string) {
+  const prev = loadSummaryArchive(userId)
   const next = prev.filter((x) => x.id !== id)
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    localStorage.setItem(scopedStorageKey(userId), JSON.stringify(next))
   } catch { /* ignore */ }
 }
 
-export function clearSummaryArchive () {
+export function clearSummaryArchive (userId?: string) {
   try {
+    localStorage.removeItem(scopedStorageKey(userId))
     localStorage.removeItem(STORAGE_KEY)
   } catch { /* ignore */ }
 }

@@ -28,6 +28,10 @@ type AppointmentRow = {
   visit_logged: boolean | null
 }
 
+type ManualTestBody = {
+  trigger?: string
+}
+
 function nowIso (): string {
   return new Date().toISOString()
 }
@@ -42,6 +46,10 @@ function parseAppointmentUtcMs (row: AppointmentRow, offsetMinutes: number): num
 
 function doctorNorm (v: string | null | undefined): string {
   return String(v ?? '').trim().toLowerCase()
+}
+
+function sameDoctorLabel (a: string | null | undefined, b: string | null | undefined): boolean {
+  return doctorNorm(a).replace(/^dr\.?\s+/i, '') === doctorNorm(b).replace(/^dr\.?\s+/i, '')
 }
 
 async function alreadySent (
@@ -117,13 +125,13 @@ async function processSubscription (
       const doctor = doctorNorm(appt.doctor)
 
       if (Math.abs(nowMs - preMs) <= windowMs) {
-        const { count } = await db
+        const { data: questionRows } = await db
           .from('doctor_questions')
-          .select('id', { head: true, count: 'exact' })
+          .select('id, doctor')
           .eq('user_id', sub.user_id)
           .eq('appointment_date', appt.appointment_date)
-          .ilike('doctor', appt.doctor ?? '')
-        if ((count ?? 0) === 0) {
+        const matchingQuestions = (questionRows ?? []).filter((row) => sameDoctorLabel(row.doctor, appt.doctor))
+        if (matchingQuestions.length === 0) {
           await sendPush(
             db,
             sub,
@@ -142,24 +150,26 @@ async function processSubscription (
       }
 
       if (Math.abs(nowMs - postMs) <= windowMs) {
-        const { count: unanswered } = await db
+        const { data: questionRows } = await db
           .from('doctor_questions')
-          .select('id', { head: true, count: 'exact' })
+          .select('id, doctor, status')
           .eq('user_id', sub.user_id)
           .eq('appointment_date', appt.appointment_date)
-          .ilike('doctor', appt.doctor ?? '')
-          .eq('status', 'Unanswered')
+        const unanswered = (questionRows ?? []).filter((row) =>
+          sameDoctorLabel(row.doctor, appt.doctor) && String(row.status ?? '') === 'Unanswered',
+        ).length
 
-        const { count: pendingVisits } = await db
+        const { data: visitRows } = await db
           .from('doctor_visits')
-          .select('id', { head: true, count: 'exact' })
+          .select('id, doctor, status')
           .eq('user_id', sub.user_id)
           .eq('visit_date', appt.appointment_date)
-          .ilike('doctor', appt.doctor ?? '')
-          .eq('status', 'pending')
+        const pendingVisits = (visitRows ?? []).filter((row) =>
+          sameDoctorLabel(row.doctor, appt.doctor) && String(row.status ?? '') === 'pending',
+        ).length
 
-        const pendingLog = appt.visit_logged !== true || (pendingVisits ?? 0) > 0
-        const hasPendingQuestions = (unanswered ?? 0) > 0
+        const pendingLog = appt.visit_logged !== true || pendingVisits > 0
+        const hasPendingQuestions = unanswered > 0
         if (pendingLog || hasPendingQuestions) {
           await sendPush(
             db,
@@ -236,18 +246,78 @@ serve(async (req) => {
         { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } },
       )
     }
+    let requestBody: ManualTestBody = {}
+    try {
+      requestBody = await req.json()
+    } catch {
+      requestBody = {}
+    }
     const tokenHeader = (req.headers.get('x-cron-token') ?? '').trim()
     const authBearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-    if (tokenHeader !== cronToken && authBearer !== cronToken) {
+    const isCronAuthorized = tokenHeader === cronToken || authBearer === cronToken
+
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
+
+    const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false } })
+    if (!isCronAuthorized && requestBody.trigger === 'manual-test') {
+      if (!authBearer) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      const { data: authData, error: authError } = await db.auth.getUser(authBearer)
+      const userId = authData.user?.id
+      if (authError || !userId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      const { data: userSubs, error: userSubError } = await db
+        .from('push_subscriptions')
+        .select('id,user_id,endpoint,p256dh,auth')
+        .eq('user_id', userId)
+        .eq('notifications_enabled', true)
+      if (userSubError) throw userSubError
+
+      let sent = 0
+      for (const sub of ((userSubs ?? []) as Array<Pick<PushSubscriptionRow, 'id' | 'user_id' | 'endpoint' | 'p256dh' | 'auth'>>)) {
+        const details = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth,
+          },
+        }
+        try {
+          await webpush.sendNotification(details, JSON.stringify({
+            title: 'Medical Bible test notification',
+            body: 'Push is working for this device.',
+            url: '/app/profile',
+            tag: 'manual-test-push',
+            icon: '/app-icon.png',
+          }))
+          sent += 1
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          if (message.includes('404') || message.includes('410')) {
+            await db.from('push_subscriptions').delete().eq('id', sub.id)
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, mode: 'manual-test', processed: (userSubs ?? []).length, sent }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!isCronAuthorized) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
-
-    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey)
-
-    const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false } })
     const { data: subs, error } = await db
       .from('push_subscriptions')
       .select('id,user_id,endpoint,p256dh,auth,appointment_reminders_enabled,daily_nudge_enabled,daily_nudge_time_local,timezone_offset_minutes')

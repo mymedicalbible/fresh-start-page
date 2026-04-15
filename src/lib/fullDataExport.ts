@@ -322,8 +322,8 @@ export async function buildFullExportPayload (userId: string): Promise<FullExpor
   let summaryArchive: ArchivedHandoffSummary[] = []
   let transcriptArchive: ArchivedTranscript[] = []
   try {
-    summaryArchive = loadSummaryArchive()
-    transcriptArchive = loadTranscriptArchive()
+    summaryArchive = loadSummaryArchive(userId)
+    transcriptArchive = loadTranscriptArchive(userId)
   } catch { /* ignore */ }
 
   return {

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -26,6 +27,19 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider ({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const lastUserIdRef = useRef<string | null>(null)
+
+  const clearLocalMedicalCaches = useCallback((userId?: string | null) => {
+    if (typeof window === 'undefined') return
+    clearTranscriptArchive(userId ?? undefined)
+    clearSummaryArchive(userId ?? undefined)
+    try {
+      localStorage.removeItem('mb-handoff-focus')
+      sessionStorage.removeItem('mb-pending-transcript-bundle')
+    } catch {
+      // best effort for local browser cache cleanup
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -33,6 +47,7 @@ export function AuthProvider ({ children }: { children: ReactNode }) {
       .getSession()
       .then(({ data }) => {
         if (!mounted) return
+        lastUserIdRef.current = data.session?.user?.id ?? null
         setSession(data.session ?? null)
       })
       .catch(() => {
@@ -45,6 +60,12 @@ export function AuthProvider ({ children }: { children: ReactNode }) {
       })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      const prevUserId = lastUserIdRef.current
+      const nextUserId = next?.user?.id ?? null
+      if (prevUserId && prevUserId !== nextUserId) {
+        clearLocalMedicalCaches(prevUserId)
+      }
+      lastUserIdRef.current = nextUserId
       setSession(next)
     })
 
@@ -69,18 +90,9 @@ export function AuthProvider ({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    if (typeof window !== 'undefined') {
-      clearTranscriptArchive()
-      clearSummaryArchive()
-      try {
-        localStorage.removeItem('mb-handoff-focus')
-        sessionStorage.removeItem('mb-pending-transcript-bundle')
-      } catch {
-        // best effort for local browser cache cleanup
-      }
-    }
+    clearLocalMedicalCaches(session?.user?.id)
     await supabase.auth.signOut()
-  }, [])
+  }, [clearLocalMedicalCaches, session?.user?.id])
 
   const value = useMemo<AuthContextValue>(
     () => ({

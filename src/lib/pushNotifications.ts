@@ -117,3 +117,23 @@ export async function disablePushSubscription (): Promise<void> {
   await sub.unsubscribe()
 }
 
+export async function sendTestPushNotification (): Promise<void> {
+  if (!canUseWebPush()) throw new Error('This browser does not support web push notifications.')
+  const { data: authData } = await supabase.auth.getSession()
+  const accessToken = authData.session?.access_token
+  if (!accessToken) throw new Error('Not signed in.')
+
+  const { data, error } = await supabase.functions.invoke('push-reminders', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: {
+      trigger: 'manual-test',
+    },
+  })
+  if (error) throw error
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+    throw new Error(data.error)
+  }
+}
+
