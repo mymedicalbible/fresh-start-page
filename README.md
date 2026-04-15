@@ -151,6 +151,7 @@ Use this checklist so the environment matches what you expect; **wrong Supabase 
 - **Edge secrets (if you use those features):** LLM keys for **`generate-summary`**, **`ASSEMBLYAI_API_KEY`** for **`transcribe-visit`**, VAPID + **`PUSH_REMINDER_CRON_TOKEN`** for **`push-reminders`**, as documented in [DEVELOPERS.md](./DEVELOPERS.md).
 - **Build:** `npm run build` should succeed on the branch you ship.
 - **Automated tests:** `npm run test:e2e` is **smoke-level** (dashboard, quick log, a few routes, etc.). It does **not** fully exercise auth edge cases, uploads, every summary/transcript path, push reminders, or migration rollback—plan manual checks for anything critical to your testers.
+- **Manual pass (blank account):** [End-to-end testing plan](docs/end-to-end-testing-plan-blank-account.md) — routes, feature interconnects, and web push troubleshooting.
 
 ---
 
