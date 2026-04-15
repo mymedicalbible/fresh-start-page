@@ -330,6 +330,7 @@ function NarrativeRenderer ({ text }: { text: string }) {
 function SummaryModal ({
   summary,
   loading,
+  error,
   scope,
   focus,
   painChartPdfRef,
@@ -344,6 +345,7 @@ function SummaryModal ({
 }: {
   summary: HealthSummary | null
   loading: boolean
+  error: string | null
   scope: 'full' | 'symptomsPainMeds'
   focus: string
   painChartPdfRef: RefObject<HTMLDivElement>
@@ -446,6 +448,11 @@ function SummaryModal ({
               </button>
             )}
           </div>
+          {error && (
+            <div className="banner error" style={{ marginBottom: 12, fontSize: '0.82rem' }}>
+              {error}
+            </div>
+          )}
 
           {/* Results */}
           {summary && (
@@ -649,6 +656,7 @@ export function DashboardPage () {
   const [apptPendingQ, setApptPendingQ] = useState<Record<string, number>>({})
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
   const [summaryScope, setSummaryScope] = useState<'full' | 'symptomsPainMeds'>(() => {
     try {
       const v = localStorage.getItem('mb-handoff-summary-scope')
@@ -1259,72 +1267,73 @@ export function DashboardPage () {
   async function generateSummary () {
     if (!user) return
     setSummaryLoading(true)
+    setSummaryError(null)
     setSummary(null)
+    try {
+      const since90 = new Date()
+      since90.setDate(since90.getDate() - 90)
+      const since90Str = since90.toISOString().slice(0, 10)
+      const since120 = new Date()
+      since120.setDate(since120.getDate() - 120)
+      const since120Str = since120.toISOString().slice(0, 10)
 
-    const since90 = new Date()
-    since90.setDate(since90.getDate() - 90)
-    const since90Str = since90.toISOString().slice(0, 10)
-    const since120 = new Date()
-    since120.setDate(since120.getDate() - 120)
-    const since120Str = since120.toISOString().slice(0, 10)
-
-    const [
-      painRes, sympRes, medRes, testsRes, pendingTestsRes,
-      diagRes, visitRes, qRes, medEventsRes, archiveRes,
-    ] = await Promise.all([
-      supabase.from('pain_entries')
-        .select('entry_date, entry_time, intensity, location, pain_type, triggers, relief_methods, notes')
-        .eq('user_id', user.id)
-        .gte('entry_date', since90Str)
-        .order('entry_date', { ascending: false })
-        .limit(120),
-      supabase.from('mcas_symptom_logs')
-        .select('symptom_date, symptom_time, activity, symptoms, severity, relief, notes')
-        .eq('user_id', user.id)
-        .gte('symptom_date', since90Str)
-        .order('symptom_date', { ascending: false })
-        .limit(120),
-      supabase.from('current_medications')
-        .select('medication, dose, frequency, start_date, purpose, effectiveness, notes')
-        .eq('user_id', user.id)
-        .order('medication', { ascending: true }),
-      supabase.from('tests_ordered')
-        .select('test_name, status, test_date, doctor, reason, results')
-        .eq('user_id', user.id)
-        .order('test_date', { ascending: false })
-        .limit(40),
-      supabase.from('tests_ordered')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'Pending'),
-      supabase.from('diagnoses_directory')
-        .select('diagnosis, status, doctor, date_diagnosed')
-        .eq('user_id', user.id)
-        .order('date_diagnosed', { ascending: false })
-        .limit(25),
-      supabase.from('doctor_visits')
-        .select('visit_date, doctor, specialty, reason, findings, tests_ordered, instructions, notes, follow_up')
-        .eq('user_id', user.id)
-        .gte('visit_date', since90Str)
-        .order('visit_date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(15),
-      supabase.from('doctor_questions')
-        .select('question, priority, date_created, doctor')
-        .eq('user_id', user.id)
-        .eq('status', 'Unanswered')
-        .order('date_created', { ascending: false })
-        .limit(25),
-      supabase.rpc('get_medication_change_events', {
-        p_since: since120Str,
-        p_limit: 50,
-      }),
-      supabase.from('medications_archive')
-        .select('medication, dose, frequency, prescribed_by, reason_stopped, stopped_date, notes')
-        .eq('user_id', user.id)
-        .order('stopped_date', { ascending: false })
-        .limit(40),
-    ])
+      const [
+        painRes, sympRes, medRes, testsRes, pendingTestsRes,
+        diagRes, visitRes, qRes, medEventsRes, archiveRes,
+      ] = await Promise.all([
+        supabase.from('pain_entries')
+          .select('entry_date, entry_time, intensity, location, pain_type, triggers, relief_methods, notes')
+          .eq('user_id', user.id)
+          .gte('entry_date', since90Str)
+          .order('entry_date', { ascending: false })
+          .limit(120),
+        supabase.from('mcas_symptom_logs')
+          .select('symptom_date, symptom_time, activity, symptoms, severity, relief, notes')
+          .eq('user_id', user.id)
+          .gte('symptom_date', since90Str)
+          .order('symptom_date', { ascending: false })
+          .limit(120),
+        supabase.from('current_medications')
+          .select('medication, dose, frequency, start_date, purpose, effectiveness, notes')
+          .eq('user_id', user.id)
+          .order('medication', { ascending: true }),
+        supabase.from('tests_ordered')
+          .select('test_name, status, test_date, doctor, reason, results')
+          .eq('user_id', user.id)
+          .order('test_date', { ascending: false })
+          .limit(40),
+        supabase.from('tests_ordered')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'Pending'),
+        supabase.from('diagnoses_directory')
+          .select('diagnosis, status, doctor, date_diagnosed')
+          .eq('user_id', user.id)
+          .order('date_diagnosed', { ascending: false })
+          .limit(25),
+        supabase.from('doctor_visits')
+          .select('visit_date, doctor, specialty, reason, findings, tests_ordered, instructions, notes, follow_up')
+          .eq('user_id', user.id)
+          .gte('visit_date', since90Str)
+          .order('visit_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(15),
+        supabase.from('doctor_questions')
+          .select('question, priority, date_created, doctor')
+          .eq('user_id', user.id)
+          .eq('status', 'Unanswered')
+          .order('date_created', { ascending: false })
+          .limit(25),
+        supabase.rpc('get_medication_change_events', {
+          p_since: since120Str,
+          p_limit: 50,
+        }),
+        supabase.from('medications_archive')
+          .select('medication, dose, frequency, prescribed_by, reason_stopped, stopped_date, notes')
+          .eq('user_id', user.id)
+          .order('stopped_date', { ascending: false })
+          .limit(40),
+      ])
 
     const painRows = (painRes.data ?? []) as Record<string, unknown>[]
     const sympRows = (sympRes.data ?? []) as Record<string, unknown>[]
@@ -1433,18 +1442,23 @@ export function DashboardPage () {
       })
     }
 
-    setSummary({
-      generatedAt, narrativeFallback,
-      summaryScope,
-      medEventsLoadError, medCorrelationBlock,
-      painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
-      pendingTests, openQuestions: qList.length,
-      painChart: buildPainChartSeries(painRows, 60),
-      symptomChart: buildSymptomChartSeries(sympRows, 60),
-    })
-    setSummaryLoading(false)
-    if (gameTokensEnabled()) {
-      void tryGrantHandoffSummaryTokens()
+      setSummary({
+        generatedAt, narrativeFallback,
+        summaryScope,
+        medEventsLoadError, medCorrelationBlock,
+        painCount: painRows.length, symptomCount: sympRows.length, medCount: medList.length,
+        pendingTests, openQuestions: qList.length,
+        painChart: buildPainChartSeries(painRows, 60),
+        symptomChart: buildSymptomChartSeries(sympRows, 60),
+      })
+      if (gameTokensEnabled()) {
+        void tryGrantHandoffSummaryTokens()
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setSummaryError(`Could not generate summary. Please check your connection and try again. (${message})`)
+    } finally {
+      setSummaryLoading(false)
     }
   }
 
@@ -1767,6 +1781,7 @@ export function DashboardPage () {
         <SummaryModal
           summary={summary}
           loading={summaryLoading}
+          error={summaryError}
           scope={summaryScope}
           focus={patientFocus}
           painChartPdfRef={painChartPdfRef}
@@ -1899,6 +1914,9 @@ export function DashboardPage () {
                   </button>
                   <p className="muted" style={{ fontSize: '0.82rem', margin: '-4px 0 0', lineHeight: 1.45 }}>
                     Just you — updates questions, meds, diagnoses, tests, and doctors. No visit log.
+                  </p>
+                  <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0', lineHeight: 1.45 }}>
+                    Transcript and handoff archives are stored in this browser. Avoid shared devices.
                   </p>
                 </div>
               </div>

@@ -1075,6 +1075,9 @@ export function ProfilePage () {
       <button type="button" className="scrap-account-signout" onClick={() => signOut()}>
         sign out
       </button>
+      <p className="muted" style={{ marginTop: 8, fontSize: '0.8rem', lineHeight: 1.45 }}>
+        Handoff summaries and transcript archives are stored in this browser; sign out clears those local archives.
+      </p>
 
       {exportDialogOpen ? (
         <div

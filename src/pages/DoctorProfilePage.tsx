@@ -422,57 +422,62 @@ export function DoctorProfilePage () {
   async function saveDiagnosis () {
     if (!doctor) return
     setBusy(true)
-    const { error: e } = await supabase.from('diagnosis_notes').insert({
-      user_id: user!.id, note_date: diagForm.note_date || todayISO(),
-      doctor: doctor.name,
-      diagnoses_mentioned: diagForm.diagnoses_mentioned || null,
-      diagnoses_ruled_out: diagForm.diagnoses_ruled_out || null,
-      notes: diagForm.notes || null,
-    })
-    if (!e && diagForm.diagnoses_mentioned?.trim()) {
-      const diags = diagForm.diagnoses_mentioned.split(',').map((d) => d.trim()).filter(Boolean)
-      for (const diag of diags) {
-        const { data: existing } = await supabase.from('diagnoses_directory')
-          .select('id, doctor').eq('user_id', user!.id)
-          .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
-          .limit(1)
-        if (!existing || existing.length === 0) {
-          await supabase.from('diagnoses_directory').insert({
-            user_id: user!.id, diagnosis: diag, doctor: doctor.name,
-            date_diagnosed: diagForm.note_date || todayISO(), status: 'Suspected',
-          })
-        } else if (!existing[0].doctor) {
-          await supabase.from('diagnoses_directory')
-            .update({ doctor: doctor.name })
-            .eq('id', existing[0].id)
+    try {
+      const { error: e } = await supabase.from('diagnosis_notes').insert({
+        user_id: user!.id, note_date: diagForm.note_date || todayISO(),
+        doctor: doctor.name,
+        diagnoses_mentioned: diagForm.diagnoses_mentioned || null,
+        diagnoses_ruled_out: diagForm.diagnoses_ruled_out || null,
+        notes: diagForm.notes || null,
+      })
+      if (!e && diagForm.diagnoses_mentioned?.trim()) {
+        const diags = diagForm.diagnoses_mentioned.split(',').map((d) => d.trim()).filter(Boolean)
+        for (const diag of diags) {
+          const { data: existing } = await supabase.from('diagnoses_directory')
+            .select('id, doctor').eq('user_id', user!.id)
+            .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
+            .limit(1)
+          if (!existing || existing.length === 0) {
+            await supabase.from('diagnoses_directory').insert({
+              user_id: user!.id, diagnosis: diag, doctor: doctor.name,
+              date_diagnosed: diagForm.note_date || todayISO(), status: 'Suspected',
+            })
+          } else if (!existing[0].doctor) {
+            await supabase.from('diagnoses_directory')
+              .update({ doctor: doctor.name })
+              .eq('id', existing[0].id)
+          }
         }
       }
-    }
-    if (!e && diagForm.diagnoses_ruled_out?.trim()) {
-      const diags = diagForm.diagnoses_ruled_out.split(',').map((d) => d.trim()).filter(Boolean)
-      for (const diag of diags) {
-        const { data: existing } = await supabase.from('diagnoses_directory')
-          .select('id, doctor').eq('user_id', user!.id)
-          .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
-          .limit(1)
-        if (!existing || existing.length === 0) {
-          await supabase.from('diagnoses_directory').insert({
-            user_id: user!.id, diagnosis: diag, doctor: doctor.name,
-            date_diagnosed: diagForm.note_date || todayISO(), status: 'Ruled Out',
-          })
-        } else {
-          await supabase.from('diagnoses_directory')
-            .update({ status: 'Ruled Out', ...(!existing[0].doctor ? { doctor: doctor.name } : {}) })
-            .eq('id', existing[0].id)
+      if (!e && diagForm.diagnoses_ruled_out?.trim()) {
+        const diags = diagForm.diagnoses_ruled_out.split(',').map((d) => d.trim()).filter(Boolean)
+        for (const diag of diags) {
+          const { data: existing } = await supabase.from('diagnoses_directory')
+            .select('id, doctor').eq('user_id', user!.id)
+            .regexIMatch('diagnosis', `^${escapePostgresRegexLiteral(diag)}$`)
+            .limit(1)
+          if (!existing || existing.length === 0) {
+            await supabase.from('diagnoses_directory').insert({
+              user_id: user!.id, diagnosis: diag, doctor: doctor.name,
+              date_diagnosed: diagForm.note_date || todayISO(), status: 'Ruled Out',
+            })
+          } else {
+            await supabase.from('diagnoses_directory')
+              .update({ status: 'Ruled Out', ...(!existing[0].doctor ? { doctor: doctor.name } : {}) })
+              .eq('id', existing[0].id)
+          }
         }
       }
+      if (e) { setError(e.message); return }
+      setShowDiagForm(false)
+      setDiagForm({})
+      flash('Diagnosis note saved.')
+      await loadData(doctor.name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
-    if (e) { setError(e.message); return }
-    setShowDiagForm(false)
-    setDiagForm({})
-    flash('Diagnosis note saved.')
-    await loadData(doctor.name)
   }
 
 

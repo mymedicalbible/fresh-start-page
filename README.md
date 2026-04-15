@@ -72,6 +72,9 @@ Create **`.env`** or **`.env.local`** (see [`.env.example`](./.env.example)). Vi
 | `VITE_SUPABASE_URL` | Yes | Project URL (Settings → API) |
 | `VITE_SUPABASE_ANON_KEY` | Yes | Public anon key (Settings → API) |
 | `VITE_WEB_PUSH_PUBLIC_KEY` | For web push | Public VAPID key; must match Edge secret `WEB_PUSH_VAPID_PUBLIC_KEY` |
+| `VITE_INVITE_ONLY_SIGNUP` | No | Set to `true` to enforce invite-only self-signup checks in app UI |
+| `VITE_SIGNUP_ALLOWLIST_EMAILS` | With invite-only mode | Comma-separated explicit emails allowed to create accounts |
+| `VITE_SIGNUP_ALLOWLIST_DOMAINS` | With invite-only mode | Comma-separated email domains allowed to create accounts (e.g. `clinic.org`) |
 | `VITE_GAME_TOKENS_ENABLED` | No | Set to `true` to enable plushie shop routes and related RPCs |
 | `VITE_SIMPLE_MASCOT_LOTTIE` | No | Custom Lottie path when plushies are off |
 | `SUPABASE_DB_PASSWORD` | For `npm run supabase:push` | Database password so the CLI can apply migrations |
@@ -79,6 +82,8 @@ Create **`.env`** or **`.env.local`** (see [`.env.example`](./.env.example)). Vi
 | `SUPABASE_SERVICE_ROLE_KEY` | Optional | Local/CI only — Playwright smoke-user setup (`npm run test:e2e`) |
 
 **Production (e.g. Cloudflare Pages)** — Set the same `VITE_*` values in the host’s environment and **redeploy** so the bundle includes them. Do **not** put the VAPID **private** key or `PUSH_REMINDER_CRON_TOKEN` in static frontend env.
+
+Invite-only signup env vars are an **app-layer guard**. For strict beta access control, also configure Supabase Auth settings/policies to prevent public self-registration outside the UI.
 
 ---
 

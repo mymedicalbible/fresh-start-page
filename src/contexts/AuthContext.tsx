@@ -9,6 +9,8 @@ import {
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { clearSummaryArchive } from '../lib/summaryArchive'
+import { clearTranscriptArchive } from '../lib/transcriptArchive'
 
 type AuthContextValue = {
   user: User | null
@@ -67,6 +69,16 @@ export function AuthProvider ({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    if (typeof window !== 'undefined') {
+      clearTranscriptArchive()
+      clearSummaryArchive()
+      try {
+        localStorage.removeItem('mb-handoff-focus')
+        sessionStorage.removeItem('mb-pending-transcript-bundle')
+      } catch {
+        // best effort for local browser cache cleanup
+      }
+    }
     await supabase.auth.signOut()
   }, [])
 

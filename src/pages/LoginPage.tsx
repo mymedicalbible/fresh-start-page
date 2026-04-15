@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { canEmailSelfRegister, isSignupInviteOnlyEnabled } from '../lib/signupAccess'
 
 
 export function LoginPage () {
@@ -12,6 +13,7 @@ export function LoginPage () {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const inviteOnly = isSignupInviteOnlyEnabled()
 
 
   if (loading) {
@@ -38,6 +40,11 @@ export function LoginPage () {
       } else {
         if (!fullName.trim()) {
           setError('Please enter your name.')
+          setBusy(false)
+          return
+        }
+        if (!canEmailSelfRegister(email)) {
+          setError('This beta is invite-only. Your email is not allowlisted for self-signup.')
           setBusy(false)
           return
         }
@@ -83,6 +90,11 @@ export function LoginPage () {
 
         {error && <div className="banner error">{error}</div>}
         {info && <div className="banner success">{info}</div>}
+        {mode === 'register' && inviteOnly && (
+          <div className="banner" style={{ marginBottom: 12 }}>
+            Invite-only signup is enabled. Use an allowlisted email address.
+          </div>
+        )}
 
 
         <form onSubmit={onSubmit}>

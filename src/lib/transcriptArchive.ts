@@ -59,3 +59,9 @@ export function deleteTranscriptArchiveItem (id: string) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch { /* ignore */ }
 }
+
+export function clearTranscriptArchive () {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch { /* ignore */ }
+}

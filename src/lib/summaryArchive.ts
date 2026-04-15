@@ -48,3 +48,9 @@ export function deleteSummaryArchiveItem (id: string) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch { /* ignore */ }
 }
+
+export function clearSummaryArchive () {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch { /* ignore */ }
+}
