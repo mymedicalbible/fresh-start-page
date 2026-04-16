@@ -37,6 +37,8 @@ type PickerDoctorQuestionRow = {
 }
 
 const PAIN_TYPES = ['Burning', 'Stabbing', 'Aching', 'Throbbing', 'Sharp', 'Dull', 'Electric', 'Cramping', 'Pressure', 'Tingling']
+type PainSymptomsMode = 'pain' | 'symptoms' | 'both'
+type PainSymptomsScreen = 'pain' | 'symptoms'
 
 function nowTime () {
   const n = new Date()
@@ -91,6 +93,18 @@ export function QuickLogPage () {
     if (t === 'visit' || t === 'pain' || t === 'questions') return t
     return 'hub'
   })
+  const [painSymptomsMode, setPainSymptomsMode] = useState<PainSymptomsMode>(() => {
+    const t = searchParams.get('tab')
+    if (t === 'symptoms' || t === 'mcas') return 'symptoms'
+    if (t === 'pain') return 'both'
+    return 'pain'
+  })
+  const [painSymptomsHistory, setPainSymptomsHistory] = useState<PainSymptomsScreen[]>(() => {
+    const t = searchParams.get('tab')
+    if (t === 'symptoms' || t === 'mcas') return ['symptoms']
+    if (t === 'pain') return ['pain']
+    return []
+  })
   const [painStep, setPainStep] = useState(1)
   const [busy, setBusy] = useState(false)
 
@@ -136,6 +150,10 @@ export function QuickLogPage () {
 
   const applyQuickLogDraft = useCallback((d: QuickLogDraftV1) => {
     setScreen(d.screen)
+    if (d.screen === 'pain' || d.screen === 'symptoms') {
+      setPainSymptomsMode(d.screen === 'pain' ? 'both' : 'symptoms')
+      setPainSymptomsHistory([d.screen])
+    }
     setPainStep(d.painStep)
     setForm(d.form)
     setSelectedSymptoms(d.selectedSymptoms)
@@ -185,13 +203,65 @@ export function QuickLogPage () {
     return `/app/visits?new=1&returnTo=${ret}`
   }
 
-  function switchToSymptomsOnly () {
+  function setPainSymptomUrl (tab?: PainSymptomsScreen) {
+    const q = new URLSearchParams(searchParams)
+    if (tab) q.set('tab', tab)
+    else q.delete('tab')
+    navigate({ pathname: '/app/log', search: q.toString() }, { replace: true })
+  }
+
+  function openPainSymptomsScreen (next: PainSymptomsScreen, mode?: PainSymptomsMode) {
     setPainSaveFollowUp(null)
     setLinkedSymptomLogOpen(false)
-    setScreen('symptoms')
-    const q = new URLSearchParams(searchParams)
-    q.set('tab', 'symptoms')
-    navigate({ pathname: '/app/log', search: q.toString() }, { replace: true })
+    setScreen(next)
+    if (mode) setPainSymptomsMode(mode)
+    setPainSymptomsHistory((prev) => (prev[prev.length - 1] === next ? prev : [...prev, next]))
+    setPainSymptomUrl(next)
+  }
+
+  function resetPainSymptomsFlow (next: PainSymptomsScreen, mode: PainSymptomsMode) {
+    setPainSaveFollowUp(null)
+    setLinkedSymptomLogOpen(false)
+    setPainSymptomsMode(mode)
+    setPainSymptomsHistory([next])
+    setScreen(next)
+    if (next === 'pain' && painStep < 1) setPainStep(1)
+    setPainSymptomUrl(next)
+  }
+
+  function switchToSymptomsOnly () {
+    resetPainSymptomsFlow('symptoms', 'symptoms')
+  }
+
+  function switchToPainOnly () {
+    resetPainSymptomsFlow('pain', 'pain')
+  }
+
+  function enableBothMode () {
+    if (screen === 'symptoms') {
+      setPainSymptomsMode('both')
+      setPainSymptomsHistory((prev) => (prev.length === 0 ? ['symptoms'] : prev))
+      return
+    }
+    resetPainSymptomsFlow('pain', 'both')
+  }
+
+  function backWithinPainSymptoms () {
+    if (screen === 'pain' && painStep > 1) {
+      setPainStep((prev) => Math.max(1, prev - 1))
+      return
+    }
+    if (painSymptomsHistory.length > 1) {
+      const nextHistory = painSymptomsHistory.slice(0, -1)
+      const prevScreen = nextHistory[nextHistory.length - 1]
+      setPainSymptomsHistory(nextHistory)
+      setScreen(prevScreen)
+      setPainSymptomUrl(prevScreen)
+      return
+    }
+    setPainSymptomsHistory([])
+    setScreen('hub')
+    setPainSymptomUrl(undefined)
   }
 
   function saveDraftAndGoHome () {
@@ -252,9 +322,19 @@ export function QuickLogPage () {
 
   useEffect(() => {
     const t = searchParams.get('tab')
-    if (t === 'symptoms' || t === 'mcas') setScreen('symptoms')
-    else if (t === 'visit' || t === 'pain' || t === 'questions') setScreen(t)
-    else setScreen('hub')
+    if (t === 'symptoms' || t === 'mcas') {
+      setScreen('symptoms')
+      setPainSymptomsMode((prev) => (prev === 'both' ? 'both' : 'symptoms'))
+      setPainSymptomsHistory((prev) => (prev.length ? prev : ['symptoms']))
+    } else if (t === 'pain') {
+      setScreen('pain')
+      setPainSymptomsMode((prev) => (prev === 'pain' || prev === 'both' ? prev : 'both'))
+      setPainSymptomsHistory((prev) => (prev.length ? prev : ['pain']))
+    } else if (t === 'visit' || t === 'questions') setScreen(t)
+    else {
+      setScreen('hub')
+      setPainSymptomsHistory([])
+    }
   }, [searchParams])
 
   useEffect(() => {
@@ -429,9 +509,6 @@ export function QuickLogPage () {
 
   function beginLinkedSymptomLogFromPain () {
     setLinkedSymptomLogOpen(true)
-    setSelectedSymptoms([])
-    setNewSymptomText('')
-    setForm((f) => ({ ...f, activity: '', relief: '' }))
     setSymptomRemoveReveal(null)
   }
 
@@ -542,6 +619,60 @@ export function QuickLogPage () {
     void loadPickerDoctorQuestions()
     clearQuickLogDraft()
     setPostSave({ archive: '/app/questions', title: 'Questions archive' })
+  }
+
+  function renderPainSymptomsModeControls (current: PainSymptomsScreen) {
+    return (
+      <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn ${painSymptomsMode === 'pain' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.82rem', padding: '8px 12px' }}
+            onClick={switchToPainOnly}
+          >
+            Pain
+          </button>
+          <button
+            type="button"
+            className={`btn ${painSymptomsMode === 'symptoms' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.82rem', padding: '8px 12px' }}
+            onClick={switchToSymptomsOnly}
+          >
+            Symptoms
+          </button>
+          <button
+            type="button"
+            className={`btn ${painSymptomsMode === 'both' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '0.82rem', padding: '8px 12px' }}
+            onClick={enableBothMode}
+          >
+            Both
+          </button>
+        </div>
+        {painSymptomsMode === 'both' && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: '0.78rem' }}>Current page</span>
+            <button
+              type="button"
+              className={`btn ${current === 'pain' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+              onClick={() => openPainSymptomsScreen('pain')}
+            >
+              Pain
+            </button>
+            <button
+              type="button"
+              className={`btn ${current === 'symptoms' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+              onClick={() => openPainSymptomsScreen('symptoms')}
+            >
+              Symptoms
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -728,6 +859,7 @@ export function QuickLogPage () {
       {screen === 'pain' && (
         <>
         <div className="card shadow" style={{ borderRadius: '24px', opacity: painSaveFollowUp ? 0.88 : 1 }}>
+          {renderPainSymptomsModeControls('pain')}
           {painStep === 1 && (
             <div className="fade-in" style={{ textAlign: 'center' }}>
               <p className="muted" style={{ marginTop: 0 }}>INTENSITY</p>
@@ -752,8 +884,9 @@ export function QuickLogPage () {
                 <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>Back</button>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>Back</button>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-                <button type="button" className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => switchToSymptomsOnly()}>Symptoms only</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} onClick={() => setPainStep(2)}>Next →</button>
               </div>
             </div>
@@ -761,6 +894,11 @@ export function QuickLogPage () {
           {painStep === 2 && (
             <div className="fade-in">
               <p className="muted" style={{ marginTop: 0 }}>LOCATION</p>
+              <div style={{ marginBottom: 10 }}>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>
+                  Back to intensity
+                </button>
+              </div>
               <div className="pill-grid" style={{ maxHeight: 260, overflowY: 'auto' }}>
                 {[...MIDLINE_AREA_LIST, ...PAIN_AREA_LIST].map(a => {
                   const sel = painSelections.find(s => s.area === a)
@@ -799,8 +937,8 @@ export function QuickLogPage () {
               </div>
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms} disabled={!!painSaveFollowUp}>Back</button>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()} disabled={!!painSaveFollowUp}>Cancel</button>
-                <button type="button" className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => switchToSymptomsOnly()} disabled={!!painSaveFollowUp}>Symptoms only</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => setSaveDialogKind('pain')} disabled={busy || !!painSaveFollowUp}>
                   {busy ? 'Saving…' : painSaveFollowUp ? 'Saved' : 'Save'}
                 </button>
@@ -968,6 +1106,7 @@ export function QuickLogPage () {
       {/* SYMPTOMS — replaces MCAS */}
       {screen === 'symptoms' && (
         <div className="card shadow" style={{ borderRadius: '16px' }}>
+          {renderPainSymptomsModeControls('symptoms')}
           <h3 style={{ marginTop: 0 }}>Log symptoms</h3>
 
           {/* Date + time */}
@@ -1063,10 +1202,17 @@ export function QuickLogPage () {
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>Back</button>
             <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
-            <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => setSaveDialogKind('symptoms')} disabled={busy}>
+            {painSymptomsMode === 'both' ? (
+              <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => openPainSymptomsScreen('pain')}>
+                Continue to pain
+              </button>
+            ) : (
+              <button type="button" className="btn btn-primary" style={{ flex: '1 1 180px' }} onClick={() => setSaveDialogKind('symptoms')} disabled={busy}>
               {busy ? 'Saving…' : 'Save'}
             </button>
+            )}
           </div>
         </div>
       )}
