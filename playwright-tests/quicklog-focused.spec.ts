@@ -22,9 +22,7 @@ test.describe('Quick Log pain/symptom switching', () => {
     await expect(page.getByText(/^intensity$/i)).toBeVisible()
 
     await page.getByRole('button', { name: /^both$/i }).click()
-    const currentPageRow = page.getByText(/^current page$/i).locator('..')
-    await expect(currentPageRow).toBeVisible()
-    await currentPageRow.getByRole('button', { name: /^symptoms$/i }).click()
+    await page.getByRole('button', { name: /^symptoms$/i }).first().click()
     await expect(page.getByRole('heading', { name: /log symptoms/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /continue to pain/i })).toBeVisible()
 

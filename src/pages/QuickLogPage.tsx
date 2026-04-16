@@ -627,17 +627,17 @@ export function QuickLogPage () {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             type="button"
-            className={`btn ${painSymptomsMode === 'pain' ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn ${painSymptomsMode === 'pain' || (painSymptomsMode === 'both' && current === 'pain') ? 'btn-primary' : 'btn-secondary'}`}
             style={{ fontSize: '0.82rem', padding: '8px 12px' }}
-            onClick={switchToPainOnly}
+            onClick={painSymptomsMode === 'both' ? () => openPainSymptomsScreen('pain') : switchToPainOnly}
           >
             Pain
           </button>
           <button
             type="button"
-            className={`btn ${painSymptomsMode === 'symptoms' ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn ${painSymptomsMode === 'symptoms' || (painSymptomsMode === 'both' && current === 'symptoms') ? 'btn-primary' : 'btn-secondary'}`}
             style={{ fontSize: '0.82rem', padding: '8px 12px' }}
-            onClick={switchToSymptomsOnly}
+            onClick={painSymptomsMode === 'both' ? () => openPainSymptomsScreen('symptoms') : switchToSymptomsOnly}
           >
             Symptoms
           </button>
@@ -650,27 +650,6 @@ export function QuickLogPage () {
             Both
           </button>
         </div>
-        {painSymptomsMode === 'both' && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: '0.78rem' }}>Current page</span>
-            <button
-              type="button"
-              className={`btn ${current === 'pain' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-              onClick={() => openPainSymptomsScreen('pain')}
-            >
-              Pain
-            </button>
-            <button
-              type="button"
-              className={`btn ${current === 'symptoms' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-              onClick={() => openPainSymptomsScreen('symptoms')}
-            >
-              Symptoms
-            </button>
-          </div>
-        )}
       </div>
     )
   }
@@ -884,7 +863,6 @@ export function QuickLogPage () {
                 <input type="time" value={form.time} onChange={e => setForm({...form, time: e.target.value})} style={{ flex: 1 }} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>Back</button>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={backWithinPainSymptoms}>Back</button>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} onClick={() => setPainStep(2)}>Next →</button>
