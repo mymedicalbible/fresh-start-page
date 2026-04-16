@@ -185,6 +185,15 @@ export function QuickLogPage () {
     return `/app/visits?new=1&returnTo=${ret}`
   }
 
+  function switchToSymptomsOnly () {
+    setPainSaveFollowUp(null)
+    setLinkedSymptomLogOpen(false)
+    setScreen('symptoms')
+    const q = new URLSearchParams(searchParams)
+    q.set('tab', 'symptoms')
+    navigate({ pathname: '/app/log', search: q.toString() }, { replace: true })
+  }
+
   function saveDraftAndGoHome () {
     const d = snapshotDraft()
     if (d) saveQuickLogDraft(d)
@@ -744,6 +753,7 @@ export function QuickLogPage () {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()}>Cancel</button>
+                <button type="button" className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => switchToSymptomsOnly()}>Symptoms only</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 140px' }} onClick={() => setPainStep(2)}>Next →</button>
               </div>
             </div>
@@ -790,6 +800,7 @@ export function QuickLogPage () {
               <textarea placeholder="Notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={3} style={{ marginTop: 15 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 20, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => attemptLeave()} disabled={!!painSaveFollowUp}>Cancel</button>
+                <button type="button" className="btn btn-secondary" style={{ fontSize: '0.82rem', padding: '8px 12px' }} onClick={() => switchToSymptomsOnly()} disabled={!!painSaveFollowUp}>Symptoms only</button>
                 <button type="button" className="btn btn-primary" style={{ flex: '1 1 160px' }} onClick={() => setSaveDialogKind('pain')} disabled={busy || !!painSaveFollowUp}>
                   {busy ? 'Saving…' : painSaveFollowUp ? 'Saved' : 'Save'}
                 </button>
