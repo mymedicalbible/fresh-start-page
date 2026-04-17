@@ -19,5 +19,8 @@ supabase/.temp/
 # Local code export bundles (npm run export)
 medical-bible-code-export-*.zip
 
+# Cloudflare Wrangler local cache (this app is deployed as static Pages `dist`, not `wrangler deploy`)
+.wrangler/
+
 # Export script staging dirs inside exports/ (zips in exports/ are kept)
 exports/_staging_*/

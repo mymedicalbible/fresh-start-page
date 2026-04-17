@@ -374,6 +374,23 @@ Typical static hosts: **Cloudflare Pages**, Netlify, Vercel, etc.
 
 Do **not** expose the **service role** key or LLM keys in frontend environment variables.
 
+### Cloudflare static Pages (no Worker)
+
+This repo is a **Vite SPA**: output is plain files under **`dist`**. You do **not** need a Cloudflare **Worker** for the frontend.
+
+If your build log shows **`Executing user deploy command: npx wrangler deploy`** (or similar), the problem is **host configuration**, not the app source. **`wrangler deploy`** targets **Workers** (script + assets upload) and will prompt for or require Workers API credentials. That path is optional and **not** required for a static site.
+
+**What to use instead**
+
+1. In **Cloudflare** → **Workers & Pages** → your project → **Settings** → **Builds & deployments** (names may vary slightly):
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+   - **Deploy command:** leave **empty** / **none** / remove any custom step — Pages should publish **`dist`** after the build without Wrangler.
+2. If the project was created or migrated as a **Workers**-style app, consider **Create application** → **Pages** → **Connect to Git** and point at this repo with the same build settings, so deployment stays **static uploads only**.
+3. Optional SPA routing: enable **Single Page Application** / fallback to `index.html` in the Pages project settings, or add a [`_redirects`](https://developers.cloudflare.com/pages/configuration/redirects/) file under `public/` if you need explicit control.
+
+This repository does **not** ship a `wrangler.toml` / `wrangler.jsonc` for production; any Wrangler files were likely generated on the build machine when a deploy command ran `wrangler` interactively.
+
 ---
 
 ## Deploying the AI Edge Function
@@ -399,6 +416,7 @@ If you do not deploy the function, the app **still works** with the built-in nar
 
 | Symptom | Likely cause | What to try |
 |---------|----------------|-------------|
+| Cloudflare: build succeeds then **`wrangler deploy`** / **`Unable to authenticate request [code: 10001]`** | **Deploy command** is set to `npx wrangler deploy` (Workers), or token lacks Workers permissions | Remove the custom **deploy** step; use **Pages** static publish of **`dist`** only (see [Cloudflare static Pages (no Worker)](#cloudflare-static-pages-no-worker)) |
 | `npm ci` fails / lockfile missing packages | Lockfile out of sync | Run `npm install`, commit `package-lock.json` |
 | Type errors about missing `@types/*` | Corrupted or empty `node_modules` (e.g. cloud sync) | Delete broken folders under `node_modules/@types`, run `npm install` |
 | “Column not found” / schema cache | Migration not applied | Run latest SQL migrations on Supabase |
